@@ -1,0 +1,372 @@
+{
+  "info": {
+    "name": "LIKEN — Smoke test",
+    "description": "Happy path mínimo del backend LIKEN (registro → login → proyectos → wallet).\n\nCómo usar:\n1. Importar este JSON en Postman.\n2. Ejecutar las requests en orden (la 2 captura el token admin, la 4 captura el token de juan, la 8 captura el projectId).\n3. Las variables se setean automáticamente con scripts post-response.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "gateway",
+      "value": "http://localhost:8090",
+      "type": "string"
+    },
+    {
+      "key": "adminMail",
+      "value": "local-admin-1@example.test",
+      "type": "string"
+    },
+    {
+      "key": "adminPass",
+      "value": "change-me-admin-password",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "tokenJuan",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "projectId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Healthcheck del gateway",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{gateway}}/actuator/health",
+          "host": ["{{gateway}}"],
+          "path": ["actuator", "health"]
+        },
+        "description": "Verifica que el gateway está vivo. Devuelve {\"status\":\"UP\"}."
+      },
+      "response": []
+    },
+    {
+      "name": "2. Login admin (captura token)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "if (body.data) {",
+              "    pm.collectionVariables.set('token', body.data);",
+              "    console.log('Token admin guardado en variable {{token}}');",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\":    \"{{adminMail}}\",\n  \"password\": \"{{adminPass}}\"\n}"
+        },
+        "url": {
+          "raw": "{{gateway}}/api/auth/login",
+          "host": ["{{gateway}}"],
+          "path": ["api", "auth", "login"]
+        },
+        "description": "Login con el admin seedeado por DataSeeder (profile dev). El script guarda el JWT en la variable {{token}}."
+      },
+      "response": []
+    },
+    {
+      "name": "3. Registrar usuario nuevo (público)",
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\":    \"juan@test.com\",\n  \"password\": \"1234\"\n}"
+        },
+        "url": {
+          "raw": "{{gateway}}/api/users",
+          "host": ["{{gateway}}"],
+          "path": ["api", "users"]
+        },
+        "description": "Endpoint público. Crea un usuario con rol BASIC, tier BASIC y kyc_status NOT_STARTED."
+      },
+      "response": []
+    },
+    {
+      "name": "4. Login del usuario nuevo (captura tokenJuan)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "if (body.data) {",
+              "    pm.collectionVariables.set('tokenJuan', body.data);",
+              "    console.log('Token de juan guardado en variable {{tokenJuan}}');",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\":    \"juan@test.com\",\n  \"password\": \"1234\"\n}"
+        },
+        "url": {
+          "raw": "{{gateway}}/api/auth/login",
+          "host": ["{{gateway}}"],
+          "path": ["api", "auth", "login"]
+        },
+        "description": "Captura el JWT del usuario juan en {{tokenJuan}} para usarlo después."
+      },
+      "response": []
+    },
+    {
+      "name": "5. Listar usuarios (ADMIN)",
+      "request": {
+        "method": "GET",
+        "header": [{"key": "Authorization", "value": "Bearer {{token}}"}],
+        "url": {
+          "raw": "{{gateway}}/api/users?page=0&size=10",
+          "host": ["{{gateway}}"],
+          "path": ["api", "users"],
+          "query": [
+            {"key": "page", "value": "0"},
+            {"key": "size", "value": "10"}
+          ]
+        },
+        "description": "Requiere rol ADMIN. Devuelve página de usuarios."
+      },
+      "response": []
+    },
+    {
+      "name": "6. Ver mi KYC (usuario autenticado)",
+      "request": {
+        "method": "GET",
+        "header": [{"key": "Authorization", "value": "Bearer {{tokenJuan}}"}],
+        "url": {
+          "raw": "{{gateway}}/api/users/me/kyc",
+          "host": ["{{gateway}}"],
+          "path": ["api", "users", "me", "kyc"]
+        },
+        "description": "Devuelve el estado KYC del usuario autenticado + lista de docs subidos. Inicial: NOT_STARTED + lista vacía."
+      },
+      "response": []
+    },
+    {
+      "name": "7. Listar proyectos (PÚBLICO)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{gateway}}/api/projects",
+          "host": ["{{gateway}}"],
+          "path": ["api", "projects"]
+        },
+        "description": "Endpoint público. Sin proyectos al inicio. Después de la request 8 va a tener uno."
+      },
+      "response": []
+    },
+    {
+      "name": "8. Crear proyecto (ADMIN o DEVELOPER — captura projectId)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 201', () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "if (body.data && body.data.id) {",
+              "    pm.collectionVariables.set('projectId', body.data.id);",
+              "    console.log('projectId guardado: ' + body.data.id);",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {"key": "Authorization", "value": "Bearer {{token}}"},
+          {"key": "Content-Type", "value": "application/json"}
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Parque Solar Mendoza\",\n  \"description\": \"Parque solar de 50 MW en el Valle de Uco, Mendoza.\",\n  \"energyType\": \"SOLAR\",\n  \"province\": \"Mendoza\",\n  \"totalTokens\": 50000,\n  \"tokenPrice\": 12.50,\n  \"minimumInvestment\": 100.00,\n  \"expectedAnnualYield\": 9.5\n}"
+        },
+        "url": {
+          "raw": "{{gateway}}/api/projects",
+          "host": ["{{gateway}}"],
+          "path": ["api", "projects"]
+        },
+        "description": "Requiere permiso project:create (lo tiene ADMIN y DEVELOPER). El proyecto se crea en estado DRAFT."
+      },
+      "response": []
+    },
+    {
+      "name": "9. Ver detalle del proyecto",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{gateway}}/api/projects/{{projectId}}",
+          "host": ["{{gateway}}"],
+          "path": ["api", "projects", "{{projectId}}"]
+        },
+        "description": "Endpoint público. Usa el {{projectId}} capturado en la request 8."
+      },
+      "response": []
+    },
+    {
+      "name": "10. Cambiar estado: DRAFT → PRE_OPEN",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {"key": "Authorization", "value": "Bearer {{token}}"},
+          {"key": "Content-Type", "value": "application/json"}
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"state\": \"PRE_OPEN\"\n}"
+        },
+        "url": {
+          "raw": "{{gateway}}/api/projects/{{projectId}}/state",
+          "host": ["{{gateway}}"],
+          "path": ["api", "projects", "{{projectId}}", "state"]
+        },
+        "description": "Transición válida desde DRAFT. Requiere permiso project:update + ser owner (o ADMIN)."
+      },
+      "response": []
+    },
+    {
+      "name": "11. Cambiar estado: PRE_OPEN → OPEN",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {"key": "Authorization", "value": "Bearer {{token}}"},
+          {"key": "Content-Type", "value": "application/json"}
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"state\": \"OPEN\"\n}"
+        },
+        "url": {
+          "raw": "{{gateway}}/api/projects/{{projectId}}/state",
+          "host": ["{{gateway}}"],
+          "path": ["api", "projects", "{{projectId}}", "state"]
+        },
+        "description": "Avanza el proyecto a OPEN. A partir de acá los inversores podrían comprar tokens (cuando exista invest-dividend-service)."
+      },
+      "response": []
+    },
+    {
+      "name": "12. Listar proyectos OPEN",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{gateway}}/api/projects?state=OPEN",
+          "host": ["{{gateway}}"],
+          "path": ["api", "projects"],
+          "query": [{"key": "state", "value": "OPEN"}]
+        },
+        "description": "Filtro público por estado. Después de la request 11 tu proyecto debería aparecer acá."
+      },
+      "response": []
+    },
+    {
+      "name": "13. Ver mi wallet",
+      "request": {
+        "method": "GET",
+        "header": [{"key": "Authorization", "value": "Bearer {{tokenJuan}}"}],
+        "url": {
+          "raw": "{{gateway}}/api/wallets/me",
+          "host": ["{{gateway}}"],
+          "path": ["api", "wallets", "me"]
+        },
+        "description": "Lazy creation: si juan nunca tuvo wallet, se crea acá con balance 0."
+      },
+      "response": []
+    },
+    {
+      "name": "14. Depositar a la wallet",
+      "request": {
+        "method": "POST",
+        "header": [
+          {"key": "Authorization", "value": "Bearer {{tokenJuan}}"},
+          {"key": "Content-Type", "value": "application/json"}
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"amount\": 500.00,\n  \"description\": \"Carga inicial de prueba\"\n}"
+        },
+        "url": {
+          "raw": "{{gateway}}/api/wallets/deposit",
+          "host": ["{{gateway}}"],
+          "path": ["api", "wallets", "deposit"]
+        },
+        "description": "Acredita 500.00 en la wallet de juan. Publica evento Kafka wallets.funded."
+      },
+      "response": []
+    },
+    {
+      "name": "15. Listar movimientos de mi wallet",
+      "request": {
+        "method": "GET",
+        "header": [{"key": "Authorization", "value": "Bearer {{tokenJuan}}"}],
+        "url": {
+          "raw": "{{gateway}}/api/wallets/me/movements",
+          "host": ["{{gateway}}"],
+          "path": ["api", "wallets", "me", "movements"]
+        },
+        "description": "Historial paginado. Después de la request 14 debería haber 1 DEPOSIT."
+      },
+      "response": []
+    },
+    {
+      "name": "16. Listar roles del sistema (ADMIN)",
+      "request": {
+        "method": "GET",
+        "header": [{"key": "Authorization", "value": "Bearer {{token}}"}],
+        "url": {
+          "raw": "{{gateway}}/api/roles",
+          "host": ["{{gateway}}"],
+          "path": ["api", "roles"]
+        },
+        "description": "Devuelve los 4 roles: BASIC, INVESTOR, DEVELOPER, ADMIN."
+      },
+      "response": []
+    },
+    {
+      "name": "17. Listar permisos del sistema (ADMIN)",
+      "request": {
+        "method": "GET",
+        "header": [{"key": "Authorization", "value": "Bearer {{token}}"}],
+        "url": {
+          "raw": "{{gateway}}/api/permissions",
+          "host": ["{{gateway}}"],
+          "path": ["api", "permissions"]
+        },
+        "description": "Devuelve los 9 permisos: project:*, invest:create, user:*, kyc:review."
+      },
+      "response": []
+    }
+  ]
+}

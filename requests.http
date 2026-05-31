@@ -1,0 +1,191 @@
+### LIKEN — Smoke test del happy path
+###
+### Cómo usar:
+### - VS Code: instalar la extensión "REST Client" (humao.rest-client) y hacer click
+###   en "Send Request" arriba de cada bloque ###
+### - IntelliJ: abrir este archivo y usar el botón ▶ arriba de cada bloque
+### - curl/httpie: copiar las requests a mano
+###
+### Prerequisitos:
+###   docker compose up --build       # primera vez
+###   docker compose ps               # esperar a que todos figuren (healthy)
+###
+### Variables (cambiar acá si querés probar con otro usuario)
+
+@gateway   = http://localhost:8090
+@adminMail = local-admin-1@example.test
+@adminPass = change-me-admin-password
+
+###############################################################################
+### 1. Healthcheck del gateway — debe responder 200 OK
+###############################################################################
+
+GET {{gateway}}/actuator/health
+
+###############################################################################
+### 2. Login como ADMIN (seedeado por DataSeeder con profile dev)
+###    Copiar el "data" de la respuesta y pegarlo en la variable @token de abajo.
+###############################################################################
+
+# @name loginAdmin
+POST {{gateway}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email":    "{{adminMail}}",
+  "password": "{{adminPass}}"
+}
+
+###
+
+@token = {{loginAdmin.response.body.data}}
+
+###############################################################################
+### 3. Registrar un usuario nuevo (público — no requiere auth)
+###############################################################################
+
+POST {{gateway}}/api/users
+Content-Type: application/json
+
+{
+  "email":    "juan@test.com",
+  "password": "1234"
+}
+
+###############################################################################
+### 4. Login como el usuario recién creado
+###############################################################################
+
+# @name loginJuan
+POST {{gateway}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email":    "juan@test.com",
+  "password": "1234"
+}
+
+###
+
+@tokenJuan = {{loginJuan.response.body.data}}
+
+###############################################################################
+### 5. Listar usuarios (requiere ADMIN)
+###############################################################################
+
+GET {{gateway}}/api/users?page=0&size=10
+Authorization: Bearer {{token}}
+
+###############################################################################
+### 6. Mi estado KYC (cualquier usuario autenticado)
+###############################################################################
+
+GET {{gateway}}/api/users/me/kyc
+Authorization: Bearer {{tokenJuan}}
+
+###############################################################################
+### 7. Listar proyectos (PÚBLICO — no requiere auth)
+###############################################################################
+
+GET {{gateway}}/api/projects
+
+###############################################################################
+### 8. Crear un proyecto (requiere permiso project:create — ADMIN o DEVELOPER)
+###############################################################################
+
+# @name crearProyecto
+POST {{gateway}}/api/projects
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "Parque Solar Mendoza",
+  "description": "Parque solar de 50 MW en el Valle de Uco, Mendoza.",
+  "energyType": "SOLAR",
+  "province": "Mendoza",
+  "totalTokens": 50000,
+  "tokenPrice": 12.50,
+  "minimumInvestment": 100.00,
+  "expectedAnnualYield": 9.5
+}
+
+###
+
+@projectId = {{crearProyecto.response.body.data.id}}
+
+###############################################################################
+### 9. Ver detalle del proyecto recién creado
+###############################################################################
+
+GET {{gateway}}/api/projects/{{projectId}}
+
+###############################################################################
+### 10. Cambiar el estado del proyecto: DRAFT → PRE_OPEN
+###############################################################################
+
+PUT {{gateway}}/api/projects/{{projectId}}/state
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "state": "PRE_OPEN"
+}
+
+###############################################################################
+### 11. Avanzar: PRE_OPEN → OPEN
+###############################################################################
+
+PUT {{gateway}}/api/projects/{{projectId}}/state
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "state": "OPEN"
+}
+
+###############################################################################
+### 12. Listar proyectos filtrando por estado OPEN
+###############################################################################
+
+GET {{gateway}}/api/projects?state=OPEN
+
+###############################################################################
+### 13. Ver wallet del usuario autenticado (se crea lazy al consultar)
+###############################################################################
+
+GET {{gateway}}/api/wallets/me
+Authorization: Bearer {{tokenJuan}}
+
+###############################################################################
+### 14. Depositar a la wallet
+###############################################################################
+
+POST {{gateway}}/api/wallets/deposit
+Authorization: Bearer {{tokenJuan}}
+Content-Type: application/json
+
+{
+  "amount": 500.00,
+  "description": "Carga inicial de prueba"
+}
+
+###############################################################################
+### 15. Listar movimientos
+###############################################################################
+
+GET {{gateway}}/api/wallets/me/movements
+Authorization: Bearer {{tokenJuan}}
+
+###############################################################################
+### 16. Listar roles del sistema (ADMIN)
+###############################################################################
+
+GET {{gateway}}/api/roles
+Authorization: Bearer {{token}}
+
+###############################################################################
+### 17. Listar permisos del sistema (ADMIN)
+###############################################################################
+
+GET {{gateway}}/api/permissions
+Authorization: Bearer {{token}}

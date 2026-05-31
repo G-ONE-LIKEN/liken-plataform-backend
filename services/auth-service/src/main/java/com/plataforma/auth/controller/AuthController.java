@@ -1,0 +1,181 @@
+package com.plataforma.auth.controller;
+
+import com.plataforma.auth.dto.ChangePasswordRequest;
+import com.plataforma.auth.dto.GoogleAuthRequest;
+import com.plataforma.auth.dto.LoginRequest;
+import com.plataforma.auth.dto.LoginResponse;
+import com.plataforma.auth.service.AuthService;
+import com.plataforma.auth.service.RefreshTokenService;
+import com.plataforma.shared.dto.ApiResponse;
+import com.plataforma.shared.exception.UnauthorizedAccessException;
+
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+
+import lombok.RequiredArgsConstructor;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.Arrays;
+import java.util.Optional;
+
+@RestController
+@RequestMapping("/api/auth")
+@RequiredArgsConstructor
+public class AuthController {
+
+    private static final String REFRESH_COOKIE_NAME = "refresh_token";
+    private static final int    REFRESH_TTL_SECONDS  = 60 * 60 * 24 * 7; // 7 days
+    private static final String COOKIE_PATH          = "/api/auth";
+
+    private final AuthService authService;
+    private final RefreshTokenService refreshTokenService;
+
+    // ─────────────────────────────────────────────────────────────
+    //  POST /api/auth/login  (public)
+    // ─────────────────────────────────────────────────────────────
+
+    /**
+     * Authenticates the user and returns:
+     *   - body: { "data": { "accessToken": "..." } }
+     *   - cookie: HttpOnly refresh_token (7 days)
+     */
+    @PostMapping("/login")
+    public ResponseEntity<ApiResponse<LoginResponse>> login(
+            @RequestBody LoginRequest request,
+            HttpServletResponse response) {
+
+        // Validate credentials and obtain access token + userId in one pass
+        AuthService.LoginResult result = authService.loginFull(
+                request.getEmail(), request.getPassword());
+
+        return issueLoginResponse(response, result);
+    }
+
+    @PostMapping("/google")
+    public ResponseEntity<ApiResponse<LoginResponse>> googleLogin(
+            @RequestBody GoogleAuthRequest request,
+            HttpServletResponse response) {
+
+        AuthService.LoginResult result = authService.loginWithGoogle(
+                request.getIdToken(),
+                request.getRoleName());
+
+        return issueLoginResponse(response, result);
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    //  POST /api/auth/refresh  (public)
+    // ─────────────────────────────────────────────────────────────
+
+    /**
+     * Issues a new access token using the refresh token cookie.
+     * Rotates the refresh token (revokes old one, issues new one).
+     */
+    @PostMapping("/refresh")
+    public ResponseEntity<ApiResponse<LoginResponse>> refresh(
+            HttpServletRequest request,
+            HttpServletResponse response) {
+
+        String oldRefreshToken = extractRefreshCookie(request).orElse(null);
+
+        if (oldRefreshToken == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(ApiResponse.error("Refresh token ausente", 401));
+        }
+
+        // Validate token and get userId before revoking
+        Long userId = refreshTokenService.validate(oldRefreshToken)
+                .orElseThrow(() -> new UnauthorizedAccessException("Refresh token inválido o expirado."));
+
+        // Issue new access token (internally re-validates; safe since token still exists)
+        String newAccessToken = authService.refresh(oldRefreshToken);
+
+        // Token rotation: revoke old, issue new
+        refreshTokenService.revoke(oldRefreshToken);
+        String newRefreshToken = refreshTokenService.generate(userId);
+        addRefreshCookie(response, newRefreshToken, REFRESH_TTL_SECONDS);
+
+        LoginResponse loginResponse = LoginResponse.builder().accessToken(newAccessToken).build();
+        return ResponseEntity.ok(ApiResponse.success("Token renovado", loginResponse));
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    //  POST /api/auth/logout  (public)
+    // ─────────────────────────────────────────────────────────────
+
+    /**
+     * Revokes the refresh token cookie and clears it from the browser.
+     */
+    @PostMapping("/logout")
+    public ResponseEntity<ApiResponse<Void>> logout(
+            HttpServletRequest request,
+            HttpServletResponse response) {
+
+        extractRefreshCookie(request).ifPresent(authService::logout);
+
+        // Clear cookie
+        addRefreshCookie(response, "", 0);
+
+        return ResponseEntity.ok(ApiResponse.success("Sesión cerrada", null));
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    //  POST /api/auth/change-password  (authenticated via gateway)
+    // ─────────────────────────────────────────────────────────────
+
+    /**
+     * The gateway already validated the JWT and injected X-User-Id (DD002).
+     * This service trusts that header — it does not parse the JWT itself.
+     */
+    @PostMapping("/change-password")
+    public ResponseEntity<ApiResponse<Void>> changePassword(
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestBody ChangePasswordRequest request) {
+        authService.changePassword(userId, request.getOldPassword(), request.getNewPassword());
+        return ResponseEntity.ok(ApiResponse.success("Contraseña actualizada", null));
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    //  Private helpers
+    // ─────────────────────────────────────────────────────────────
+
+    private Optional<String> extractRefreshCookie(HttpServletRequest request) {
+        if (request.getCookies() == null) {
+            return Optional.empty();
+        }
+        return Arrays.stream(request.getCookies())
+                .filter(c -> REFRESH_COOKIE_NAME.equals(c.getName()))
+                .map(Cookie::getValue)
+                .findFirst();
+    }
+
+    private void addRefreshCookie(HttpServletResponse response, String value, int maxAge) {
+        Cookie cookie = new Cookie(REFRESH_COOKIE_NAME, value);
+        cookie.setHttpOnly(true);
+        cookie.setPath(COOKIE_PATH);
+        cookie.setMaxAge(maxAge);
+        // SameSite=Lax must be set via Set-Cookie header directly because
+        // the Jakarta Cookie API does not expose a setSameSite() method.
+        response.addCookie(cookie);
+        // Override the last Set-Cookie header to append SameSite=Lax
+        String existingHeader = response.getHeader("Set-Cookie");
+        if (existingHeader != null && existingHeader.contains(REFRESH_COOKIE_NAME)) {
+            response.setHeader("Set-Cookie", existingHeader + "; SameSite=Lax");
+        }
+    }
+
+    private ResponseEntity<ApiResponse<LoginResponse>> issueLoginResponse(
+            HttpServletResponse response,
+            AuthService.LoginResult result) {
+        String refreshToken = refreshTokenService.generate(result.getUserId());
+        LoginResponse loginResponse = LoginResponse.builder()
+                .accessToken(result.getAccessToken())
+                .build();
+        addRefreshCookie(response, refreshToken, REFRESH_TTL_SECONDS);
+        return ResponseEntity.ok(ApiResponse.success("Login exitoso", loginResponse));
+    }
+}

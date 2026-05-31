@@ -1,0 +1,316 @@
+{
+  "info": {
+    "name": "RBAC SpringBoot - SIP 2026",
+    "description": "Colección completa para probar el módulo de administración de usuarios RBAC.\n\n**Usuario admin local (definido por variables de entorno):**\n- email: APP_SEED_ADMIN_EMAIL_1\n- password: APP_SEED_ADMIN_PASSWORD_1\n\n**Flujo sugerido:**\n1. Login (admin) → guarda token automáticamente\n2. Probar endpoints de usuarios / roles / permisos\n3. Crear un usuario BASIC y ver que NO puede borrar roles (403)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "token", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login (admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.data) {",
+                  "  pm.collectionVariables.set('token', res.data);",
+                  "  console.log('Token guardado');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"local-admin-1@example.test\",\n  \"password\": \"change-me-admin-password\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Cambiar contraseña",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/api/auth/change-password",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"oldPassword\": \"change-me-admin-password\",\n  \"newPassword\": \"change-me-admin-password-rotated\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Usuarios",
+      "item": [
+        {
+          "name": "Crear usuario (alta, rol BASIC auto)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/users",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"juan@mail.com\",\n  \"password\": \"1234\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Listar usuarios (paginado)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/users?page=0&size=10"
+          }
+        },
+        {
+          "name": "Detalle usuario",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/users/1"
+          }
+        },
+        {
+          "name": "Editar usuario",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/api/users/2",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"juan.nuevo@mail.com\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Asignar rol a usuario",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/api/users/2/role",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"roleId\": 3\n}"
+            },
+            "description": "roleId: 1=BASIC, 2=INVESTOR, 3=DEVELOPER, 4=ADMIN (según orden de creación en DataSeeder)"
+          }
+        },
+        {
+          "name": "Desactivar usuario (soft delete)",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/users/2"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Roles",
+      "item": [
+        {
+          "name": "Listar roles (con permisos)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/roles"
+          }
+        },
+        {
+          "name": "Detalle rol",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/roles/1"
+          }
+        },
+        {
+          "name": "Crear rol",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/api/roles",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"MODERADOR\",\n  \"description\": \"Modera contenido\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Editar rol",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/api/roles/5",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"MODERADOR\",\n  \"description\": \"Descripción actualizada\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Asignar permisos a rol",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/api/roles/5/permissions",
+            "body": {
+              "mode": "raw",
+              "raw": "[1, 2]"
+            },
+            "description": "Body = array de IDs de permisos. Reemplaza el set completo (sirve para asignar y revocar)."
+          }
+        },
+        {
+          "name": "Eliminar rol",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/roles/5"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Permisos",
+      "item": [
+        {
+          "name": "Listar permisos",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/permissions"
+          }
+        },
+        {
+          "name": "Crear permiso",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/api/permissions",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"report:read\",\n  \"description\": \"Ver reportes\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Editar permiso",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/api/permissions/9",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"report:read\",\n  \"description\": \"Acceso a reportes (actualizado)\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Eliminar permiso",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/permissions/9"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Autorización (casos de error)",
+      "item": [
+        {
+          "name": "401 - Sin token",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/roles"
+          }
+        },
+        {
+          "name": "401 - Token inválido",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer token-falso" }],
+            "url": "{{baseUrl}}/api/roles"
+          }
+        },
+        {
+          "name": "403 - Usuario BASIC intenta eliminar rol",
+          "description": "Primero logueate como el usuario juan@mail.com (BASIC) y pegá su token acá",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer <token-de-juan>" }],
+            "url": "{{baseUrl}}/api/roles/1"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Intento de demote (Admin a Admin) - Error esperado",
+      "description": "Si el usuario ID 1 es el otro Admin, el backend debería retornar 403 Forbidden o 400 Bad Request según tu manejo de excepciones.",
+      "request": {
+        "method": "PUT",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": "{{baseUrl}}/api/users/1/role", 
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"roleId\": 1\n}" 
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status code es 403 o 400', function () {",
+              "    pm.expect(pm.response.code).to.be.oneOf([400, 403]);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    }
+  ]
+}

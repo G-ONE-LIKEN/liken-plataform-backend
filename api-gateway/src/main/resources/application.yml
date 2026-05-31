@@ -1,0 +1,123 @@
+server:
+  port: ${PORT:8090}
+
+jwt:
+  secret: ${JWT_SECRET}
+
+app:
+  frontend-url: ${FRONTEND_URL:http://localhost:*}
+  services:
+    auth-url:     ${AUTH_URL:http://localhost:8081}
+    usuarios-url: ${USUARIOS_URL:http://localhost:8080}
+    proyectos-url: ${PROYECTOS_URL:http://localhost:8082}
+    wallet-url:   ${WALLET_URL:http://localhost:8084}
+  user-context:
+    ttl-seconds: 30
+
+spring:
+  application:
+    name: api-gateway
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: api-gateway
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "*"
+        spring.json.value.default.type: com.plataforma.gateway.event.UserContextInvalidatedEvent
+        spring.json.use.type.headers: false
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+  cloud:
+    gateway:
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials, RETAIN_FIRST
+
+      routes:
+
+        # ── auth-service (8081) ──────────────────────────────────────────────
+        # Rate limit estricto por IP — protección contra fuerza bruta en login.
+        # replenishRate: 2, burstCapacity: 10, requestedTokens: 5
+        # → burst inicial de 2 requests, luego ~0.4 req/s (24/min) por IP.
+        - id: auth
+          uri: ${app.services.auth-url}
+          predicates:
+            - Path=/api/auth/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 2
+                redis-rate-limiter.burstCapacity: 10
+                redis-rate-limiter.requestedTokens: 5
+                key-resolver: "#{@ipKeyResolver}"
+
+        # ── user-service (8080) ──────────────────────────────────────────────
+        - id: users
+          uri: ${app.services.usuarios-url}
+          predicates:
+            - Path=/api/users/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 20
+                redis-rate-limiter.burstCapacity: 40
+                key-resolver: "#{@userKeyResolver}"
+
+        - id: roles
+          uri: ${app.services.usuarios-url}
+          predicates:
+            - Path=/api/roles/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 10
+                redis-rate-limiter.burstCapacity: 20
+                key-resolver: "#{@userKeyResolver}"
+
+        - id: permissions
+          uri: ${app.services.usuarios-url}
+          predicates:
+            - Path=/api/permissions/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 10
+                redis-rate-limiter.burstCapacity: 20
+                key-resolver: "#{@userKeyResolver}"
+
+        # ── wallet-service (8084) ────────────────────────────────────────────
+        - id: wallets
+          uri: ${app.services.wallet-url}
+          predicates:
+            - Path=/api/wallets/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 20
+                redis-rate-limiter.burstCapacity: 40
+                key-resolver: "#{@userKeyResolver}"
+
+        # ── project-service (8082) ───────────────────────────────────────────
+        - id: projects
+          uri: ${app.services.proyectos-url}
+          predicates:
+            - Path=/api/projects/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 30
+                redis-rate-limiter.burstCapacity: 60
+                key-resolver: "#{@userKeyResolver}"
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

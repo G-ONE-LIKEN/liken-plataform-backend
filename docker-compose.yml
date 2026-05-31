@@ -1,0 +1,304 @@
+# Levanta toda la plataforma localmente.
+#
+# Uso:
+#   docker compose up --build        # primera vez o después de cambiar código
+#   docker compose up                # sin cambios de código (usa imágenes en caché)
+#   docker compose up --build <nombre>  # rebuil solo un servicio
+#   docker compose down              # bajar todo (datos persisten)
+#   docker compose down -v           # bajar todo y borrar datos
+#   docker compose logs -f <nombre>  # ver logs de un servicio
+
+services:
+
+  # ════════════════════════════════════════════════════════════
+  # INFRAESTRUCTURA
+  # ════════════════════════════════════════════════════════════
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: liken_postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-liken_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-db-password}
+      POSTGRES_DB: ${POSTGRES_DB:-user_db}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-liken_user} -d ${POSTGRES_DB:-user_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: liken_zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      # Habilita el comando 4lw "ruok" para que el healthcheck funcione.
+      # Por default solo "srvr" está en la whitelist en la imagen de Confluent.
+      KAFKA_OPTS: "-Dzookeeper.4lw.commands.whitelist=ruok,srvr"
+    healthcheck:
+      test: ["CMD-SHELL", "echo ruok | nc localhost 2181 | grep imok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: liken_kafka
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports:
+      # 29092 expuesto al host para Kafka clients fuera de docker (ej. kcat, herramientas locales).
+      # 9092 NO se expone al host porque su advertised listener es "kafka:9092" — el host no resuelve esa DNS.
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      # Dos listeners en puertos DISTINTOS (Kafka lo exige).
+      # PLAINTEXT:9092       → tráfico entre containers en la red de docker (kafka:9092)
+      # PLAINTEXT_HOST:29092 → tráfico desde el host (localhost:29092)
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      # Acelera el arranque (broker single-node): no esperar replication factor.
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+    # Healthcheck liviano: solo chequea el puerto. Kafka real (kafka-broker-api-versions)
+    # levanta una JVM por cada call y tarda 5-10s — costoso en cluster local.
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 9092 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+  redis:
+    image: redis:7-alpine
+    container_name: liken_redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Emulador de Google Cloud Storage para desarrollo local (DD014).
+  # En producción este servicio NO existe — los servicios apuntan a GCS real
+  # vía Workload Identity en GKE.
+  fake-gcs:
+    image: fsouza/fake-gcs-server:latest
+    container_name: liken_fake_gcs
+    command: >
+      -scheme http
+      -host 0.0.0.0
+      -port 4443
+      -public-host fake-gcs:4443
+      -external-url http://fake-gcs:4443
+    ports:
+      - "4443:4443"
+    volumes:
+      - fake_gcs_data:/storage
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:4443/storage/v1/b || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Contenedor efímero que crea el bucket `liken-documents` en fake-gcs.
+  # Corre una vez y termina. Idempotente: si el bucket ya existe, no falla.
+  # En producción este servicio NO existe — el bucket se crea con Terraform o gcloud CLI.
+  fake-gcs-init:
+    image: curlimages/curl:8.7.1
+    container_name: liken_fake_gcs_init
+    depends_on:
+      fake-gcs:
+        condition: service_healthy
+    restart: "no"
+    command:
+      - sh
+      - -c
+      - |
+        echo "Creando bucket liken-documents en fake-gcs..."
+        STATUS=$$(curl -s -o /dev/null -w "%{http_code}" -X POST \
+          'http://fake-gcs:4443/storage/v1/b?project=liken-dev' \
+          -H 'Content-Type: application/json' \
+          -d '{"name":"liken-documents"}')
+        if [ "$$STATUS" = "200" ] || [ "$$STATUS" = "409" ]; then
+          echo "OK (HTTP $$STATUS) — bucket disponible"
+          exit 0
+        else
+          echo "ERROR: HTTP $$STATUS al crear el bucket"
+          exit 1
+        fi
+
+  # ════════════════════════════════════════════════════════════
+  # SERVICIOS
+  # ════════════════════════════════════════════════════════════
+
+  user-service:
+    build:
+      context: ./services/user-service
+    container_name: liken_user_service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      fake-gcs:
+        condition: service_healthy
+      fake-gcs-init:
+        condition: service_completed_successfully
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: 8080
+      # Activa el DataSeeder (@Profile("dev")) con credenciales tomadas desde .env.
+      SPRING_PROFILES_ACTIVE: dev
+      DB_URL: jdbc:postgresql://postgres:5432/user_db
+      DB_USERNAME: ${DB_USERNAME:-liken_user}
+      DB_PASSWORD: ${DB_PASSWORD:-change-me-db-password}
+      APP_SEED_ADMIN: ${APP_SEED_ADMIN:-true}
+      APP_SEED_ADMIN_EMAIL_1: ${APP_SEED_ADMIN_EMAIL_1:-local-admin-1@example.test}
+      APP_SEED_ADMIN_PASSWORD_1: ${APP_SEED_ADMIN_PASSWORD_1:-change-me-admin-password}
+      APP_SEED_ADMIN_EMAIL_2: ${APP_SEED_ADMIN_EMAIL_2:-local-admin-2@example.test}
+      APP_SEED_ADMIN_PASSWORD_2: ${APP_SEED_ADMIN_PASSWORD_2:-change-me-admin-password-2}
+      GCP_PROJECT_ID: liken-dev
+      GCS_BUCKET_NAME: liken-documents
+      GCS_EMULATOR_HOST: http://fake-gcs:4443
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+  auth-service:
+    build:
+      context: ./services/auth-service
+    container_name: liken_auth_service
+    depends_on:
+      user-service:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8081:8081"
+    environment:
+      PORT: 8081
+      JWT_SECRET: ${JWT_SECRET:-change-me-jwt-secret-with-at-least-32-characters}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      USER_SERVICE_URL: http://user-service:8080
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8081/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+  project-service:
+    build:
+      context: ./services/project-service
+    container_name: liken_project_service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      fake-gcs:
+        condition: service_healthy
+      fake-gcs-init:
+        condition: service_completed_successfully
+    ports:
+      - "8082:8082"
+    environment:
+      PORT: 8082
+      FRONTEND_URL: http://localhost:*
+      DB_URL: jdbc:postgresql://postgres:5432/project_db
+      DB_USERNAME: ${DB_USERNAME:-liken_user}
+      DB_PASSWORD: ${DB_PASSWORD:-change-me-db-password}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      GCP_PROJECT_ID: liken-dev
+      GCS_BUCKET_NAME: liken-documents
+      GCS_EMULATOR_HOST: http://fake-gcs:4443
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8082/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+  wallet-service:
+    build:
+      context: ./services/wallet-service
+    container_name: liken_wallet_service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8084:8084"
+    environment:
+      PORT: 8084
+      DB_URL: jdbc:postgresql://postgres:5432/wallet_db
+      DB_USERNAME: ${DB_USERNAME:-liken_user}
+      DB_PASSWORD: ${DB_PASSWORD:-change-me-db-password}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8084/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+  api-gateway:
+    build:
+      context: ./api-gateway
+    container_name: liken_gateway
+    depends_on:
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
+      user-service:
+        condition: service_healthy
+      project-service:
+        condition: service_healthy
+      wallet-service:
+        condition: service_healthy
+    ports:
+      - "8090:8090"
+    environment:
+      PORT: 8090
+      FRONTEND_URL: http://localhost:*
+      JWT_SECRET: ${JWT_SECRET:-change-me-jwt-secret-with-at-least-32-characters}
+      AUTH_URL:      http://auth-service:8081
+      USUARIOS_URL:  http://user-service:8080
+      PROYECTOS_URL: http://project-service:8082
+      REDIS_HOST:    redis
+      REDIS_PORT:    6379
+      WALLET_URL:    http://wallet-service:8084
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8090/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+volumes:
+  postgres_data:
+  fake_gcs_data:
