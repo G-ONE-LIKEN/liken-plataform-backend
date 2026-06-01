@@ -12,12 +12,12 @@
     },
     {
       "key": "adminMail",
-      "value": "local-admin-1@example.test",
+      "value": "admin@admin.com",
       "type": "string"
     },
     {
       "key": "adminPass",
-      "value": "change-me-admin-password",
+      "value": "admin123",
       "type": "string"
     },
     {

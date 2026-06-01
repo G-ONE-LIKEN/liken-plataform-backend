@@ -99,6 +99,7 @@ public class DataSeeder implements CommandLineRunner {
                 .password(passwordEncoder.encode(password))
                 .role(superAdminRole)
                 .active(true)
+                .profileCompleted(true)
                 .build());
     }
 }
