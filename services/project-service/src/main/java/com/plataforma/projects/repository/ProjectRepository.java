@@ -13,13 +13,15 @@ import java.util.Optional;
 @Repository
 public interface ProjectRepository extends JpaRepository<Project, Long> {
 
-    Page<Project> findByActiveTrue(Pageable pageable);
+    Page<Project> findByActiveTrueAndStateNot(ProjectState excludedState, Pageable pageable);
 
     Page<Project> findByActiveTrueAndState(ProjectState state, Pageable pageable);
 
-    Page<Project> findByActiveTrueAndEnergyType(EnergyType energyType, Pageable pageable);
+    Page<Project> findByActiveTrueAndStateNotAndEnergyType(ProjectState excludedState, EnergyType energyType, Pageable pageable);
 
     Page<Project> findByActiveTrueAndStateAndEnergyType(ProjectState state, EnergyType energyType, Pageable pageable);
 
     Optional<Project> findByIdAndActiveTrue(Long id);
+
+    Page<Project> findByActiveTrueAndOwnerId(Long ownerId, Pageable pageable);
 }

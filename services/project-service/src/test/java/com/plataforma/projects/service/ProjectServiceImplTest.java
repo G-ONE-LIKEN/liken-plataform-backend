@@ -57,7 +57,7 @@ class ProjectServiceImplTest {
         ProjectRequest req = projectRequest();
         when(projectRepository.save(any())).thenReturn(draftProject);
 
-        ProjectResponse response = projectService.createProject(req, 10L);
+        ProjectResponse response = projectService.createProject(req, 10L, true);
 
         assertThat(response.getName()).isEqualTo("Solar Test");
         verify(projectRepository).save(any(Project.class));
@@ -68,7 +68,7 @@ class ProjectServiceImplTest {
     void createProject_asignaOwnerIdDelToken() {
         when(projectRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        projectService.createProject(projectRequest(), 42L);
+        projectService.createProject(projectRequest(), 42L, true);
 
         verify(projectRepository).save(argThat(p -> p.getOwnerId().equals(42L)));
     }
@@ -78,7 +78,7 @@ class ProjectServiceImplTest {
         ProjectRequest req = projectRequest();
         req.setDescription(null);
 
-        assertThatThrownBy(() -> projectService.createProject(req, 10L))
+        assertThatThrownBy(() -> projectService.createProject(req, 10L, true))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("descripción");
     }
@@ -88,7 +88,7 @@ class ProjectServiceImplTest {
         ProjectRequest req = projectRequest();
         req.setDescription("   ");
 
-        assertThatThrownBy(() -> projectService.createProject(req, 10L))
+        assertThatThrownBy(() -> projectService.createProject(req, 10L, true))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 

@@ -1,7 +1,9 @@
 package com.plataforma.projects.model;
 
 public enum ProjectState {
-    /** Proyecto creado, aún no publicado. */
+    /** Proyecto creado por un developer, a la espera de aprobación de un administrador. */
+    PENDING_APPROVAL,
+    /** Proyecto aprobado por admin, aún no publicado. */
     DRAFT,
     /** En etapa de pre-apertura / captación de interés. */
     PRE_OPEN,

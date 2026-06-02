@@ -262,6 +262,61 @@ services:
       retries: 5
       start_period: 60s
 
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: liken_mailhog
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # UI web — http://localhost:8025
+
+  notification-service:
+    build:
+      context: ./services/notification-service
+    container_name: liken_notification_service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      user-service:
+        condition: service_healthy
+      mailhog:
+        condition: service_started
+    ports:
+      - "8087:8087"
+    environment:
+      PORT: 8087
+      DB_URL: jdbc:postgresql://postgres:5432/notification_db
+      DB_USERNAME: ${DB_USERNAME:-liken_user}
+      DB_PASSWORD: ${DB_PASSWORD:-change-me-db-password}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      USER_SERVICE_URL: http://user-service:8080
+      # SMTP — por defecto va a MailHog (capturado en http://localhost:8025).
+      # Para que los emails lleguen al inbox real, definí estas vars en tu .env:
+      #   MAIL_HOST=smtp.gmail.com
+      #   MAIL_PORT=587
+      #   MAIL_USERNAME=tu-cuenta@gmail.com
+      #   MAIL_PASSWORD=<app-password-de-16-chars>
+      #   MAIL_AUTH=true
+      #   MAIL_STARTTLS=true
+      #   MAIL_FROM=tu-cuenta@gmail.com
+      MAIL_HOST: ${MAIL_HOST:-mailhog}
+      MAIL_PORT: ${MAIL_PORT:-1025}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_AUTH: ${MAIL_AUTH:-false}
+      MAIL_STARTTLS: ${MAIL_STARTTLS:-false}
+      MAIL_SSL: ${MAIL_SSL:-false}
+      MAIL_FROM: ${MAIL_FROM:-noreply@liken.local}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-LIKEN}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8087/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
   api-gateway:
     build:
       context: ./api-gateway
@@ -279,6 +334,8 @@ services:
         condition: service_healthy
       wallet-service:
         condition: service_healthy
+      notification-service:
+        condition: service_healthy
     ports:
       - "8090:8090"
     environment:
@@ -291,6 +348,7 @@ services:
       REDIS_HOST:    redis
       REDIS_PORT:    6379
       WALLET_URL:    http://wallet-service:8084
+      NOTIFICATION_URL: http://notification-service:8087
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8090/actuator/health || exit 1"]

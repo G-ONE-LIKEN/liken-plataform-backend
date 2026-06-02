@@ -6,6 +6,7 @@ import lombok.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -34,7 +35,16 @@ public class Project extends Auditable {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     @Builder.Default
-    private ProjectState state = ProjectState.DRAFT;
+    private ProjectState state = ProjectState.PENDING_APPROVAL;
+
+    @Column(name = "approved_by")
+    private Long approvedBy;
+
+    @Column(name = "approved_at")
+    private LocalDateTime approvedAt;
+
+    @Column(name = "rejection_reason", columnDefinition = "TEXT")
+    private String rejectionReason;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "energy_type", nullable = false)
@@ -118,10 +128,11 @@ public class Project extends Auditable {
         }
         // Progresión normal secuencial
         return switch (this.state) {
-            case DRAFT    -> target == ProjectState.PRE_OPEN;
-            case PRE_OPEN -> target == ProjectState.OPEN;
-            case OPEN     -> target == ProjectState.CLOSED;
-            default       -> false;
+            case PENDING_APPROVAL -> target == ProjectState.DRAFT;
+            case DRAFT            -> target == ProjectState.PRE_OPEN;
+            case PRE_OPEN         -> target == ProjectState.OPEN;
+            case OPEN             -> target == ProjectState.CLOSED;
+            default               -> false;
         };
     }
 

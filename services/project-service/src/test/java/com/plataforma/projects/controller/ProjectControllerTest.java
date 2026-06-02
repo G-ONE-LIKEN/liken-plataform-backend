@@ -144,7 +144,7 @@ class ProjectControllerTest {
 
     @Test
     void createProject_conAuth_returns201() throws Exception {
-        when(projectService.createProject(any(), eq(1L))).thenReturn(sampleResponse());
+        when(projectService.createProject(any(), eq(1L), anyBoolean())).thenReturn(sampleResponse());
 
         mockMvc.perform(post("/api/projects")
                         .with(authentication(auth(1L, "project:create")))

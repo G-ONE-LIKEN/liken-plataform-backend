@@ -11,6 +11,7 @@ app:
     usuarios-url: ${USUARIOS_URL:http://localhost:8080}
     proyectos-url: ${PROYECTOS_URL:http://localhost:8082}
     wallet-url:   ${WALLET_URL:http://localhost:8084}
+    notification-url: ${NOTIFICATION_URL:http://localhost:8087}
   user-context:
     ttl-seconds: 30
 
@@ -109,6 +110,26 @@ spring:
           uri: ${app.services.proyectos-url}
           predicates:
             - Path=/api/projects/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 30
+                redis-rate-limiter.burstCapacity: 60
+                key-resolver: "#{@userKeyResolver}"
+
+        # ── notification-service (8087) — SSE: sin rate limiter ──────────────
+        # El stream es una conexión HTTP de larga duración. Si el limiter cuenta
+        # cada request individual la conexión queda sin tokens. Por eso la ruta
+        # del stream NO tiene RequestRateLimiter aplicado.
+        - id: notifications-stream
+          uri: ${app.services.notification-url}
+          predicates:
+            - Path=/api/notifications/stream
+
+        - id: notifications
+          uri: ${app.services.notification-url}
+          predicates:
+            - Path=/api/notifications/**
           filters:
             - name: RequestRateLimiter
               args:

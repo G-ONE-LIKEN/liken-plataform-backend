@@ -46,9 +46,53 @@ public class ProjectController {
             Authentication auth) {
 
         Long ownerId = (Long) auth.getPrincipal();
-        ProjectResponse created = projectService.createProject(request, ownerId);
+        boolean isAdmin = auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+        ProjectResponse created = projectService.createProject(request, ownerId, isAdmin);
+        String message = isAdmin
+                ? "Proyecto creado exitosamente"
+                : "Proyecto creado, a la espera de aprobación de un administrador";
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success("Proyecto creado exitosamente", created));
+                .body(ApiResponse.success(message, created));
+    }
+
+    @GetMapping("/pending-approval")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<Page<ProjectResponse>>> listPendingApproval(
+            @PageableDefault(size = 20) Pageable pageable) {
+        return ResponseEntity.ok(ApiResponse.success("Proyectos pendientes obtenidos",
+                projectService.listPendingApproval(pageable)));
+    }
+
+    @GetMapping("/mine")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<Page<ProjectResponse>>> listMyProjects(
+            Authentication auth,
+            @PageableDefault(size = 20) Pageable pageable) {
+        Long ownerId = (Long) auth.getPrincipal();
+        return ResponseEntity.ok(ApiResponse.success("Mis proyectos obtenidos",
+                projectService.listMyProjects(ownerId, pageable)));
+    }
+
+    @PostMapping("/{id}/approve")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<ProjectResponse>> approveProject(
+            @PathVariable Long id,
+            Authentication auth) {
+        Long adminId = (Long) auth.getPrincipal();
+        return ResponseEntity.ok(ApiResponse.success("Proyecto aprobado",
+                projectService.approveProject(id, adminId)));
+    }
+
+    @PostMapping("/{id}/reject")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<ProjectResponse>> rejectProject(
+            @PathVariable Long id,
+            @RequestBody(required = false) RejectProjectRequest request,
+            Authentication auth) {
+        Long adminId = (Long) auth.getPrincipal();
+        String reason = request == null ? null : request.getReason();
+        return ResponseEntity.ok(ApiResponse.success("Proyecto rechazado",
+                projectService.rejectProject(id, adminId, reason)));
     }
 
     @PutMapping("/{id}")

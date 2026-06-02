@@ -38,6 +38,9 @@ public class ProjectResponse {
     private LocalDate endDate;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private Long approvedBy;
+    private LocalDateTime approvedAt;
+    private String rejectionReason;
 
     public static ProjectResponse from(Project p) {
         return ProjectResponse.builder()
@@ -66,6 +69,9 @@ public class ProjectResponse {
                 .endDate(p.getEndDate())
                 .createdAt(p.getCreatedAt())
                 .updatedAt(p.getUpdatedAt())
+                .approvedBy(p.getApprovedBy())
+                .approvedAt(p.getApprovedAt())
+                .rejectionReason(p.getRejectionReason())
                 .build();
     }
 }

@@ -17,6 +17,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+
 @Service
 @RequiredArgsConstructor
 public class ProjectServiceImpl implements ProjectService {
@@ -32,11 +34,24 @@ public class ProjectServiceImpl implements ProjectService {
         } else if (state != null) {
             page = projectRepository.findByActiveTrueAndState(state, pageable);
         } else if (energyType != null) {
-            page = projectRepository.findByActiveTrueAndEnergyType(energyType, pageable);
+            // Excluye proyectos pendientes de aprobación del listado público
+            page = projectRepository.findByActiveTrueAndStateNotAndEnergyType(ProjectState.PENDING_APPROVAL, energyType, pageable);
         } else {
-            page = projectRepository.findByActiveTrue(pageable);
+            page = projectRepository.findByActiveTrueAndStateNot(ProjectState.PENDING_APPROVAL, pageable);
         }
         return page.map(ProjectResponse::from);
+    }
+
+    @Override
+    public Page<ProjectResponse> listPendingApproval(Pageable pageable) {
+        return projectRepository.findByActiveTrueAndState(ProjectState.PENDING_APPROVAL, pageable)
+                .map(ProjectResponse::from);
+    }
+
+    @Override
+    public Page<ProjectResponse> listMyProjects(Long ownerId, Pageable pageable) {
+        return projectRepository.findByActiveTrueAndOwnerId(ownerId, pageable)
+                .map(ProjectResponse::from);
     }
 
     @Override
@@ -46,7 +61,7 @@ public class ProjectServiceImpl implements ProjectService {
 
     @Override
     @Transactional
-    public ProjectResponse createProject(ProjectRequest request, Long ownerId) {
+    public ProjectResponse createProject(ProjectRequest request, Long ownerId, boolean isAdmin) {
         if (request.getDescription() == null || request.getDescription().isBlank()) {
             throw new IllegalArgumentException("La descripción del proyecto es obligatoria");
         }
@@ -56,10 +71,15 @@ public class ProjectServiceImpl implements ProjectService {
             throw new IllegalArgumentException("El soft cap debe ser menor que el hard cap");
         }
 
+        // Si lo crea un admin, va directo a DRAFT y se autoaprueba.
+        // Si lo crea un developer, queda pendiente de aprobación.
+        ProjectState initialState = isAdmin ? ProjectState.DRAFT : ProjectState.PENDING_APPROVAL;
+
         Project project = Project.builder()
                 .name(request.getName())
                 .description(request.getDescription())
                 .ownerId(ownerId)
+                .state(initialState)
                 .energyType(request.getEnergyType())
                 .province(request.getProvince())
                 .country(request.getCountry() != null ? request.getCountry() : "Argentina")
@@ -79,8 +99,53 @@ public class ProjectServiceImpl implements ProjectService {
                 .endDate(request.getEndDate())
                 .build();
 
+        if (isAdmin) {
+            project.setApprovedBy(ownerId);
+            project.setApprovedAt(LocalDateTime.now());
+        }
+
         Project saved = projectRepository.save(project);
-        eventPublisher.publishProjectCreated(saved);
+        if (isAdmin) {
+            eventPublisher.publishProjectCreated(saved);
+        } else {
+            eventPublisher.publishPendingApproval(saved);
+        }
+        return ProjectResponse.from(saved);
+    }
+
+    @Override
+    @Transactional
+    public ProjectResponse approveProject(Long id, Long adminId) {
+        Project project = findActiveOrThrow(id);
+        if (project.getState() != ProjectState.PENDING_APPROVAL) {
+            throw new ProjectStateException("El proyecto no está pendiente de aprobación");
+        }
+        ProjectState oldState = project.getState();
+        project.setState(ProjectState.DRAFT);
+        project.setApprovedBy(adminId);
+        project.setApprovedAt(LocalDateTime.now());
+        project.setRejectionReason(null);
+        Project saved = projectRepository.save(project);
+        eventPublisher.publishProjectApproved(saved, adminId);
+        eventPublisher.publishStateChanged(saved, oldState, ProjectState.DRAFT);
+        return ProjectResponse.from(saved);
+    }
+
+    @Override
+    @Transactional
+    public ProjectResponse rejectProject(Long id, Long adminId, String reason) {
+        Project project = findActiveOrThrow(id);
+        if (project.getState() != ProjectState.PENDING_APPROVAL) {
+            throw new ProjectStateException("El proyecto no está pendiente de aprobación");
+        }
+        ProjectState oldState = project.getState();
+        project.setState(ProjectState.CANCELLED);
+        project.setRejectionReason(reason);
+        project.setApprovedBy(adminId);
+        project.setApprovedAt(LocalDateTime.now());
+        Project saved = projectRepository.save(project);
+        eventPublisher.publishProjectRejected(saved, adminId, reason);
+        eventPublisher.publishStateChanged(saved, oldState, ProjectState.CANCELLED);
         return ProjectResponse.from(saved);
     }
 

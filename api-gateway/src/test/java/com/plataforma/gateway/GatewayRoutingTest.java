@@ -103,6 +103,24 @@ class GatewayRoutingTest {
     }
 
     @Test
+    void googleLogin_noToken_routesToAuthService() {
+        authWm.stubFor(post(urlEqualTo("/api/auth/google"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("{\"success\":true,\"data\":\"fake-jwt\"}")));
+
+        webTestClient.post().uri("/api/auth/google")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("{\"idToken\":\"fake-google-credential\"}")
+                .exchange()
+                .expectStatus().isOk();
+
+        authWm.verify(postRequestedFor(urlEqualTo("/api/auth/google")));
+        proyectosWm.verify(0, anyRequestedFor(anyUrl()));
+    }
+
+    @Test
     void protectedRoute_noToken_returns401() {
         webTestClient.get().uri("/api/users")
                 .exchange()

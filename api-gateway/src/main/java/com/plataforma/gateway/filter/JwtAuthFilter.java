@@ -34,6 +34,7 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
 
     private static final Set<String> PUBLIC_PATHS = Set.of(
             "/api/auth/login",
+            "/api/auth/google",
             "/api/auth/refresh",
             "/api/auth/logout"
     );
@@ -55,12 +56,10 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
             return chain.filter(exchange);
         }
 
-        String authHeader = request.getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+        String token = extractToken(request);
+        if (token == null || token.isBlank()) {
             return rejectUnauthorized(exchange, "Token ausente");
         }
-
-        String token = authHeader.substring(7);
         if (!jwtUtils.validateToken(token)) {
             return rejectUnauthorized(exchange, "Token inválido o expirado");
         }
@@ -94,6 +93,28 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
         }
         HttpMethod publicMethod = PUBLIC_METHOD_PATHS.get(path);
         return publicMethod != null && publicMethod.equals(method);
+    }
+
+    /**
+     * Extrae el JWT en este orden:
+     *   1) Header Authorization: Bearer ...
+     *   2) Query param ?access_token=...   (para EventSource/SSE que no permite headers custom)
+     *   3) Cookie liken_session_token       (fallback)
+     */
+    private String extractToken(ServerHttpRequest request) {
+        String header = request.getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
+        if (header != null && header.startsWith("Bearer ")) {
+            return header.substring(7);
+        }
+        String queryToken = request.getQueryParams().getFirst("access_token");
+        if (queryToken != null && !queryToken.isBlank()) {
+            return queryToken;
+        }
+        org.springframework.http.HttpCookie cookie = request.getCookies().getFirst("liken_session_token");
+        if (cookie != null && cookie.getValue() != null && !cookie.getValue().isBlank()) {
+            return cookie.getValue();
+        }
+        return null;
     }
 
     private boolean isPublicProjectPath(String path) {

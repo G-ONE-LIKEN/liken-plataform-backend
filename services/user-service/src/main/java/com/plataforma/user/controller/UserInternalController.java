@@ -7,6 +7,7 @@ import com.plataforma.user.dto.GoogleUserRequest;
 import com.plataforma.user.dto.UserContextDTO;
 import com.plataforma.user.dto.UserInternalDTO;
 import com.plataforma.user.model.User;
+import com.plataforma.user.repository.UserRepository;
 import com.plataforma.user.service.UserService;
 
 import lombok.RequiredArgsConstructor;
@@ -23,6 +24,7 @@ import java.util.stream.Collectors;
 public class UserInternalController {
 
     private final UserService userService;
+    private final UserRepository userRepository;
 
     @GetMapping("/by-email/{email}")
     public ResponseEntity<UserInternalDTO> findByEmail(@PathVariable String email) {
@@ -101,6 +103,61 @@ public class UserInternalController {
             @RequestBody String encodedPassword) {
         userService.updatePassword(id, encodedPassword);
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Endpoint usado por notification-service para componer emails.
+     * Devuelve email + nombre del usuario.
+     */
+    @GetMapping("/{id}/contact")
+    public ResponseEntity<UserContactDTO> getContact(@PathVariable Long id) {
+        User user = userService.getUserById(id)
+                .orElseThrow(() -> new UserNotFoundException(id));
+        return ResponseEntity.ok(UserContactDTO.builder()
+                .id(user.getId())
+                .email(user.getEmail())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .role(user.getRole() != null ? user.getRole().getName() : null)
+                .build());
+    }
+
+    /**
+     * Devuelve los ids de los usuarios que matchean una audiencia para broadcasts
+     * y notificaciones automáticas. Audiencias soportadas:
+     *   ALL          → todos los usuarios activos
+     *   ADMINS       → ADMIN + SUPER_ADMIN activos
+     *   DEVELOPERS   → DEVELOPER activos
+     *   INVESTORS    → todos los activos cuyo rol no sea admin ni developer
+     */
+    @GetMapping("/by-audience")
+    public ResponseEntity<List<Long>> findByAudience(@RequestParam String audience) {
+        List<User> users = switch (audience.toUpperCase()) {
+            case "ALL"        -> userRepository.findByActiveTrue();
+            case "ADMINS"     -> userRepository.findByRole_NameIn(List.of("ADMIN", "SUPER_ADMIN"));
+            case "DEVELOPERS" -> userRepository.findByRole_NameIn(List.of("DEVELOPER"));
+            case "INVESTORS"  -> userRepository.findByActiveTrue().stream()
+                    .filter(u -> u.getRole() == null
+                            || !List.of("ADMIN", "SUPER_ADMIN", "DEVELOPER").contains(u.getRole().getName()))
+                    .toList();
+            default -> List.of();
+        };
+        return ResponseEntity.ok(users.stream()
+                .filter(User::isActive)
+                .map(User::getId)
+                .toList());
+    }
+
+    @lombok.Data
+    @lombok.Builder
+    @lombok.NoArgsConstructor
+    @lombok.AllArgsConstructor
+    public static class UserContactDTO {
+        private Long id;
+        private String email;
+        private String firstName;
+        private String lastName;
+        private String role;
     }
 
     private UserInternalDTO toDto(User user) {

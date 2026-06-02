@@ -31,6 +31,7 @@ public class UserService {
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
     private final UserContextEventProducer contextEventProducer;
+    private final com.plataforma.user.event.producer.DeveloperEventProducer developerEventProducer;
 
     @Transactional
     public User registerUser(User user, String roleName) {
@@ -45,7 +46,11 @@ public class UserService {
         user.setProfileCompleted(true);
         user.setActive(true);
         assignInitialRole(user, roleName);
-        return userRepository.save(user);
+        User saved = userRepository.save(user);
+        if (saved.getRole() != null && RoleConstants.DEVELOPER.equals(saved.getRole().getName())) {
+            developerEventProducer.publishRegistered(saved);
+        }
+        return saved;
     }
 
     public User registerUser(User user) {
@@ -63,7 +68,11 @@ public class UserService {
         user.setTermsAccepted(false);
         user.setActive(true);
         assignInitialRole(user, roleName != null ? roleName : RoleConstants.INVESTOR);
-        return userRepository.save(user);
+        User saved = userRepository.save(user);
+        if (saved.getRole() != null && RoleConstants.DEVELOPER.equals(saved.getRole().getName())) {
+            developerEventProducer.publishRegistered(saved);
+        }
+        return saved;
     }
 
     @Transactional
@@ -105,6 +114,7 @@ public class UserService {
         user.setDeveloperStatus(status);
         User saved = userRepository.save(user);
         contextEventProducer.invalidateContext(userId);
+        developerEventProducer.publishStatusChanged(saved, status);
         return saved;
     }
 

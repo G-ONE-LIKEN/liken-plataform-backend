@@ -18,6 +18,40 @@ public class ProjectEventPublisher {
 
     private final KafkaTemplate<String, Object> kafkaTemplate;
 
+    public void publishPendingApproval(Project project) {
+        Map<String, Object> payload = Map.of(
+                "projectId", project.getId(),
+                "name", project.getName(),
+                "ownerId", project.getOwnerId(),
+                "timestamp", LocalDateTime.now().toString()
+        );
+        kafkaTemplate.send("projects.pending_approval", project.getId().toString(), payload);
+        log.info("Evento projects.pending_approval publicado: projectId={}", project.getId());
+    }
+
+    public void publishProjectApproved(Project project, Long adminId) {
+        Map<String, Object> payload = Map.of(
+                "projectId", project.getId(),
+                "ownerId", project.getOwnerId(),
+                "approvedBy", adminId,
+                "timestamp", LocalDateTime.now().toString()
+        );
+        kafkaTemplate.send("projects.approved", project.getId().toString(), payload);
+        log.info("Evento projects.approved publicado: projectId={} approvedBy={}", project.getId(), adminId);
+    }
+
+    public void publishProjectRejected(Project project, Long adminId, String reason) {
+        Map<String, Object> payload = Map.of(
+                "projectId", project.getId(),
+                "ownerId", project.getOwnerId(),
+                "rejectedBy", adminId,
+                "reason", reason == null ? "" : reason,
+                "timestamp", LocalDateTime.now().toString()
+        );
+        kafkaTemplate.send("projects.rejected", project.getId().toString(), payload);
+        log.info("Evento projects.rejected publicado: projectId={} rejectedBy={}", project.getId(), adminId);
+    }
+
     public void publishProjectCreated(Project project) {
         Map<String, Object> payload = Map.of(
                 "projectId", project.getId(),
