@@ -48,8 +48,20 @@ class JwtAuthFilterTest {
     }
 
     @Test
-    void postUsers_noToken_passesThrough() {
-        MockServerWebExchange exchange = exchangeFor("POST", "/api/users", null);
+    void registerRequest_noToken_passesThrough() {
+        MockServerWebExchange exchange = exchangeFor("POST", "/api/auth/register/request", null);
+        AtomicReference<ServerWebExchange> captured = new AtomicReference<>();
+
+        filter.filter(exchange, ex -> { captured.set(ex); return Mono.empty(); }).block();
+
+        assertThat(captured.get()).isNotNull();
+        verifyNoInteractions(jwtUtils);
+        verifyNoInteractions(userContextService);
+    }
+
+    @Test
+    void emailVerificationRequest_noToken_passesThrough() {
+        MockServerWebExchange exchange = exchangeFor("POST", "/api/auth/email-verification/request", null);
         AtomicReference<ServerWebExchange> captured = new AtomicReference<>();
 
         filter.filter(exchange, ex -> { captured.set(ex); return Mono.empty(); }).block();

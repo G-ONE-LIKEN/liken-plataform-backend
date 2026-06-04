@@ -103,6 +103,12 @@
 			<scope>test</scope>
 		</dependency>
 
+        <!-- Logs JSON estructurados para parsear con jq / shipear a Loki/ELK -->
+        <dependency>
+            <groupId>net.logstash.logback</groupId>
+            <artifactId>logstash-logback-encoder</artifactId>
+            <version>7.4</version>
+        </dependency>
 	</dependencies>
 
 	<!-- ================================================================

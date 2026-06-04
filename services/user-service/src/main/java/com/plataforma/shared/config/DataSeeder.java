@@ -6,6 +6,7 @@ import com.plataforma.rbac.model.Permission;
 import com.plataforma.rbac.model.Role;
 import com.plataforma.rbac.repository.PermissionRepository;
 import com.plataforma.rbac.repository.RoleRepository;
+import com.plataforma.user.model.AuthProvider;
 import com.plataforma.user.model.User;
 import com.plataforma.user.repository.UserRepository;
 
@@ -91,15 +92,41 @@ public class DataSeeder implements CommandLineRunner {
     }
 
     private void seedSuperAdminUser(String email, String password) {
-        if (userRepository.findByEmail(email).isPresent()) return;
         Role superAdminRole = roleRepository.findByName(RoleConstants.SUPER_ADMIN)
                 .orElseThrow(() -> new RuntimeException("Rol SUPER_ADMIN no encontrado"));
-        userRepository.save(User.builder()
+        userRepository.findByEmail(email).ifPresentOrElse(existing -> {
+            boolean changed = false;
+            if (!existing.isEmailVerified()) {
+                existing.setEmailVerified(true);
+                changed = true;
+            }
+            if (!existing.isActive()) {
+                existing.setActive(true);
+                changed = true;
+            }
+            if (!existing.isProfileCompleted()) {
+                existing.setProfileCompleted(true);
+                changed = true;
+            }
+            if (existing.getAuthProvider() == null) {
+                existing.setAuthProvider(AuthProvider.LOCAL);
+                changed = true;
+            }
+            if (existing.getRole() == null || !RoleConstants.SUPER_ADMIN.equals(existing.getRole().getName())) {
+                existing.setRole(superAdminRole);
+                changed = true;
+            }
+            if (changed) {
+                userRepository.save(existing);
+            }
+        }, () -> userRepository.save(User.builder()
                 .email(email)
                 .password(passwordEncoder.encode(password))
                 .role(superAdminRole)
                 .active(true)
                 .profileCompleted(true)
-                .build());
+                .emailVerified(true)
+                .authProvider(AuthProvider.LOCAL)
+                .build()));
     }
 }

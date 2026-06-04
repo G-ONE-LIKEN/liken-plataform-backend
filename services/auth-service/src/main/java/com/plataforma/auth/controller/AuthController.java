@@ -1,10 +1,14 @@
 package com.plataforma.auth.controller;
 
 import com.plataforma.auth.dto.ChangePasswordRequest;
+import com.plataforma.auth.dto.EmailVerificationConfirmRequest;
+import com.plataforma.auth.dto.EmailVerificationRequest;
 import com.plataforma.auth.dto.GoogleAuthRequest;
 import com.plataforma.auth.dto.LoginRequest;
 import com.plataforma.auth.dto.LoginResponse;
+import com.plataforma.auth.dto.RegisterRequest;
 import com.plataforma.auth.service.AuthService;
+import com.plataforma.auth.service.EmailVerificationService;
 import com.plataforma.auth.service.RefreshTokenService;
 import com.plataforma.shared.dto.ApiResponse;
 import com.plataforma.shared.exception.UnauthorizedAccessException;
@@ -32,6 +36,7 @@ public class AuthController {
     private static final String COOKIE_PATH          = "/api/auth";
 
     private final AuthService authService;
+    private final EmailVerificationService emailVerificationService;
     private final RefreshTokenService refreshTokenService;
 
     // ─────────────────────────────────────────────────────────────
@@ -65,6 +70,36 @@ public class AuthController {
                 request.getRoleName());
 
         return issueLoginResponse(response, result);
+    }
+
+    @PostMapping("/register/request")
+    public ResponseEntity<ApiResponse<Void>> register(
+            @RequestBody RegisterRequest request) {
+        emailVerificationService.requestRegistration(request);
+        return ResponseEntity.ok(ApiResponse.success(
+                "Te enviamos un codigo de verificacion para completar el registro.",
+                null));
+    }
+
+    @PostMapping("/email-verification/request")
+    public ResponseEntity<ApiResponse<Void>> requestEmailVerification(
+            @RequestBody EmailVerificationRequest request) {
+        emailVerificationService.requestVerification(request.getEmail());
+        return ResponseEntity.ok(ApiResponse.success("Si la cuenta existe, enviamos un codigo de verificacion.", null));
+    }
+
+    @PostMapping("/email-verification/confirm")
+    public ResponseEntity<ApiResponse<Void>> confirmEmailVerification(
+            @RequestBody EmailVerificationConfirmRequest request) {
+        emailVerificationService.confirmVerification(request.getEmail(), request.getCode());
+        return ResponseEntity.ok(ApiResponse.success("Email verificado correctamente.", null));
+    }
+
+    @PostMapping("/email-verification/resend")
+    public ResponseEntity<ApiResponse<Void>> resendEmailVerification(
+            @RequestBody EmailVerificationRequest request) {
+        emailVerificationService.resendVerification(request.getEmail());
+        return ResponseEntity.ok(ApiResponse.success("Si la cuenta existe, reenviamos el codigo de verificacion.", null));
     }
 
     // ─────────────────────────────────────────────────────────────

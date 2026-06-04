@@ -15,6 +15,7 @@ public class ApiResponse<T> {
 
     private String message;
     private T data;
+    private String code;
     private int status;
     private LocalDateTime timestamp;
 
@@ -32,10 +33,15 @@ public class ApiResponse<T> {
     }
 
     public static <T> ApiResponse<T> error(String msg, int statusCode) {
+        return error(msg, statusCode, null);
+    }
+
+    public static <T> ApiResponse<T> error(String msg, int statusCode, String code) {
         return ApiResponse.<T>builder()
                 .message(msg)
                 .timestamp(LocalDateTime.now())
                 .data(null)
+                .code(code)
                 .status(statusCode)
                 .build();
     }

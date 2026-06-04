@@ -2,6 +2,7 @@ package com.plataforma.notification.consumer;
 
 import com.plataforma.notification.client.UserServiceClient;
 import com.plataforma.notification.model.NotificationType;
+import com.plataforma.notification.service.EmailService;
 import com.plataforma.notification.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,6 +29,7 @@ public class KafkaConsumers {
 
     private final NotificationService notificationService;
     private final UserServiceClient userServiceClient;
+    private final EmailService emailService;
 
     // ───────────────────────── PROYECTOS ─────────────────────────
 
@@ -101,6 +103,47 @@ public class KafkaConsumers {
     }
 
     // ───────────────────────── USUARIOS ──────────────────────────
+
+    @KafkaListener(topics = "user.registered", groupId = "notification-service")
+    public void onUserRegistered(Map<String, Object> payload) {
+        Long userId = asLong(payload.get("userId"));
+        String email = String.valueOf(payload.getOrDefault("email", ""));
+        String firstName = String.valueOf(payload.getOrDefault("firstName", ""));
+        boolean emailVerified = Boolean.parseBoolean(String.valueOf(payload.getOrDefault("emailVerified", false)));
+        if (userId == null) return;
+        log.info("[event] user.registered userId={} email={} emailVerified={}", userId, email, emailVerified);
+        if (!emailVerified) {
+            log.info("Se omite bienvenida para userId={} porque el email aun no esta verificado", userId);
+            return;
+        }
+
+        String title = "¡Bienvenido a LIKEN!";
+        String body = "Tu cuenta fue creada con éxito. Ya podés explorar proyectos, invertir y seguir el rendimiento de tu portafolio desde tu dashboard.";
+
+        // In-app notification (sin email — lo mandamos abajo con el email del payload
+        // para evitar la race condition con la transacción del registro).
+        notificationService.notify(
+                userId,
+                NotificationType.USER_WELCOME,
+                title,
+                body,
+                Map.of("url", "/dashboard"),
+                "user-welcome-" + userId,
+                false, null, null, null
+        );
+
+        // Email directo: usamos el email del payload del evento, no hace falta
+        // consultar user-service (que aún puede no haber commiteado la tx).
+        if (email != null && !email.isBlank() && !"null".equals(email)) {
+            Map<String, Object> vars = new HashMap<>();
+            vars.put("firstName", firstName);
+            vars.put("title", title);
+            vars.put("body", body);
+            emailService.send(email, title, "welcome", vars);
+        } else {
+            log.warn("user.registered sin email en el payload userId={}, no se envía bienvenida", userId);
+        }
+    }
 
     @KafkaListener(topics = "user.developer_registered", groupId = "notification-service")
     public void onDeveloperRegistered(Map<String, Object> payload) {

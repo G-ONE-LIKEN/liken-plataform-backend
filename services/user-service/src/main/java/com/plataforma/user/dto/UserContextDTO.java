@@ -28,6 +28,7 @@ public class UserContextDTO {
     private String address;
     private boolean termsAccepted;
     private boolean profileCompleted;
+    private boolean emailVerified;
     private String authProvider;
     private String pictureUrl;
     private String role;

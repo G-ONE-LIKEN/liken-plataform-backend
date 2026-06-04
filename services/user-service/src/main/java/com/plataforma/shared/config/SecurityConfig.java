@@ -49,7 +49,6 @@ public class SecurityConfig {
                         // /internal/** no lleva JWT — está protegido a nivel de red (ClusterIP, DD003)
                         .requestMatchers("/internal/**").permitAll()
                         .requestMatchers("/actuator/**").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/users").permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(gatewayHeaderAuthFilter, UsernamePasswordAuthenticationFilter.class);
 

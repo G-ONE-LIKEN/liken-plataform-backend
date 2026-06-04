@@ -3,6 +3,7 @@ package com.plataforma.auth.service;
 import com.plataforma.shared.client.UserServiceClient;
 import com.plataforma.shared.client.dto.GoogleUserRequest;
 import com.plataforma.shared.client.dto.UserAuthDTO;
+import com.plataforma.shared.exception.EmailNotVerifiedException;
 import com.plataforma.shared.exception.UnauthorizedAccessException;
 import com.plataforma.shared.security.JwtUtils;
 
@@ -16,7 +17,9 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class AuthService {
 
-    private static final String INVALID_CREDENTIALS = "Credenciales invalidas.";
+    private static final String INVALID_CREDENTIALS = "Correo o contrasena incorrectos.";
+    private static final String PASSWORD_COMPLEXITY_MESSAGE =
+            "La nueva contrasena debe tener al menos 6 caracteres, una letra, un numero y un caracter especial.";
 
     private final UserServiceClient userServiceClient;
     private final PasswordEncoder passwordEncoder;
@@ -101,6 +104,7 @@ public class AuthService {
             throw new UnauthorizedAccessException("La contrasena actual es incorrecta.");
         }
 
+        validateNewPassword(newPassword);
         userServiceClient.updatePassword(userId, passwordEncoder.encode(newPassword));
     }
 
@@ -109,6 +113,10 @@ public class AuthService {
 
         if (!user.isActive()) {
             throw new UnauthorizedAccessException("Tu cuenta esta desactivada.");
+        }
+
+        if ("LOCAL".equalsIgnoreCase(String.valueOf(user.getAuthProvider())) && !user.isEmailVerified()) {
+            throw new EmailNotVerifiedException("Debes verificar tu email antes de iniciar sesion.");
         }
 
         if (user.getPassword() == null || user.getPassword().isBlank()) {
@@ -136,5 +144,17 @@ public class AuthService {
     private boolean isInvalidCredentials(UnauthorizedAccessException ex) {
         String message = ex.getMessage();
         return message != null && (message.contains("Credenciales inv") || message.equals(INVALID_CREDENTIALS));
+    }
+
+    private void validateNewPassword(String password) {
+        if (password == null || password.length() < 6) {
+            throw new IllegalArgumentException(PASSWORD_COMPLEXITY_MESSAGE);
+        }
+        boolean hasLetter = password.chars().anyMatch(Character::isLetter);
+        boolean hasDigit = password.chars().anyMatch(Character::isDigit);
+        boolean hasSpecial = password.chars().anyMatch(ch -> !Character.isLetterOrDigit(ch));
+        if (!hasLetter || !hasDigit || !hasSpecial) {
+            throw new IllegalArgumentException(PASSWORD_COMPLEXITY_MESSAGE);
+        }
     }
 }

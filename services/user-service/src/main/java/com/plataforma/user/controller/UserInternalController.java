@@ -4,6 +4,7 @@ import com.plataforma.rbac.model.Permission;
 import com.plataforma.shared.exception.UnauthorizedAccessException;
 import com.plataforma.shared.exception.UserNotFoundException;
 import com.plataforma.user.dto.GoogleUserRequest;
+import com.plataforma.user.dto.LocalUserRegistrationRequest;
 import com.plataforma.user.dto.UserContextDTO;
 import com.plataforma.user.dto.UserInternalDTO;
 import com.plataforma.user.model.User;
@@ -43,6 +44,24 @@ public class UserInternalController {
                 .pictureUrl(request.getPictureUrl())
                 .build();
         return ResponseEntity.ok(toDto(userService.registerGoogleUser(toCreate, request.getRoleName())));
+    }
+
+    @PostMapping("/local")
+    public ResponseEntity<UserInternalDTO> createLocalUser(@RequestBody LocalUserRegistrationRequest request) {
+        User toCreate = User.builder()
+                .email(request.getEmail())
+                .password(request.getPassword())
+                .firstName(request.getFirstName())
+                .lastName(request.getLastName())
+                .dni(request.getDni())
+                .birthDate(request.getBirthDate())
+                .phone(request.getPhone())
+                .country(request.getCountry())
+                .province(request.getProvince())
+                .address(request.getAddress())
+                .termsAccepted(request.isTermsAccepted())
+                .build();
+        return ResponseEntity.ok(toDto(userService.registerVerifiedLocalUser(toCreate, request.getRoleName())));
     }
 
     @PutMapping("/{id}/google")
@@ -87,6 +106,7 @@ public class UserInternalController {
                 .address(user.getAddress())
                 .termsAccepted(user.isTermsAccepted())
                 .profileCompleted(user.isProfileCompleted())
+                .emailVerified(user.isEmailVerified())
                 .authProvider(user.getAuthProvider() != null ? user.getAuthProvider().name() : null)
                 .pictureUrl(user.getPictureUrl())
                 .role(user.getRole() != null ? user.getRole().getName() : null)
@@ -103,6 +123,11 @@ public class UserInternalController {
             @RequestBody String encodedPassword) {
         userService.updatePassword(id, encodedPassword);
         return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/{id}/email-verified")
+    public ResponseEntity<UserInternalDTO> markEmailVerified(@PathVariable Long id) {
+        return ResponseEntity.ok(toDto(userService.markEmailVerified(id)));
     }
 
     /**
@@ -181,6 +206,7 @@ public class UserInternalController {
                 .address(user.getAddress())
                 .termsAccepted(user.isTermsAccepted())
                 .profileCompleted(user.isProfileCompleted())
+                .emailVerified(user.isEmailVerified())
                 .authProvider(user.getAuthProvider() != null ? user.getAuthProvider().name() : null)
                 .googleSubject(user.getGoogleSubject())
                 .pictureUrl(user.getPictureUrl())

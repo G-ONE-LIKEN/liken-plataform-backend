@@ -60,6 +60,10 @@ public class User extends Auditable {
     @Builder.Default
     private boolean profileCompleted = false;
 
+    @Column(name = "email_verified", nullable = false)
+    @Builder.Default
+    private boolean emailVerified = false;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "auth_provider", nullable = false, length = 20)
     @Builder.Default

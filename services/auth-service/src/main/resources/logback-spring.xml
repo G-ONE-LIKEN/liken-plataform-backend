@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Logging estructurado para auth-service.
+
+  Appenders:
+    - CONSOLE  → docker logs / dev day-to-day. Formato corto, con colores cuando hay TTY.
+    - FILE_JSON → logs/app.log con JSON estructurado (uno por línea). Parseable con jq.
+    - FILE_ERROR → logs/error.log solo WARN+ERROR (también JSON), retención 30 días.
+
+  Cómo leer:
+    docker logs liken_auth_service -f
+    tail -f logs/auth-service/app.log | jq '.'              # ver todo formateado
+    jq -r '.message' logs/auth-service/app.log              # solo mensajes
+    jq 'select(.level=="ERROR")' logs/auth-service/error.log
+-->
+<configuration>
+
+    <!-- Importa los converters de Spring Boot (%clr, %wEx, etc.) -->
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+
+    <springProperty scope="context" name="serviceName" source="spring.application.name" defaultValue="auth-service"/>
+    <property name="LOG_PATH" value="${LOG_PATH:-/app/logs}"/>
+
+    <!-- ============ CONSOLE: humano, con colores ============ -->
+    <!--
+      %clr(...) es un convertidor de Spring Boot que aplica colores ANSI solo si
+      el output soporta TTY. En docker logs / terminal moderno se ve coloreado;
+      en CI/redirección a archivo se ve sin códigos basura.
+    -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level ${serviceName} [%thread] %logger{40} - %msg%n%ex{0}</pattern>
+        </encoder>
+    </appender>
+
+    <!-- ============ FILE: JSON estructurado ============ -->
+    <appender name="FILE_JSON" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_PATH}/app.log</file>
+        <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+            <providers>
+                <timestamp>
+                    <fieldName>timestamp</fieldName>
+                    <pattern>yyyy-MM-dd'T'HH:mm:ss.SSSXXX</pattern>
+                    <timeZone>UTC</timeZone>
+                </timestamp>
+                <pattern>
+                    <pattern>{"service":"${serviceName}"}</pattern>
+                </pattern>
+                <logLevel><fieldName>level</fieldName></logLevel>
+                <threadName><fieldName>thread</fieldName></threadName>
+                <loggerName>
+                    <fieldName>logger</fieldName>
+                    <shortenedLoggerNameLength>40</shortenedLoggerNameLength>
+                </loggerName>
+                <mdc/>
+                <message><fieldName>message</fieldName></message>
+                <stackTrace>
+                    <fieldName>stackTrace</fieldName>
+                    <throwableConverter class="net.logstash.logback.stacktrace.ShortenedThrowableConverter">
+                        <maxDepthPerThrowable>30</maxDepthPerThrowable>
+                        <rootCauseFirst>true</rootCauseFirst>
+                    </throwableConverter>
+                </stackTrace>
+            </providers>
+        </encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_PATH}/archive/app.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>50MB</maxFileSize>
+            <maxHistory>14</maxHistory>
+            <totalSizeCap>500MB</totalSizeCap>
+        </rollingPolicy>
+    </appender>
+
+    <!-- ============ FILE: solo WARN+ERROR (también JSON) ============ -->
+    <appender name="FILE_ERROR" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_PATH}/error.log</file>
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>WARN</level>
+        </filter>
+        <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+            <providers>
+                <timestamp>
+                    <fieldName>timestamp</fieldName>
+                    <pattern>yyyy-MM-dd'T'HH:mm:ss.SSSXXX</pattern>
+                    <timeZone>UTC</timeZone>
+                </timestamp>
+                <pattern>
+                    <pattern>{"service":"${serviceName}"}</pattern>
+                </pattern>
+                <logLevel><fieldName>level</fieldName></logLevel>
+                <threadName><fieldName>thread</fieldName></threadName>
+                <loggerName>
+                    <fieldName>logger</fieldName>
+                    <shortenedLoggerNameLength>40</shortenedLoggerNameLength>
+                </loggerName>
+                <mdc/>
+                <message><fieldName>message</fieldName></message>
+                <stackTrace>
+                    <fieldName>stackTrace</fieldName>
+                    <throwableConverter class="net.logstash.logback.stacktrace.ShortenedThrowableConverter">
+                        <maxDepthPerThrowable>50</maxDepthPerThrowable>
+                        <rootCauseFirst>true</rootCauseFirst>
+                    </throwableConverter>
+                </stackTrace>
+            </providers>
+        </encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_PATH}/archive/error.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>20MB</maxFileSize>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>200MB</totalSizeCap>
+        </rollingPolicy>
+    </appender>
+
+    <!-- ============ NIVELES — bajar noise de libs ============ -->
+    <logger name="org.apache.kafka"            level="WARN"/>
+    <logger name="org.springframework.kafka"   level="WARN"/>
+    <logger name="org.hibernate.SQL"           level="WARN"/>
+    <logger name="org.hibernate.engine"        level="WARN"/>
+    <logger name="com.zaxxer.hikari"           level="WARN"/>
+    <logger name="reactor.netty.http"          level="WARN"/>
+    <logger name="org.thymeleaf"               level="WARN"/>
+    <logger name="org.springframework.boot.autoconfigure" level="WARN"/>
+    <logger name="org.springframework.web"     level="WARN"/>
+    <logger name="org.flywaydb"                level="WARN"/>
+
+    <!-- Silenciar stack traces ruidosos de Tomcat cuando Spring Security tira 401/403. -->
+    <!-- El cliente ya recibe el codigo de estado correcto; el rastro del servidor es ruido. -->
+    <logger name="org.apache.catalina.core.ContainerBase.[Tomcat].[localhost].[/].[dispatcherServlet]" level="OFF"/>
+    <logger name="org.apache.catalina.core.StandardHostValve" level="OFF"/>
+    <logger name="org.apache.catalina.core.StandardWrapperValve" level="OFF"/>
+    <logger name="org.springframework.security.web.access" level="WARN"/>
+    <logger name="org.springframework.security.access" level="WARN"/>
+
+    <!-- App propia: configurable vía LOG_LEVEL_APP -->
+    <logger name="com.plataforma" level="${LOG_LEVEL_APP:-INFO}"/>
+
+    <root level="${LOG_LEVEL_ROOT:-INFO}">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="FILE_JSON"/>
+        <appender-ref ref="FILE_ERROR"/>
+    </root>
+
+</configuration>

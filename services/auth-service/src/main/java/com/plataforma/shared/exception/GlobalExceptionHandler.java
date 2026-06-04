@@ -17,14 +17,33 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(ApiResponse.error(message, status.value()), status);
     }
 
+    private ResponseEntity<ApiResponse<Void>> response(String message, HttpStatus status, String code) {
+        return new ResponseEntity<>(ApiResponse.error(message, status.value(), code), status);
+    }
+
     @ExceptionHandler(UnauthorizedAccessException.class)
     public ResponseEntity<ApiResponse<Void>> handleUnauthorized(UnauthorizedAccessException ex) {
         return response(ex.getMessage(), HttpStatus.UNAUTHORIZED);
     }
 
+    @ExceptionHandler(EmailNotVerifiedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleEmailNotVerified(EmailNotVerifiedException ex) {
+        return response(ex.getMessage(), HttpStatus.FORBIDDEN, EmailNotVerifiedException.CODE);
+    }
+
+    @ExceptionHandler(RateLimitException.class)
+    public ResponseEntity<ApiResponse<Void>> handleRateLimit(RateLimitException ex) {
+        return response(ex.getMessage(), HttpStatus.TOO_MANY_REQUESTS);
+    }
+
     @ExceptionHandler(UserNotFoundException.class)
     public ResponseEntity<ApiResponse<Void>> handleNotFound(UserNotFoundException ex) {
         return response(ex.getMessage(), HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiResponse<Void>> handleIllegalArgument(IllegalArgumentException ex) {
+        return response(ex.getMessage(), HttpStatus.BAD_REQUEST);
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)

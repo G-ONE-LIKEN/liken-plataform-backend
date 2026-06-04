@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.data.redis.connection.ReactiveRedisConnectionFactory;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.reactive.server.WebTestClient;
@@ -61,12 +62,18 @@ class GatewayRoutingTest {
     @Autowired
     private WebTestClient webTestClient;
 
+    @Autowired(required = false)
+    private ReactiveRedisConnectionFactory redisConnectionFactory;
+
     /**
      * Antes de cada test que use un JWT válido, stubear el endpoint que el gateway
      * va a consultar para resolver el contexto del usuario (DD004).
      */
     @BeforeEach
     void stubUserContext() {
+        if (redisConnectionFactory != null) {
+            redisConnectionFactory.getReactiveConnection().serverCommands().flushAll().block();
+        }
         usuariosWm.stubFor(get(urlEqualTo("/internal/users/" + USER_ID + "/context"))
                 .willReturn(aResponse()
                         .withStatus(200)

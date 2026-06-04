@@ -35,12 +35,12 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
     private static final Set<String> PUBLIC_PATHS = Set.of(
             "/api/auth/login",
             "/api/auth/google",
+            "/api/auth/register/request",
+            "/api/auth/email-verification/request",
+            "/api/auth/email-verification/confirm",
+            "/api/auth/email-verification/resend",
             "/api/auth/refresh",
             "/api/auth/logout"
-    );
-
-    private static final Map<String, HttpMethod> PUBLIC_METHOD_PATHS = Map.of(
-            "/api/users", HttpMethod.POST
     );
 
     private static final Pattern PUBLIC_PROJECT_DETAIL_PATH = Pattern.compile("^/api/projects/\\d+$");
@@ -91,8 +91,7 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
         if (PUBLIC_PATHS.contains(path)) {
             return true;
         }
-        HttpMethod publicMethod = PUBLIC_METHOD_PATHS.get(path);
-        return publicMethod != null && publicMethod.equals(method);
+        return false;
     }
 
     /**

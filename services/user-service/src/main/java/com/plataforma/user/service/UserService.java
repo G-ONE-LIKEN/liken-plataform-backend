@@ -27,28 +27,48 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class UserService {
 
+    private static final String PASSWORD_COMPLEXITY_MESSAGE =
+            "La contrasena debe tener al menos 6 caracteres, una letra, un numero y un caracter especial.";
+
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
     private final UserContextEventProducer contextEventProducer;
     private final com.plataforma.user.event.producer.DeveloperEventProducer developerEventProducer;
+    private final com.plataforma.user.event.producer.UserRegisteredEventProducer userRegisteredEventProducer;
 
     @Transactional
     public User registerUser(User user, String roleName) {
+        return registerLocalUser(user, roleName, false);
+    }
+
+    @Transactional
+    public User registerVerifiedLocalUser(User user, String roleName) {
+        return registerLocalUser(user, roleName, true);
+    }
+
+    private User registerLocalUser(User user, String roleName, boolean emailVerified) {
         user.setAuthProvider(AuthProvider.LOCAL);
         validateLocalRegistration(user);
         user.setEmail(normalizeEmail(user.getEmail()));
+        userRepository.findByEmail(user.getEmail()).ifPresent(existing -> {
+            throw new IllegalArgumentException("Ya existe un usuario registrado con ese email.");
+        });
         user.setDni(normalizeDni(user.getDni()));
         if (userRepository.existsByDni(user.getDni())) {
             throw new IllegalArgumentException("Ya existe un usuario registrado con ese DNI.");
         }
         user.setPassword(passwordEncoder.encode(user.getPassword()));
         user.setProfileCompleted(true);
+        user.setEmailVerified(emailVerified);
         user.setActive(true);
         assignInitialRole(user, roleName);
         User saved = userRepository.save(user);
-        if (saved.getRole() != null && RoleConstants.DEVELOPER.equals(saved.getRole().getName())) {
-            developerEventProducer.publishRegistered(saved);
+        if (emailVerified) {
+            userRegisteredEventProducer.publishRegistered(saved);
+            if (saved.getRole() != null && RoleConstants.DEVELOPER.equals(saved.getRole().getName())) {
+                developerEventProducer.publishRegistered(saved);
+            }
         }
         return saved;
     }
@@ -65,10 +85,12 @@ public class UserService {
         user.setAuthProvider(AuthProvider.GOOGLE);
         user.setPassword(null);
         user.setProfileCompleted(false);
+        user.setEmailVerified(true);
         user.setTermsAccepted(false);
         user.setActive(true);
         assignInitialRole(user, roleName != null ? roleName : RoleConstants.INVESTOR);
         User saved = userRepository.save(user);
+        userRegisteredEventProducer.publishRegistered(saved);
         if (saved.getRole() != null && RoleConstants.DEVELOPER.equals(saved.getRole().getName())) {
             developerEventProducer.publishRegistered(saved);
         }
@@ -79,6 +101,7 @@ public class UserService {
     public User linkGoogleSubject(Long userId, String googleSubject, String pictureUrl) {
         requireText(googleSubject, "El identificador de Google es obligatorio.");
         User user = getUserById(userId).orElseThrow(() -> new UserNotFoundException(userId));
+        boolean shouldPublishRegistration = !user.isEmailVerified();
         if (user.getGoogleSubject() != null && !user.getGoogleSubject().equals(googleSubject)) {
             throw new IllegalArgumentException("La cuenta ya esta vinculada a otro usuario de Google.");
         }
@@ -94,7 +117,30 @@ public class UserService {
         if (user.getAuthProvider() == null) {
             user.setAuthProvider(AuthProvider.LOCAL);
         }
+        user.setEmailVerified(true);
         User saved = userRepository.save(user);
+        if (shouldPublishRegistration) {
+            userRegisteredEventProducer.publishRegistered(saved);
+            if (saved.getRole() != null && RoleConstants.DEVELOPER.equals(saved.getRole().getName())) {
+                developerEventProducer.publishRegistered(saved);
+            }
+        }
+        contextEventProducer.invalidateContext(userId);
+        return saved;
+    }
+
+    @Transactional
+    public User markEmailVerified(Long userId) {
+        User user = getUserById(userId).orElseThrow(() -> new UserNotFoundException(userId));
+        if (user.isEmailVerified()) {
+            return user;
+        }
+        user.setEmailVerified(true);
+        User saved = userRepository.save(user);
+        userRegisteredEventProducer.publishRegistered(saved);
+        if (saved.getRole() != null && RoleConstants.DEVELOPER.equals(saved.getRole().getName())) {
+            developerEventProducer.publishRegistered(saved);
+        }
         contextEventProducer.invalidateContext(userId);
         return saved;
     }
@@ -211,9 +257,7 @@ public class UserService {
     private void validateLocalRegistration(User user) {
         requireText(user.getEmail(), "El email es obligatorio.");
         requireText(user.getPassword(), "La contrasena es obligatoria.");
-        if (user.getPassword().length() < 6) {
-            throw new IllegalArgumentException("La contrasena debe tener al menos 6 caracteres.");
-        }
+        validatePasswordStrength(user.getPassword());
         validateProfileFields(user.getFirstName(), user.getLastName(), user.getDni(), user.getBirthDate(),
                 user.getPhone(), user.getCountry(), user.getProvince(), user.getAddress(), user.isTermsAccepted());
     }
@@ -278,6 +322,18 @@ public class UserService {
     private void requireText(String value, String message) {
         if (value == null || value.trim().isEmpty()) {
             throw new IllegalArgumentException(message);
+        }
+    }
+
+    private void validatePasswordStrength(String password) {
+        if (password.length() < 6) {
+            throw new IllegalArgumentException(PASSWORD_COMPLEXITY_MESSAGE);
+        }
+        boolean hasLetter = password.chars().anyMatch(Character::isLetter);
+        boolean hasDigit = password.chars().anyMatch(Character::isDigit);
+        boolean hasSpecial = password.chars().anyMatch(ch -> !Character.isLetterOrDigit(ch));
+        if (!hasLetter || !hasDigit || !hasSpecial) {
+            throw new IllegalArgumentException(PASSWORD_COMPLEXITY_MESSAGE);
         }
     }
 }

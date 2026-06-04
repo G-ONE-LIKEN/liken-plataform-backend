@@ -18,9 +18,13 @@ target/
 .DS_Store
 Thumbs.db
 
-# Logs
+# Logs — ignoramos archivos pero conservamos la estructura de carpetas (con .gitkeep)
 *.log
-logs/
+*.log.gz
+logs/**/*.log
+logs/**/*.log.gz
+logs/**/archive/
+!logs/**/.gitkeep
 
 # Variables de entorno
 .env

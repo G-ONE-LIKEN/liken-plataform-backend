@@ -1,6 +1,9 @@
 package com.plataforma.notification.model;
 
 public enum NotificationType {
+    // Bienvenida
+    USER_WELCOME,
+
     // Admin
     ADMIN_DEVELOPER_PENDING,
     ADMIN_PROJECT_PENDING,

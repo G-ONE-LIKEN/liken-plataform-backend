@@ -26,6 +26,7 @@ public class UserInternalDTO {
     private String address;
     private boolean termsAccepted;
     private boolean profileCompleted;
+    private boolean emailVerified;
     private String authProvider;
     private String googleSubject;
     private String pictureUrl;

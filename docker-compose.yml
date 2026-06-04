@@ -147,6 +147,8 @@ services:
     build:
       context: ./services/user-service
     container_name: liken_user_service
+    volumes:
+      - ./logs/user-service:/app/logs
     depends_on:
       postgres:
         condition: service_healthy
@@ -185,6 +187,8 @@ services:
     build:
       context: ./services/auth-service
     container_name: liken_auth_service
+    volumes:
+      - ./logs/auth-service:/app/logs
     depends_on:
       user-service:
         condition: service_healthy
@@ -197,6 +201,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:-change-me-jwt-secret-with-at-least-32-characters}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       USER_SERVICE_URL: http://user-service:8080
+      NOTIFICATION_SERVICE_URL: http://notification-service:8087
       REDIS_HOST: redis
       REDIS_PORT: 6379
     healthcheck:
@@ -210,6 +215,8 @@ services:
     build:
       context: ./services/project-service
     container_name: liken_project_service
+    volumes:
+      - ./logs/project-service:/app/logs
     depends_on:
       postgres:
         condition: service_healthy
@@ -242,6 +249,8 @@ services:
     build:
       context: ./services/wallet-service
     container_name: liken_wallet_service
+    volumes:
+      - ./logs/wallet-service:/app/logs
     depends_on:
       postgres:
         condition: service_healthy
@@ -262,17 +271,13 @@ services:
       retries: 5
       start_period: 60s
 
-  mailhog:
-    image: mailhog/mailhog:latest
-    container_name: liken_mailhog
-    ports:
-      - "1025:1025"   # SMTP
-      - "8025:8025"   # UI web — http://localhost:8025
 
   notification-service:
     build:
       context: ./services/notification-service
     container_name: liken_notification_service
+    volumes:
+      - ./logs/notification-service:/app/logs
     depends_on:
       postgres:
         condition: service_healthy
@@ -280,8 +285,6 @@ services:
         condition: service_healthy
       user-service:
         condition: service_healthy
-      mailhog:
-        condition: service_started
     ports:
       - "8087:8087"
     environment:
@@ -291,23 +294,23 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:-change-me-db-password}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       USER_SERVICE_URL: http://user-service:8080
-      # SMTP — por defecto va a MailHog (capturado en http://localhost:8025).
-      # Para que los emails lleguen al inbox real, definí estas vars en tu .env:
-      #   MAIL_HOST=smtp.gmail.com
-      #   MAIL_PORT=587
-      #   MAIL_USERNAME=tu-cuenta@gmail.com
-      #   MAIL_PASSWORD=<app-password-de-16-chars>
+      # SMTP - configurado para Resend.
+      # Defini estas vars en tu .env:
+      #   MAIL_HOST=smtp.resend.com
+      #   MAIL_PORT=465
+      #   MAIL_USERNAME=resend
+      #   MAIL_PASSWORD=<tu-resend-smtp-password>
       #   MAIL_AUTH=true
-      #   MAIL_STARTTLS=true
-      #   MAIL_FROM=tu-cuenta@gmail.com
-      MAIL_HOST: ${MAIL_HOST:-mailhog}
-      MAIL_PORT: ${MAIL_PORT:-1025}
+      #   MAIL_SSL=true
+      #   MAIL_FROM=<tu-remitente-verificado-en-resend>
+      MAIL_HOST: ${MAIL_HOST:-smtp.resend.com}
+      MAIL_PORT: ${MAIL_PORT:-465}
       MAIL_USERNAME: ${MAIL_USERNAME:-}
       MAIL_PASSWORD: ${MAIL_PASSWORD:-}
-      MAIL_AUTH: ${MAIL_AUTH:-false}
+      MAIL_AUTH: ${MAIL_AUTH:-true}
       MAIL_STARTTLS: ${MAIL_STARTTLS:-false}
-      MAIL_SSL: ${MAIL_SSL:-false}
-      MAIL_FROM: ${MAIL_FROM:-noreply@liken.local}
+      MAIL_SSL: ${MAIL_SSL:-true}
+      MAIL_FROM: ${MAIL_FROM:-onboarding@resend.dev}
       MAIL_FROM_NAME: ${MAIL_FROM_NAME:-LIKEN}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
     healthcheck:
@@ -321,6 +324,8 @@ services:
     build:
       context: ./api-gateway
     container_name: liken_gateway
+    volumes:
+      - ./logs/api-gateway:/app/logs
     depends_on:
       redis:
         condition: service_healthy
@@ -360,3 +365,4 @@ services:
 volumes:
   postgres_data:
   fake_gcs_data:
+

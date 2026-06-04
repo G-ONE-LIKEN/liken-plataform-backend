@@ -3,6 +3,7 @@ package com.plataforma.auth.service;
 import com.plataforma.shared.client.UserServiceClient;
 import com.plataforma.shared.client.dto.GoogleUserRequest;
 import com.plataforma.shared.client.dto.UserAuthDTO;
+import com.plataforma.shared.exception.EmailNotVerifiedException;
 import com.plataforma.shared.exception.UnauthorizedAccessException;
 import com.plataforma.shared.security.JwtUtils;
 
@@ -41,10 +42,12 @@ class AuthServiceTest {
                 .id(1L)
                 .email("user@test.com")
                 .password("hashed")
+                .authProvider("LOCAL")
                 .roleName("BASIC")
                 .permissions(List.of())
                 .active(true)
                 .profileCompleted(true)
+                .emailVerified(true)
                 .build();
     }
 
@@ -97,7 +100,7 @@ class AuthServiceTest {
         created.setGoogleSubject("google-123");
         when(googleTokenService.verify("id-token")).thenReturn(payload);
         when(userServiceClient.findByEmail("new@test.com"))
-                .thenThrow(new UnauthorizedAccessException("Credenciales invalidas."));
+                .thenThrow(new UnauthorizedAccessException("Correo o contrasena incorrectos."));
         when(userServiceClient.createGoogleUser(any(GoogleUserRequest.class))).thenReturn(created);
         when(jwtUtils.generateToken(created)).thenReturn("jwt-google");
 
@@ -141,12 +144,23 @@ class AuthServiceTest {
     }
 
     @Test
+    void shouldThrowWhenEmailIsNotVerified() {
+        UserAuthDTO unverified = activeUser();
+        unverified.setEmailVerified(false);
+        when(userServiceClient.findByEmail("user@test.com")).thenReturn(unverified);
+
+        assertThrows(EmailNotVerifiedException.class,
+                () -> authService.login("user@test.com", "secret"));
+        verify(passwordEncoder, never()).matches(anyString(), anyString());
+    }
+
+    @Test
     void shouldChangePasswordSuccessfully() {
         when(userServiceClient.findById(1L)).thenReturn(activeUser());
         when(passwordEncoder.matches("old", "hashed")).thenReturn(true);
-        when(passwordEncoder.encode("new")).thenReturn("new-hashed");
+        when(passwordEncoder.encode("New123!")).thenReturn("new-hashed");
 
-        assertDoesNotThrow(() -> authService.changePassword(1L, "old", "new"));
+        assertDoesNotThrow(() -> authService.changePassword(1L, "old", "New123!"));
 
         verify(userServiceClient, times(1)).updatePassword(eq(1L), eq("new-hashed"));
     }
@@ -157,7 +171,18 @@ class AuthServiceTest {
         when(passwordEncoder.matches("wrong", "hashed")).thenReturn(false);
 
         assertThrows(UnauthorizedAccessException.class,
-                () -> authService.changePassword(1L, "wrong", "new"));
+                () -> authService.changePassword(1L, "wrong", "New123!"));
         verify(userServiceClient, never()).updatePassword(anyLong(), anyString());
+    }
+
+    @Test
+    void shouldThrowWhenNewPasswordDoesNotMeetComplexityRules() {
+        when(userServiceClient.findById(1L)).thenReturn(activeUser());
+        when(passwordEncoder.matches("old", "hashed")).thenReturn(true);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> authService.changePassword(1L, "old", "abcdef"));
+        verify(userServiceClient, never()).updatePassword(anyLong(), anyString());
+        verify(passwordEncoder, never()).encode(anyString());
     }
 }

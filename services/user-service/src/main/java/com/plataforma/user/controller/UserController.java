@@ -62,6 +62,7 @@ public class UserController {
     }
 
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN') or hasAuthority('user:update')")
     public ResponseEntity<ApiResponse<User>> create(@RequestBody UserRequest request) {
         User toCreate = User.builder()
                 .email(request.getEmail())
@@ -189,6 +190,7 @@ public class UserController {
                 .address(user.getAddress())
                 .termsAccepted(user.isTermsAccepted())
                 .profileCompleted(user.isProfileCompleted())
+                .emailVerified(user.isEmailVerified())
                 .authProvider(user.getAuthProvider() != null ? user.getAuthProvider().name() : null)
                 .pictureUrl(user.getPictureUrl())
                 .role(user.getRole() != null ? user.getRole().getName() : null)
