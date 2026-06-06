@@ -100,9 +100,10 @@ contract OfferingContractTest is Test {
         vm.prank(bob);
         usdc.approve(address(offering), type(uint256).max);
 
-        // Treasury aprueba USDC para refunds
-        vm.prank(treasury);
-        usdc.approve(address(offering), type(uint256).max);
+        // Treasury aprueba USDC para refunds (X)
+        // El propio contrato es escrow (para prevenir que treasury falle o no lo apruebe)
+        // vm.prank(treasury);
+        // usdc.approve(address(offering), type(uint256).max);
     }
 
     // ── Deploy y estado inicial ───────────────────────────────
@@ -202,7 +203,8 @@ contract OfferingContractTest is Test {
         offering.buy(10 * 1e6);
 
         assertEq(lkn.balanceOf(alice), 1e18);
-        assertEq(usdc.balanceOf(treasury), 10 * 1e6);
+        // Con escrow, el USDC va al contrato, no al treasury durante buy.
+        assertEq(usdc.balanceOf(address(offering)), 10 * 1e6);
         assertEq(offering.totalRaised(), 10 * 1e6);
         assertEq(offering.lknSold(), 1e18);
     }
@@ -309,7 +311,7 @@ contract OfferingContractTest is Test {
         vm.warp(block.timestamp + DURATION + 1);
 
         // Treasury tiene USDC para devolver
-        usdc.mint(treasury, SOFT_CAP);
+        // usdc.mint(treasury, SOFT_CAP); parche viejo
 
         uint256 aliceBefore = usdc.balanceOf(alice);
 
@@ -343,7 +345,7 @@ contract OfferingContractTest is Test {
         offering.buy(100 * 1e6);
 
         vm.warp(block.timestamp + DURATION + 1);
-        usdc.mint(treasury, SOFT_CAP);
+        // usdc.mint(treasury, SOFT_CAP); pache viejo
 
         vm.startPrank(alice);
         offering.refund();
@@ -360,7 +362,7 @@ contract OfferingContractTest is Test {
         offering.buy(200 * 1e6);
 
         vm.warp(block.timestamp + DURATION + 1);
-        usdc.mint(treasury, SOFT_CAP);
+        // usdc.mint(treasury, SOFT_CAP); parche viejo
 
         vm.prank(alice);
         offering.refund();
@@ -438,5 +440,40 @@ contract OfferingContractTest is Test {
 
         ProjectRegistry.Project memory p = registry.getProject(projectId);
         assertEq(uint8(p.stage), uint8(ProjectRegistry.Stage.ACTIVE));
+    }
+
+    // ── FinalizeTransfersUSDCToTreasury ──────────────────────────────────────
+
+    /// @notice Happy path: el USDC acumulado en escrow llega al treasury al finalizar.
+    function test_FinalizeTransfersUSDCToTreasury() public {
+        usdc.mint(alice, SOFT_CAP);
+        vm.prank(alice);
+        offering.buy(SOFT_CAP);
+
+        // Con escrow: el USDC está en el contrato, treasury aún no tiene nada
+        assertEq(usdc.balanceOf(address(offering)), SOFT_CAP);
+        assertEq(usdc.balanceOf(treasury), 0);
+
+        vm.prank(emisor);
+        offering.finalize();
+
+        // Post-finalize: el USDC pasó al treasury y el contrato quedó vacío de USDC
+        assertEq(usdc.balanceOf(treasury), SOFT_CAP);
+        assertEq(usdc.balanceOf(address(offering)), 0);
+    }
+
+    /// @notice Hard cap path: el cierre automático también transfiere USDC al treasury.
+    function test_HardCapTransfersUSDCToTreasury() public {
+        usdc.mint(alice, HARD_CAP);
+        vm.prank(alice);
+        usdc.approve(address(offering), HARD_CAP);
+
+        vm.prank(alice);
+        offering.buy(HARD_CAP);
+
+        // La ronda se cerró automáticamente y el USDC ya está en treasury
+        assertEq(uint8(offering.state()), uint8(OfferingContract.RoundState.FINALIZED));
+        assertEq(usdc.balanceOf(treasury), HARD_CAP);
+        assertEq(usdc.balanceOf(address(offering)), 0);
     }
 }

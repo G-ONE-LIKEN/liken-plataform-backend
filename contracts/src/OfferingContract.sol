@@ -184,18 +184,20 @@ contract OfferingContract is AccessControl, ReentrancyGuard {
         totalRaised += usdcAmount;
         lknSold += lknAmount;
 
-        // Cerrar automáticamente si se alcanzó el hard cap
+        // Interactions — USDC queda en el contrato como escrow
+        // Primero recibir el USDC en el contrato
+        usdc.safeTransferFrom(msg.sender, address(this), usdcAmount);
+        lkn.safeTransfer(msg.sender, lknAmount);
+        emit TokensPurchased(msg.sender, usdcAmount, lknAmount);
+
+        // Cerrar automáticamente si se alcanzó el hard cap.
+        // (el USDC ya está en el contrato, se puede transferir al treasury)
         if (totalRaised >= hardCap) {
             state = RoundState.FINALIZED;
-            registry.activateProject(projectId); // activar el proyecto.
+            usdc.safeTransfer(treasury, totalRaised);
+            registry.activateProject(projectId);
             emit RoundFinalized(totalRaised, lknSold);
         }
-
-        // Interactions
-        usdc.safeTransferFrom(msg.sender, treasury, usdcAmount);
-        lkn.safeTransfer(msg.sender, lknAmount);
-
-        emit TokensPurchased(msg.sender, usdcAmount, lknAmount);
     }
 
     // ── Emisor: finalizar ronda exitosa ───────────────────────
@@ -209,6 +211,8 @@ contract OfferingContract is AccessControl, ReentrancyGuard {
         require(totalRaised >= softCap, "OC: soft cap not reached");
 
         state = RoundState.FINALIZED;
+
+        usdc.safeTransfer(treasury, totalRaised);
 
         uint256 unsold = lknAvailable();
         if (unsold > 0) {
@@ -243,9 +247,9 @@ contract OfferingContract is AccessControl, ReentrancyGuard {
             emit RoundFailed(totalRaised, softCap);
         }
 
-        // Interactions — el treasury devuelve el USDC
-        usdc.safeTransferFrom(treasury, msg.sender, amount);
-
+        // Interactions
+        // El contrato ya tiene los fondos — sin depender del treasury
+        usdc.safeTransfer(msg.sender, amount);
         emit Refunded(msg.sender, amount);
     }
 

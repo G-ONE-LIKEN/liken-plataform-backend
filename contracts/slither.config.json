@@ -1,0 +1,7 @@
+{
+    "filter_paths": "lib/,src/legacy/",
+    "solc_remaps": [
+        "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/"
+    ],
+    "detectors_to_exclude": "assembly,pragma,solc-version"
+}

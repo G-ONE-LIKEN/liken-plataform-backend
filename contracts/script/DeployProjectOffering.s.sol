@@ -16,27 +16,32 @@ import {OfferingContract} from "../src/OfferingContract.sol";
  *   3. otorga OFFERING_ROLE al offering
  *   4. deposita LKN en escrow y abre la ronda
  *
- * Variables esperadas por env:
+ * Uso recomendado con cuenta nombrada (sin exponer PRIVATE_KEY en .env):
+ *   cast wallet import dev --interactive
+ *   forge script script/DeployProjectOffering.s.sol:DeployProjectOffering \
+ *     --rpc-url $SEPOLIA_RPC_URL \
+ *     --account dev --broadcast --verify
+ *
+ * Variables requeridas en .env:
  *   LKN_ADDRESS
  *   REGISTRY_ADDRESS
  *   USDC_ADDRESS
  *   PLATFORM_ADMIN
- *   EMISOR
+ *   EMISOR               ← debe coincidir con la wallet que firma (broadcaster)
  *   TREASURY
  *   PROJECT_OWNER
  *   PROJECT_NAME
  *   PROJECT_DESCRIPTION
- *   EARLY_BIRD_PRICE
- *   STANDARD_PRICE
- *   TOKEN_PRICE
- *   SOFT_CAP
- *   HARD_CAP
- *   DEADLINE_TIMESTAMP
- *   ESCROW_LKN_AMOUNT_WEI
+ *   EARLY_BIRD_PRICE     ← USDC por LKN en early bird, 6 decimales (ej: 8000000 = $8)
+ *   STANDARD_PRICE       ← USDC por LKN post-apertura, 6 decimales (ej: 10000000 = $10)
+ *   TOKEN_PRICE          ← precio activo para esta ronda (default: EARLY_BIRD_PRICE)
+ *   SOFT_CAP             ← mínimo USDC a recaudar, 6 decimales
+ *   HARD_CAP             ← máximo USDC a recaudar, 6 decimales
+ *   DEADLINE_TIMESTAMP   ← Unix timestamp límite (ej: $(date -d '+30 days' +%s))
+ *   ESCROW_LKN_AMOUNT_WEI ← LKN a depositar en escrow, 18 decimales
  */
 contract DeployProjectOffering is Script {
     function run() external {
-        uint256 privateKey = vm.envUint("PRIVATE_KEY");
         address lknAddress = vm.envAddress("LKN_ADDRESS");
         address registryAddress = vm.envAddress("REGISTRY_ADDRESS");
         address usdcAddress = vm.envAddress("USDC_ADDRESS");
@@ -44,7 +49,6 @@ contract DeployProjectOffering is Script {
         address emisor = vm.envAddress("EMISOR");
         address treasury = vm.envAddress("TREASURY");
         address projectOwner = vm.envAddress("PROJECT_OWNER");
-        address publicationSigner = vm.addr(privateKey);
 
         string memory projectName = vm.envString("PROJECT_NAME");
         string memory projectDescription = vm.envString("PROJECT_DESCRIPTION");
@@ -60,11 +64,14 @@ contract DeployProjectOffering is Script {
         require(lknAddress != address(0), "DP: zero LKN");
         require(registryAddress != address(0), "DP: zero registry");
         require(usdcAddress != address(0), "DP: zero USDC");
-        require(privateKey != 0, "DP: zero private key");
         require(platformAdmin != address(0), "DP: zero admin");
         require(emisor != address(0), "DP: zero emisor");
         require(treasury != address(0), "DP: zero treasury");
         require(projectOwner != address(0), "DP: zero project owner");
+        require(earlyBirdPrice > 0, "DP: zero early bird price");
+        require(standardPrice > earlyBirdPrice, "DP: standard price <= early bird price");
+        require(softCap > 0, "DP: zero soft cap");
+        require(hardCap > softCap, "DP: hard cap <= soft cap");
         require(deadline > block.timestamp, "DP: deadline in past");
         require(escrowLknAmount > 0, "DP: zero escrow");
 
@@ -72,26 +79,26 @@ contract DeployProjectOffering is Script {
         ProjectRegistry registry = ProjectRegistry(registryAddress);
 
         console2.log("================ PROJECT PUBLICATION ================");
-        console2.log("publicationSigner    :", publicationSigner);
         console2.log("registry             :", registryAddress);
         console2.log("lkn                  :", lknAddress);
         console2.log("usdc                 :", usdcAddress);
-        console2.log("projectOwner         :", projectOwner);
+        console2.log("platformAdmin        :", platformAdmin);
         console2.log("emisor               :", emisor);
         console2.log("treasury             :", treasury);
+        console2.log("projectOwner         :", projectOwner);
+        console2.log("earlyBirdPrice       :", earlyBirdPrice);
+        console2.log("standardPrice        :", standardPrice);
+        console2.log("tokenPrice           :", tokenPrice);
+        console2.log("softCap              :", softCap);
+        console2.log("hardCap              :", hardCap);
         console2.log("escrowLknAmountWei   :", escrowLknAmount);
         console2.log("deadline             :", deadline);
         console2.log("----------------------------------------------------");
 
-        vm.startBroadcast(privateKey);
+        vm.startBroadcast();
 
-        uint256 registryProjectId = registry.registerProject(
-            projectName,
-            projectDescription,
-            projectOwner,
-            earlyBirdPrice,
-            standardPrice
-        );
+        uint256 registryProjectId =
+            registry.registerProject(projectName, projectDescription, projectOwner, earlyBirdPrice, standardPrice);
 
         OfferingContract offering = new OfferingContract(
             lknAddress,
@@ -108,7 +115,7 @@ contract DeployProjectOffering is Script {
         );
 
         registry.grantRole(registry.OFFERING_ROLE(), address(offering));
-        IERC20(lknAddress).approve(address(offering), escrowLknAmount);
+        lkn.approve(address(offering), escrowLknAmount);
         offering.deposit(escrowLknAmount);
         offering.openRound();
 

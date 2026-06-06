@@ -53,12 +53,12 @@ import {DividendDistributor} from "../src/DividendDistributor.sol";
  */
 contract DeployAll is Script {
     // ── Parámetros del proyecto piloto (override por env) ──
-    uint256 constant DEFAULT_TGE_SUPPLY = 200_000 * 1e18;       // parque ~5MW
-    uint256 constant DEFAULT_EARLY_BIRD_PRICE = 8_000_000;      // $8 / LKN (6 dec)
-    uint256 constant DEFAULT_STANDARD_PRICE = 10_000_000;       // $10 / LKN (6 dec)
+    uint256 constant DEFAULT_TGE_SUPPLY = 200_000 * 1e18; // parque ~5MW
+    uint256 constant DEFAULT_EARLY_BIRD_PRICE = 8_000_000; // $8 / LKN (6 dec)
+    uint256 constant DEFAULT_STANDARD_PRICE = 10_000_000; // $10 / LKN (6 dec)
     uint256 constant DEFAULT_TOKEN_PRICE = DEFAULT_EARLY_BIRD_PRICE;
-    uint256 constant DEFAULT_SOFT_CAP = 500_000 * 1e6;          // $500k
-    uint256 constant DEFAULT_HARD_CAP = 1_600_000 * 1e6;        // $1.6M (200k LKN * $8)
+    uint256 constant DEFAULT_SOFT_CAP = 500_000 * 1e6; // $500k
+    uint256 constant DEFAULT_HARD_CAP = 1_600_000 * 1e6; // $1.6M (200k LKN * $8)
     uint256 constant DEFAULT_DURATION = 30 days;
 
     function run() external {
@@ -77,9 +77,8 @@ contract DeployAll is Script {
         uint256 duration = vm.envOr("DURATION_SECONDS", DEFAULT_DURATION);
 
         string memory projectName = vm.envOr("PROJECT_NAME", string("Parque Solar Piloto"));
-        string memory projectDesc = vm.envOr(
-            "PROJECT_DESCRIPTION", string("Proyecto piloto de tokenizacion de energia renovable.")
-        );
+        string memory projectDesc =
+            vm.envOr("PROJECT_DESCRIPTION", string("Proyecto piloto de tokenizacion de energia renovable."));
 
         console2.log("================ DEPLOY LINKEN ================");
         console2.log("platformAdmin :", platformAdmin);
@@ -94,6 +93,14 @@ contract DeployAll is Script {
         console2.log("hardCap       :", hardCap);
         console2.log("duration      :", duration);
         console2.log("-----------------------------------------------");
+
+        // Validar que quien firma puede cumplir el rol de emisor en deposit/openRound.
+        // Si emisor y platformAdmin son distintas wallets, usar DeployCore +
+        // DeployProjectOffering por separado en lugar de este script.
+        require(
+            emisor == platformAdmin,
+            "DeployAll: broadcaster debe ser emisor. Para roles separados usar DeployCore + DeployProjectOffering."
+        );
 
         vm.startBroadcast();
 
@@ -115,9 +122,7 @@ contract DeployAll is Script {
         console2.log("ProjectRegistry       :", address(registry));
 
         // ── 3. registerProject ──
-        uint256 projectId = registry.registerProject(
-            projectName, projectDesc, emisor, earlyBirdPrice, standardPrice
-        );
+        uint256 projectId = registry.registerProject(projectName, projectDesc, emisor, earlyBirdPrice, standardPrice);
         console2.log("projectId             :", projectId);
 
         // ── 4. OfferingContract ──

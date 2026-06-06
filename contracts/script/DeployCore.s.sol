@@ -11,34 +11,35 @@ import {DividendDistributor} from "../src/DividendDistributor.sol";
  * @title DeployCore
  * @notice Deploya solo los contratos globales de la plataforma.
  *         No crea OfferingContract ni deposita LKN en escrow.
+ *
+ * Uso recomendado con cuenta nombrada (sin exponer PRIVATE_KEY en .env):
+ *   cast wallet import dev --interactive
+ *   forge script script/DeployCore.s.sol:DeployCore \
+ *     --rpc-url $SEPOLIA_RPC_URL \
+ *     --account dev --broadcast --verify
  */
 contract DeployCore is Script {
     uint256 private constant DEFAULT_TGE_SUPPLY = 1_000_000 * 1e18;
 
     function run() external {
-        uint256 privateKey = vm.envUint("PRIVATE_KEY");
         address platformAdmin = vm.envAddress("PLATFORM_ADMIN");
         address emisor = vm.envOr("EMISOR_ADDRESS", platformAdmin);
         address usdc = vm.envAddress("USDC_ADDRESS");
         uint256 tgeSupply = vm.envOr("TGE_SUPPLY", DEFAULT_TGE_SUPPLY);
 
-        require(privateKey != 0, "DC: zero private key");
         require(platformAdmin != address(0), "DC: zero admin");
         require(emisor != address(0), "DC: zero emisor");
         require(usdc != address(0), "DC: zero usdc");
         require(tgeSupply > 0, "DC: zero supply");
 
-        address publicationSigner = vm.addr(privateKey);
-
         console2.log("================ DEPLOY CORE LINKEN ================");
-        console2.log("publicationSigner :", publicationSigner);
         console2.log("platformAdmin     :", platformAdmin);
         console2.log("emisor            :", emisor);
         console2.log("usdc              :", usdc);
         console2.log("tgeSupply         :", tgeSupply);
         console2.log("----------------------------------------------------");
 
-        vm.startBroadcast(privateKey);
+        vm.startBroadcast();
 
         LinkenToken lkn = new LinkenToken(platformAdmin, emisor, tgeSupply);
         ProjectRegistry registry = new ProjectRegistry(platformAdmin);

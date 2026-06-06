@@ -8,6 +8,9 @@ solc          = "0.8.24"
 no_match_path = "test/legacy/**"
 via_ir        = true
 
+[etherscan]
+sepolia = { key = "${ETHERSCAN_API_KEY}" }
+
 # Fuzz config
 [fuzz]
 runs = 500
@@ -16,10 +19,3 @@ runs = 500
 [invariant]
 runs   = 256
 depth  = 15
-
-#[profile.default.coverage] (esto no existe como tal, buscar equivalente)
-#exclude = [
-#    "script/**",
-#    "test/**",
-#    "src/legacy/**"
-#]
