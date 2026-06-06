@@ -320,6 +320,97 @@ services:
       retries: 5
       start_period: 60s
 
+  invest-dividend-service:
+    build:
+      context: ./services/invest-dividend-service
+    container_name: liken_invest_dividend_service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      project-service:
+        condition: service_healthy
+      user-service:
+        condition: service_healthy
+    ports:
+      - "8083:8083"
+    environment:
+      SERVER_PORT: 8083
+      DB_URL: jdbc:postgresql://postgres:5432/invest_db
+      DB_USER: ${POSTGRES_USER:-liken_user}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-change-me-db-password}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      PROJECT_SERVICE_URL: http://project-service:8082
+      USER_SERVICE_URL: http://user-service:8080
+      # RPC para pendingDividends (read-only). Si DISTRIBUTOR queda en 0x0,
+      # el endpoint /api/dividends/pending devuelve $0.
+      WEB3_RPC_URL: ${WEB3_RPC_URL:-http://host.docker.internal:8545}
+      DISTRIBUTOR_ADDRESS: ${DISTRIBUTOR_ADDRESS:-0x0000000000000000000000000000000000000000}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8083/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 90s
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  blockchain-service:
+    build:
+      context: ./services/blockchain-service
+    container_name: liken_blockchain_service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      user-service:
+        condition: service_healthy
+    ports:
+      - "8085:8085"
+    environment:
+      SERVER_PORT: 8085
+      DB_URL: jdbc:postgresql://postgres:5432/blockchain_db
+      DB_USER: ${POSTGRES_USER:-liken_user}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-change-me-db-password}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      USER_SERVICE_URL: http://user-service:8080
+      PROJECT_SERVICE_URL: http://project-service:8082
+      # RPC: en dev local usar http://host.docker.internal:8545 si Anvil corre en el host,
+      # o levantar un container Anvil dentro de la red. En Sepolia: URL del proveedor.
+      WEB3_RPC_URL: ${WEB3_RPC_URL:-http://host.docker.internal:8545}
+      WEB3_CHAIN_ID: ${WEB3_CHAIN_ID:-31337}
+      WEB3_POLL_SECONDS: ${WEB3_POLL_SECONDS:-6}
+      WEB3_MAX_BLOCK_RANGE: ${WEB3_MAX_BLOCK_RANGE:-500}
+      WEB3_CONFIRMATIONS: ${WEB3_CONFIRMATIONS:-1}
+      # Addresses de los contratos globales — vacías hasta que corras DeployAll.s.sol.
+      # Si quedan en 0x0, el indexer se mantiene idle (no rompe el stack).
+      LKN_ADDRESS: ${LKN_ADDRESS:-0x0000000000000000000000000000000000000000}
+      REGISTRY_ADDRESS: ${REGISTRY_ADDRESS:-0x0000000000000000000000000000000000000000}
+      DISTRIBUTOR_ADDRESS: ${DISTRIBUTOR_ADDRESS:-0x0000000000000000000000000000000000000000}
+      USDC_ADDRESS: ${USDC_ADDRESS:-0x0000000000000000000000000000000000000000}
+      BLOCKCHAIN_SERVICE_URL: http://blockchain-service:8085
+      PUBLICATION_CONTRACTS_WORKSPACE: /contracts
+      FORGE_COMMAND: ${FORGE_COMMAND:-forge}
+      PUBLICATION_SCRIPT_ENTRY: ${PUBLICATION_SCRIPT_ENTRY:-script/DeployProjectOffering.s.sol:DeployProjectOffering}
+      PUBLICATION_SIGNER_PRIVATE_KEY: ${PUBLICATION_SIGNER_PRIVATE_KEY:-}
+      PLATFORM_ADMIN: ${PLATFORM_ADMIN:-0x0000000000000000000000000000000000000000}
+      EMISOR_ADDRESS: ${EMISOR_ADDRESS:-0x0000000000000000000000000000000000000000}
+      TREASURY_ADDRESS: ${TREASURY_ADDRESS:-0x0000000000000000000000000000000000000000}
+      PUBLICATION_DEADLINE_ZONE_ID: ${PUBLICATION_DEADLINE_ZONE_ID:-America/Argentina/Buenos_Aires}
+    volumes:
+      - ./contracts:/contracts
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8085/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 90s
+    extra_hosts:
+      # Permite resolver host.docker.internal en Linux (Mac/Windows lo tienen built-in).
+      - "host.docker.internal:host-gateway"
+
   api-gateway:
     build:
       context: ./api-gateway
@@ -339,6 +430,8 @@ services:
         condition: service_healthy
       wallet-service:
         condition: service_healthy
+      invest-dividend-service:
+        condition: service_healthy
       notification-service:
         condition: service_healthy
     ports:
@@ -353,6 +446,7 @@ services:
       REDIS_HOST:    redis
       REDIS_PORT:    6379
       WALLET_URL:    http://wallet-service:8084
+      INVEST_URL:    http://invest-dividend-service:8083
       NOTIFICATION_URL: http://notification-service:8087
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     healthcheck:

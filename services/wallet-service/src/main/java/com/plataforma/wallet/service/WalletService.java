@@ -139,7 +139,9 @@ public class WalletService {
         BigDecimal after;
 
         switch (type) {
-            case DIVIDEND, P2P_SALE -> after = before.add(amount);
+            // Acreditaciones — el backend sólo refleja un evento ya ocurrido (on-chain o P2P).
+            case DIVIDEND, P2P_SALE, REFUND -> after = before.add(amount);
+            // Débitos por operaciones que sí pueden requerir saldo suficiente.
             case TOKEN_PURCHASE, P2P_PURCHASE -> {
                 if (before.compareTo(amount) < 0) {
                     throw new InsufficientFundsException(before, amount);

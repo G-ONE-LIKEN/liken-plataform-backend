@@ -108,6 +108,15 @@ public class User extends Auditable {
     @Column(name = "developer_status", length = 20)
     private DeveloperStatus developerStatus;
 
+    /**
+     * Dirección de la wallet on-chain (EIP-55, 42 chars) vinculada al usuario.
+     * Custodia híbrida: el backend NO guarda claves. El usuario prueba ser dueño
+     * de la wallet firmando un nonce con MetaMask; ver {@code WalletLinkingService}.
+     * Una sola wallet por usuario (constraint UNIQUE en V11).
+     */
+    @Column(name = "wallet_address", length = 42, unique = true)
+    private String walletAddress;
+
     public boolean hasPermission(String permissionName) {
         if (role == null || role.getPermissions() == null) return false;
         return role.getPermissions().stream()

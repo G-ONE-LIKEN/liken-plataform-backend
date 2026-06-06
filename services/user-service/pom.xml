@@ -82,6 +82,15 @@
 			<artifactId>spring-kafka</artifactId>
 		</dependency>
 
+		<!-- web3j-crypto — solo crypto/keys, sin stack web3 entera.
+		     Usado por WalletLinkingService para verificar firmas EIP-191 (personal_sign)
+		     y derivar la dirección EIP-55 a partir de la firma (ecrecover). -->
+		<dependency>
+			<groupId>org.web3j</groupId>
+			<artifactId>crypto</artifactId>
+			<version>4.10.3</version>
+		</dependency>
+
 		<!-- ============================================================
 		     DEPENDENCIAS DE TEST
 		     ============================================================ -->

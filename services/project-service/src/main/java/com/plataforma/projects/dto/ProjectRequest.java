@@ -28,13 +28,23 @@ public class ProjectRequest {
     @DecimalMin(value = "0.0001", message = "La capacidad instalada debe ser mayor a cero")
     private BigDecimal installedCapacityMW;
 
+    /**
+     * LKN asignados al tramo de venta primaria de este proyecto.
+     * (No es un cap de mint — el supply de LKN es global y fijo desde el TGE.)
+     */
     @NotNull(message = "El total de tokens es obligatorio")
     @DecimalMin(value = "1", message = "Debe haber al menos 1 token")
     private BigDecimal totalTokens;
 
-    @NotNull(message = "El precio del token es obligatorio")
-    @DecimalMin(value = "0.01", message = "El precio debe ser mayor a cero")
-    private BigDecimal tokenPrice;
+    /** Precio en USDC por LKN durante la ronda (etapa FUNDING). */
+    @NotNull(message = "El early bird price es obligatorio")
+    @DecimalMin(value = "0.01", message = "El early bird price debe ser mayor a cero")
+    private BigDecimal earlyBirdPrice;
+
+    /** Precio en USDC por LKN post-ronda (etapa ACTIVE). Debe ser mayor que earlyBirdPrice. */
+    @NotNull(message = "El standard price es obligatorio")
+    @DecimalMin(value = "0.01", message = "El standard price debe ser mayor a cero")
+    private BigDecimal standardPrice;
 
     @DecimalMin(value = "0.01", message = "La inversión mínima debe ser mayor a cero")
     private BigDecimal minimumInvestment;
@@ -45,14 +55,14 @@ public class ProjectRequest {
     @DecimalMin(value = "0.01", message = "El hard cap debe ser mayor a cero")
     private BigDecimal hardCap;
 
-    private LocalDate softCapDeadline;
+    /**
+     * Fecha esperada de apertura del parque. Único campo de fecha. Se usa también como
+     * {@code OfferingContract.deadline} al deployar el contrato (deadline implícito del soft cap).
+     */
     private LocalDate expectedOpenDate;
 
     private BigDecimal expectedAnnualYield;
 
     @DecimalMin(value = "0.0001", message = "La producción anual estimada debe ser mayor a cero")
     private BigDecimal expectedAnnualProductionMWh;
-
-    private LocalDate startDate;
-    private LocalDate endDate;
 }

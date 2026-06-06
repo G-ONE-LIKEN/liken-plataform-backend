@@ -70,6 +70,52 @@ public class UserHoldingServiceImpl implements UserHoldingService {
         }
     }
 
+    /**
+     * Registra una compra primaria proveniente del evento on-chain TokensPurchased.
+     * Difiere de {@link #updateHolding} en que persiste {@code walletAddress} y
+     * {@code usdcInvested}, además del delta de LKN.
+     */
+    @Override
+    @Transactional
+    public void recordTokenPurchase(String walletAddress, Long userId, Long projectId,
+                                    BigDecimal lknAmount, BigDecimal usdcAmount, String eventId) {
+        if (eventId != null && processedEventRepository.existsByEventId(eventId)) {
+            log.info("Evento {} ya procesado, ignorando (idempotencia)", eventId);
+            return;
+        }
+        if (userId == null) {
+            log.warn("recordTokenPurchase recibido con userId=null wallet={} projectId={}; " +
+                    "se descarta hasta que el lookup wallet→user devuelva un id válido",
+                    walletAddress, projectId);
+            return;
+        }
+
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new ProjectNotFoundException(projectId));
+
+        UserHolding holding = holdingRepository
+                .findByUserIdAndProjectId(userId, projectId)
+                .orElseGet(() -> UserHolding.builder()
+                        .userId(userId)
+                        .project(project)
+                        .tokensAmount(BigDecimal.ZERO)
+                        .usdcInvested(BigDecimal.ZERO)
+                        .build());
+
+        holding.setTokensAmount(holding.getTokensAmount().add(lknAmount));
+        BigDecimal currentUsdc = holding.getUsdcInvested() != null ? holding.getUsdcInvested() : BigDecimal.ZERO;
+        holding.setUsdcInvested(currentUsdc.add(usdcAmount));
+        if (walletAddress != null) {
+            holding.setWalletAddress(walletAddress);
+        }
+        holding.setLastUpdatedAt(LocalDateTime.now());
+        holdingRepository.save(holding);
+
+        if (eventId != null) {
+            processedEventRepository.save(ProcessedEvent.builder().eventId(eventId).build());
+        }
+    }
+
     @Override
     @Transactional
     public void processOrderMatched(Long sellerId, Long buyerId, Long projectId, BigDecimal amount, String eventId) {

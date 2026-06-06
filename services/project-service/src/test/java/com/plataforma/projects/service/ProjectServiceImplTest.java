@@ -45,7 +45,8 @@ class ProjectServiceImplTest {
                 .state(ProjectState.DRAFT)
                 .energyType(EnergyType.SOLAR)
                 .totalTokens(new BigDecimal("10000"))
-                .tokenPrice(new BigDecimal("10.00"))
+                .earlyBirdPrice(new BigDecimal("8.0000"))
+                .standardPrice(new BigDecimal("10.0000"))
                 .active(true)
                 .build();
     }
@@ -141,14 +142,41 @@ class ProjectServiceImplTest {
     // CLOSED           → nadie puede cancelar (estado final)
 
     @Test
-    void changeState_devCancelaDesdePreOpen_permitido() {
-        draftProject.setState(ProjectState.PRE_OPEN);
+    void changeState_devCancelaDesdeDraft_permitido() {
+        // Bajo Fase 6, las transiciones que SÍ puede disparar el owner manualmente
+        // son PENDING_APPROVAL→DRAFT (vía aprobación), DRAFT→PRE_OPEN, OPEN→CLOSED,
+        // y CANCELLED desde estados pre-PRE_OPEN. Desde PRE_OPEN ya no puede:
+        // la salida la fuerza el OfferingContract (Round Finalized / Failed).
+        draftProject.setState(ProjectState.DRAFT);
         when(projectRepository.findByIdAndActiveTrue(1L)).thenReturn(Optional.of(draftProject));
         when(projectRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         assertThatNoException().isThrownBy(
                 () -> projectService.changeState(1L, ProjectState.CANCELLED, 10L, false)
         );
+    }
+
+    @Test
+    void changeState_preOpenAOpen_bloqueadoPorqueLoDisparaLaChain() {
+        // PRE_OPEN → OPEN debe ser disparada por RoundFinalized vía Blockchain Service,
+        // no por el endpoint manual. Devuelve 409 (ProjectStateException).
+        draftProject.setState(ProjectState.PRE_OPEN);
+        when(projectRepository.findByIdAndActiveTrue(1L)).thenReturn(Optional.of(draftProject));
+
+        assertThatThrownBy(() -> projectService.changeState(1L, ProjectState.OPEN, 10L, false))
+                .isInstanceOf(ProjectStateException.class)
+                .hasMessageContaining("OfferingContract on-chain");
+    }
+
+    @Test
+    void changeState_preOpenACancelled_bloqueadoPorqueLoDisparaLaChain() {
+        // Igual que arriba: PRE_OPEN → CANCELLED la dispara RoundFailed.
+        draftProject.setState(ProjectState.PRE_OPEN);
+        when(projectRepository.findByIdAndActiveTrue(1L)).thenReturn(Optional.of(draftProject));
+
+        assertThatThrownBy(() -> projectService.changeState(1L, ProjectState.CANCELLED, 10L, false))
+                .isInstanceOf(ProjectStateException.class)
+                .hasMessageContaining("OfferingContract on-chain");
     }
 
     @Test
@@ -263,7 +291,8 @@ class ProjectServiceImplTest {
         req.setDescription("Parque solar de prueba en Mendoza.");
         req.setEnergyType(EnergyType.SOLAR);
         req.setTotalTokens(new BigDecimal("10000"));
-        req.setTokenPrice(new BigDecimal("10.00"));
+        req.setEarlyBirdPrice(new BigDecimal("8.0000"));
+        req.setStandardPrice(new BigDecimal("10.0000"));
         return req;
     }
 }

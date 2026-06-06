@@ -1,8 +1,10 @@
 package com.plataforma.projects.dto;
 
 import com.plataforma.projects.model.EnergyType;
+import com.plataforma.projects.model.OnChainStatus;
 import com.plataforma.projects.model.Project;
 import com.plataforma.projects.model.ProjectState;
+import com.plataforma.projects.model.RoundState;
 import lombok.Builder;
 import lombok.Data;
 
@@ -25,22 +27,35 @@ public class ProjectResponse {
     private BigDecimal longitude;
     private BigDecimal installedCapacityMW;
     private BigDecimal totalTokens;
-    private BigDecimal tokenPrice;
+
+    /** Precio etapa FUNDING. */
+    private BigDecimal earlyBirdPrice;
+    /** Precio etapa ACTIVE. */
+    private BigDecimal standardPrice;
+    /** Precio vigente según el estado actual ({@link Project#currentPrice()}). */
+    private BigDecimal currentPrice;
+
     private BigDecimal minimumInvestment;
     private BigDecimal softCap;
     private BigDecimal hardCap;
-    private LocalDate softCapDeadline;
+    /** Apertura esperada del parque (también deadline del soft cap on-chain). */
     private LocalDate expectedOpenDate;
     private BigDecimal raisedAmount;
     private BigDecimal expectedAnnualYield;
     private BigDecimal expectedAnnualProductionMWh;
-    private LocalDate startDate;
-    private LocalDate endDate;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private Long approvedBy;
     private LocalDateTime approvedAt;
     private String rejectionReason;
+
+    // ── On-chain ──────────────────────────────────────────────────────────────
+    private Long registryProjectId;
+    private String offeringContractAddress;
+    private String deployTxHash;
+    private Long deployBlockNumber;
+    private OnChainStatus onChainStatus;
+    private RoundState roundState;
 
     public static ProjectResponse from(Project p) {
         return ProjectResponse.builder()
@@ -56,22 +71,27 @@ public class ProjectResponse {
                 .longitude(p.getLongitude())
                 .installedCapacityMW(p.getInstalledCapacityMW())
                 .totalTokens(p.getTotalTokens())
-                .tokenPrice(p.getTokenPrice())
+                .earlyBirdPrice(p.getEarlyBirdPrice())
+                .standardPrice(p.getStandardPrice())
+                .currentPrice(p.currentPrice())
                 .minimumInvestment(p.getMinimumInvestment())
                 .softCap(p.getSoftCap())
                 .hardCap(p.getHardCap())
-                .softCapDeadline(p.getSoftCapDeadline())
                 .expectedOpenDate(p.getExpectedOpenDate())
                 .raisedAmount(p.getRaisedAmount())
                 .expectedAnnualYield(p.getExpectedAnnualYield())
                 .expectedAnnualProductionMWh(p.getExpectedAnnualProductionMWh())
-                .startDate(p.getStartDate())
-                .endDate(p.getEndDate())
                 .createdAt(p.getCreatedAt())
                 .updatedAt(p.getUpdatedAt())
                 .approvedBy(p.getApprovedBy())
                 .approvedAt(p.getApprovedAt())
                 .rejectionReason(p.getRejectionReason())
+                .registryProjectId(p.getRegistryProjectId())
+                .offeringContractAddress(p.getOfferingContractAddress())
+                .deployTxHash(p.getDeployTxHash())
+                .deployBlockNumber(p.getDeployBlockNumber())
+                .onChainStatus(p.getOnChainStatus())
+                .roundState(p.getRoundState())
                 .build();
     }
 }

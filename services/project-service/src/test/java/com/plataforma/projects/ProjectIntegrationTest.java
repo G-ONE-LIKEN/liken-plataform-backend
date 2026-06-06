@@ -88,7 +88,8 @@ class ProjectIntegrationTest {
         req.setEnergyType(EnergyType.SOLAR);
         req.setProvince("Córdoba");
         req.setTotalTokens(new BigDecimal("50000"));
-        req.setTokenPrice(new BigDecimal("12.50"));
+        req.setEarlyBirdPrice(new BigDecimal("10.0000"));
+        req.setStandardPrice(new BigDecimal("12.5000"));
         req.setMinimumInvestment(new BigDecimal("100.00"));
         req.setExpectedAnnualYield(new BigDecimal("9.50"));
         return req;
