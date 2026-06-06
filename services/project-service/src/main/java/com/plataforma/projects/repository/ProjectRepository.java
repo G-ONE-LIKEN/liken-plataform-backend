@@ -28,4 +28,10 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
     Page<Project> findByActiveTrueAndOwnerId(Long ownerId, Pageable pageable);
 
     List<Project> findByActiveTrueAndStateAndInstalledCapacityMWIsNotNull(ProjectState state);
+
+    Optional<Project> findByActiveTrueAndOfferingContractAddressIgnoreCase(String offeringContractAddress);
+
+    Optional<Project> findByActiveTrueAndRegistryProjectId(Long registryProjectId);
+
+    List<Project> findByActiveTrueAndOfferingContractAddressIsNotNull();
 }

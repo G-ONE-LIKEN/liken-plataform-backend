@@ -3,13 +3,15 @@ package com.plataforma.projects.service;
 import com.plataforma.projects.dto.ActiveProjectOracleDto;
 import com.plataforma.projects.dto.ProjectRequest;
 import com.plataforma.projects.dto.ProjectResponse;
+import com.plataforma.projects.dto.internal.OfferingContractRefResponse;
+import com.plataforma.projects.dto.internal.ProjectPublicationFailureRequest;
+import com.plataforma.projects.dto.internal.ProjectPublicationSuccessRequest;
 import com.plataforma.projects.model.EnergyType;
 import com.plataforma.projects.model.ProjectState;
-
-import java.util.List;
-
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+
+import java.util.List;
 
 public interface ProjectService {
     Page<ProjectResponse> listProjects(ProjectState state, EnergyType energyType, Pageable pageable);
@@ -33,4 +35,10 @@ public interface ProjectService {
     ProjectResponse rejectProject(Long id, Long adminId, String reason);
 
     List<ActiveProjectOracleDto> listActiveProjectsForOracle();
+
+    void markPublicationSucceeded(ProjectPublicationSuccessRequest request);
+
+    void markPublicationFailed(ProjectPublicationFailureRequest request);
+
+    List<OfferingContractRefResponse> listOfferingContracts();
 }

@@ -43,7 +43,7 @@ public class WalletMovement {
      * y descartar duplicados (at-least-once delivery — ver DD010).
      * NULL para movimientos creados por endpoints HTTP (deposit/withdraw).
      */
-    @Column(name = "external_event_id", length = 64, unique = true)
+    @Column(name = "external_event_id", length = 128, unique = true)
     private String externalEventId;
 
     @Column(name = "created_at", nullable = false)

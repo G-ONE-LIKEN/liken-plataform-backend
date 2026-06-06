@@ -49,7 +49,8 @@ class UserHoldingServiceImplTest {
                 .state(ProjectState.OPEN)
                 .energyType(EnergyType.SOLAR)
                 .totalTokens(new BigDecimal("10000"))
-                .tokenPrice(new BigDecimal("10.00"))
+                .earlyBirdPrice(new BigDecimal("8.0000"))
+                .standardPrice(new BigDecimal("10.0000"))
                 .active(true)
                 .build();
     }

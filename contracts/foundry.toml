@@ -1,0 +1,25 @@
+[profile.default]
+src           = "src"
+out           = "out"
+libs          = ["lib"]
+test          = "test"
+script        = "script"
+solc          = "0.8.24"
+no_match_path = "test/legacy/**"
+via_ir        = true
+
+# Fuzz config
+[fuzz]
+runs = 500
+
+# Invariant
+[invariant]
+runs   = 256
+depth  = 15
+
+#[profile.default.coverage] (esto no existe como tal, buscar equivalente)
+#exclude = [
+#    "script/**",
+#    "test/**",
+#    "src/legacy/**"
+#]

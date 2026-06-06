@@ -40,11 +40,11 @@ public class DataSeeder implements CommandLineRunner {
                 .longitude(new BigDecimal("-69.1566"))
                 .installedCapacityMW(new BigDecimal("5.0"))
                 .totalTokens(new BigDecimal("50000"))
-                .tokenPrice(new BigDecimal("10.00"))
+                .earlyBirdPrice(new BigDecimal("8.0000"))
+                .standardPrice(new BigDecimal("10.0000"))
                 .minimumInvestment(new BigDecimal("100.00"))
                 .expectedAnnualYield(new BigDecimal("8.50"))
-                .startDate(LocalDate.of(2026, 1, 1))
-                .endDate(LocalDate.of(2036, 1, 1))
+                .expectedOpenDate(LocalDate.of(2026, 6, 1))
                 .active(true)
                 .build());
 
@@ -60,11 +60,11 @@ public class DataSeeder implements CommandLineRunner {
                 .longitude(new BigDecimal("-69.2168"))
                 .installedCapacityMW(new BigDecimal("12.0"))
                 .totalTokens(new BigDecimal("120000"))
-                .tokenPrice(new BigDecimal("8.50"))
+                .earlyBirdPrice(new BigDecimal("8.5000"))
+                .standardPrice(new BigDecimal("12.0000"))
                 .minimumInvestment(new BigDecimal("85.00"))
                 .expectedAnnualYield(new BigDecimal("10.20"))
-                .startDate(LocalDate.of(2026, 6, 1))
-                .endDate(LocalDate.of(2041, 6, 1))
+                .expectedOpenDate(LocalDate.of(2026, 12, 1))
                 .active(true)
                 .build());
 
@@ -80,11 +80,11 @@ public class DataSeeder implements CommandLineRunner {
                 .longitude(new BigDecimal("-68.0591"))
                 .installedCapacityMW(new BigDecimal("2.5"))
                 .totalTokens(new BigDecimal("25000"))
-                .tokenPrice(new BigDecimal("12.00"))
+                .earlyBirdPrice(new BigDecimal("10.0000"))
+                .standardPrice(new BigDecimal("12.0000"))
                 .minimumInvestment(new BigDecimal("120.00"))
                 .expectedAnnualYield(new BigDecimal("7.80"))
-                .startDate(LocalDate.of(2027, 1, 1))
-                .endDate(LocalDate.of(2047, 1, 1))
+                .expectedOpenDate(LocalDate.of(2027, 3, 1))
                 .active(true)
                 .build());
 

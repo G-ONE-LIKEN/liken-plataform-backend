@@ -94,7 +94,9 @@ class ProjectControllerTest {
         return ProjectResponse.builder()
                 .id(1L).name("Solar Test").ownerId(1L)
                 .state(ProjectState.DRAFT).energyType(EnergyType.SOLAR)
-                .totalTokens(new BigDecimal("10000")).tokenPrice(new BigDecimal("10.00"))
+                .totalTokens(new BigDecimal("10000"))
+                .earlyBirdPrice(new BigDecimal("8.0000"))
+                .standardPrice(new BigDecimal("10.0000"))
                 .build();
     }
 
@@ -177,7 +179,8 @@ class ProjectControllerTest {
                                   "description": "Parque solar de prueba.",
                                   "energyType": "INVALID",
                                   "totalTokens": 10000,
-                                  "tokenPrice": 10.00
+                                  "earlyBirdPrice": 8.00,
+                                  "standardPrice": 10.00
                                 }
                                 """))
                 .andExpect(status().isBadRequest())
@@ -243,7 +246,8 @@ class ProjectControllerTest {
         req.setDescription("Parque solar de prueba.");
         req.setEnergyType(EnergyType.SOLAR);
         req.setTotalTokens(new BigDecimal("10000"));
-        req.setTokenPrice(new BigDecimal("10.00"));
+        req.setEarlyBirdPrice(new BigDecimal("8.0000"));
+        req.setStandardPrice(new BigDecimal("10.0000"));
         return req;
     }
 }
