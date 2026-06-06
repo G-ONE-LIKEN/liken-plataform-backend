@@ -136,6 +136,7 @@ jobs:
           }
 
           current_frontend = os.environ.get("CURRENT_FRONTEND_IMAGE", "").strip()
+          image_tag = os.environ["IMAGE_TAG"]
           frontend_name = ""
           frontend_tag = ""
 
@@ -159,7 +160,7 @@ jobs:
 
               if current_image in backend and stripped.startswith("newTag:"):
                   indent = line[: len(line) - len(line.lstrip())]
-                  rendered.append(f"{indent}newTag: ${{{{ env.IMAGE_TAG }}}}")
+                  rendered.append(f"{indent}newTag: {image_tag}")
                   continue
 
               if current_image == "frontend" and frontend_name and stripped.startswith("newName:"):
