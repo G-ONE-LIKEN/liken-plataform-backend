@@ -6,6 +6,7 @@ import com.plataforma.shared.exception.WalletNotFoundException;
 import com.plataforma.wallet.model.MovementType;
 import com.plataforma.wallet.model.Wallet;
 import com.plataforma.wallet.model.WalletMovement;
+import com.plataforma.wallet.repository.PendingWalletMovementRepository;
 import com.plataforma.wallet.repository.WalletMovementRepository;
 import com.plataforma.wallet.repository.WalletRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -29,7 +30,9 @@ class WalletServiceTest {
 
     @Mock private WalletRepository walletRepository;
     @Mock private WalletMovementRepository movementRepository;
+    @Mock private PendingWalletMovementRepository pendingRepository;
     @Mock private WalletEventPublisher eventPublisher;
+    @Mock private UserContextClient userContextClient;
 
     @InjectMocks private WalletService walletService;
 
@@ -37,6 +40,7 @@ class WalletServiceTest {
 
     @BeforeEach
     void setUp() {
+        lenient().when(userContextClient.fetch(99L)).thenReturn(null);
         wallet = Wallet.builder()
                 .id(1L)
                 .userId(99L)

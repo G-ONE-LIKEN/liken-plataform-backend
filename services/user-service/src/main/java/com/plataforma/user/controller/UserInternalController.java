@@ -81,6 +81,23 @@ public class UserInternalController {
         return ResponseEntity.ok(toDto(user));
     }
 
+    /**
+     * Lookup wallet→user usado por el Blockchain Service para enriquecer eventos
+     * on-chain con el {@code userId} resuelto antes de publicar a Kafka.
+     *
+     * <p>Devuelve {@code {"userId": <Long>}} si la wallet está vinculada, o 404
+     * si no. Insensible al casing (la wallet se guarda en EIP-55, normalizamos
+     * para la comparación).
+     */
+    @GetMapping("/by-wallet/{address}")
+    public ResponseEntity<java.util.Map<String, Long>> findByWallet(@PathVariable String address) {
+        return userRepository.findByWalletAddress(address)
+                .or(() -> userRepository.findByWalletAddress(address.toLowerCase()))
+                .map(u -> ResponseEntity.ok(java.util.Map.of("userId", u.getId())))
+                .orElseThrow(() -> new UserNotFoundException(
+                        "Wallet no vinculada a ningún usuario: " + address));
+    }
+
     @GetMapping("/{id}/context")
     public ResponseEntity<UserContextDTO> getContext(@PathVariable Long id) {
         User user = userService.getUserById(id)
@@ -114,6 +131,7 @@ public class UserInternalController {
                 .tier(user.getTier())
                 .kycStatus(user.getKycStatus())
                 .developerStatus(user.getDeveloperStatus())
+                .walletAddress(user.getWalletAddress())
                 .build());
     }
 

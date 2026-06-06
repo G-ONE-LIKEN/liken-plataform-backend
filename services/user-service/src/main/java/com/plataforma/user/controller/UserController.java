@@ -10,9 +10,11 @@ import com.plataforma.user.dto.UpdateUserRequest;
 import com.plataforma.user.dto.ProfileRequest;
 import com.plataforma.user.dto.UserContextDTO;
 import com.plataforma.user.dto.UserRequest;
+import com.plataforma.user.dto.WalletLinkRequest;
 import com.plataforma.user.model.DeveloperStatus;
 import com.plataforma.user.model.User;
 import com.plataforma.user.service.UserService;
+import com.plataforma.user.service.WalletLinkingService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -35,6 +37,7 @@ public class UserController {
 
     private final UserService userService;
     private final AccessControlService accessControlService;
+    private final WalletLinkingService walletLinkingService;
 
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<UserContextDTO>> getMe(Authentication authentication) {
@@ -59,6 +62,35 @@ public class UserController {
         Long userId = (Long) authentication.getPrincipal();
         User updated = userService.completeProfile(userId, request);
         return ResponseEntity.ok(ApiResponse.success("Perfil actualizado", toContextDto(updated)));
+    }
+
+    // ── Vínculo wallet on-chain (custodia híbrida) ─────────────────────────
+
+    /**
+     * Devuelve un nonce + el mensaje exacto que el usuario debe firmar con MetaMask.
+     * El nonce vive 5 min. Si vence, hay que pedir otro.
+     */
+    @PostMapping("/me/wallet/nonce")
+    public ResponseEntity<ApiResponse<Map<String, String>>> requestWalletNonce(Authentication authentication) {
+        Long userId = (Long) authentication.getPrincipal();
+        String nonce = walletLinkingService.generateNonce(userId);
+        String message = walletLinkingService.buildMessage(nonce);
+        return ResponseEntity.ok(ApiResponse.success(
+                "Nonce generado. Firmá el mensaje con tu wallet.",
+                Map.of("nonce", nonce, "message", message)));
+    }
+
+    /**
+     * Verifica la firma con ecrecover y persiste la wallet vinculada al usuario.
+     */
+    @PostMapping("/me/wallet")
+    public ResponseEntity<ApiResponse<UserContextDTO>> linkWallet(
+            Authentication authentication,
+            @RequestBody WalletLinkRequest request) {
+        Long userId = (Long) authentication.getPrincipal();
+        User updated = walletLinkingService.linkWallet(
+                userId, request.getWalletAddress(), request.getSignature());
+        return ResponseEntity.ok(ApiResponse.success("Wallet vinculada", toContextDto(updated)));
     }
 
     @PostMapping
@@ -198,6 +230,7 @@ public class UserController {
                 .tier(user.getTier())
                 .kycStatus(user.getKycStatus())
                 .developerStatus(user.getDeveloperStatus())
+                .walletAddress(user.getWalletAddress())
                 .build();
     }
 }

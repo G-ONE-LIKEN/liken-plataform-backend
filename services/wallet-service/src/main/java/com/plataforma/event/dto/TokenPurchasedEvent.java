@@ -1,28 +1,48 @@
 package com.plataforma.event.dto;
 
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 
 /**
- * Publicado por invest-dividend-service en el tópico investment.token_purchased.
- * wallet-service lo consume para debitar el costo de la compra.
+ * Publicado por el Blockchain Service en {@code investment.token_purchased} cuando
+ * indexa el evento on-chain {@code OfferingContract.TokensPurchased(buyer, usdcAmount, lknAmount)}.
  *
- * Campos canónicos (ver DD010): eventId, occurredAt, version.
+ * <p>El inversor pagó USDC y recibió LKN en su wallet (todo on-chain). El
+ * wallet-service registra el reflejo contable como {@link com.plataforma.wallet.model.MovementType#TOKEN_PURCHASE}.
+ *
+ * <h3>Resolución walletAddress → userId</h3>
+ * El Blockchain Service consulta {@code user-service /internal/users/by-wallet/{address}}
+ * y deja el {@code userId} resuelto. Si la wallet no estaba vinculada al momento del
+ * evento, {@code userId} es null y el consumer descarta el evento.
  */
 @Getter
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class TokenPurchasedEvent {
-    private String eventId;       // UUID v4 — base de la idempotencia (DD010)
-    private String occurredAt;    // ISO 8601 UTC — cuándo ocurrió el hecho
-    private int version;          // versión del schema, empieza en 1
+    /** UUID v4 — idempotencia. */
+    private String eventId;
+    /** ISO 8601 UTC — timestamp del bloque on-chain. */
+    private String occurredAt;
+    /** Versión del schema. */
+    private int version;
 
+    /** Dirección on-chain del comprador (EIP-55). */
+    private String walletAddress;
+    /** userId resuelto del walletAddress por el puente. Puede ser null. */
     private Long userId;
+    /** Id local del proyecto. */
     private Long projectId;
-    private Integer tokenCount;
-    private BigDecimal totalPrice;
-    private String transactionId;
+    /** LKN comprados (escala 8 — convertido desde 18 dec on-chain). */
+    private BigDecimal lknAmount;
+    /** USDC pagado (escala 6 — convertido desde 6 dec on-chain). */
+    private BigDecimal usdcAmount;
+    /** Hash de la tx on-chain. */
+    private String txHash;
+    /** Número de bloque on-chain. */
+    private Long blockNumber;
 }

@@ -11,6 +11,7 @@ app:
     usuarios-url: ${USUARIOS_URL:http://localhost:8080}
     proyectos-url: ${PROYECTOS_URL:http://localhost:8082}
     wallet-url:   ${WALLET_URL:http://localhost:8084}
+    invest-url:   ${INVEST_URL:http://localhost:8083}
     notification-url: ${NOTIFICATION_URL:http://localhost:8087}
   user-context:
     ttl-seconds: 30
@@ -115,6 +116,29 @@ spring:
               args:
                 redis-rate-limiter.replenishRate: 30
                 redis-rate-limiter.burstCapacity: 60
+                key-resolver: "#{@userKeyResolver}"
+
+        # ── invest-dividend-service (8083) ────────────────────────────────────
+        - id: investments
+          uri: ${app.services.invest-url}
+          predicates:
+            - Path=/api/investments/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 20
+                redis-rate-limiter.burstCapacity: 40
+                key-resolver: "#{@userKeyResolver}"
+
+        - id: dividends
+          uri: ${app.services.invest-url}
+          predicates:
+            - Path=/api/dividends/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 20
+                redis-rate-limiter.burstCapacity: 40
                 key-resolver: "#{@userKeyResolver}"
 
         # ── notification-service (8087) — SSE: sin rate limiter ──────────────

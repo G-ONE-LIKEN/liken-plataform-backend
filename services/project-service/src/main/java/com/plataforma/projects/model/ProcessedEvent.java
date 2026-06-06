@@ -18,7 +18,7 @@ public class ProcessedEvent {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "event_id", length = 64, nullable = false, unique = true)
+    @Column(name = "event_id", length = 128, nullable = false, unique = true)
     private String eventId;
 
     @Builder.Default

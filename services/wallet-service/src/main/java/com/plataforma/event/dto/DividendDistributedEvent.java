@@ -7,18 +7,24 @@ import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 
 /**
- * Publicado por invest-dividend-service en el tópico dividends.distributed.
- * wallet-service lo consume para acreditar el dividendo al inversor.
+ * @deprecated Reemplazado por {@link DividendsClaimedEvent} bajo el modelo PULL
+ * de dividendos on-chain (DividendDistributor). El payload viejo asumía un push
+ * desde {@code invest-dividend-service} (la plataforma distribuía a cada usuario);
+ * en la integración Web3 el holder retira individualmente con MetaMask y el
+ * Blockchain Service publica el evento contable.
  *
- * Campos canónicos (ver DD010): eventId, occurredAt, version.
+ * <p>Se mantiene la clase para que código viejo que la referencie (legacy event
+ * stub no usado por ningún consumer activo) siga compilando. NO la consumen los
+ * consumers actuales — ver {@code DividendsClaimedConsumer}.
  */
+@Deprecated(forRemoval = true)
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor
 public class DividendDistributedEvent {
-    private String eventId;       // UUID v4 — base de la idempotencia (DD010)
-    private String occurredAt;    // ISO 8601 UTC
-    private int version;          // versión del schema
+    private String eventId;
+    private String occurredAt;
+    private int version;
 
     private Long userId;
     private Long projectId;

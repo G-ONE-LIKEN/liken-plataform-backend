@@ -1,0 +1,73 @@
+spring:
+  application:
+    name: blockchain-service
+  output:
+    ansi:
+      enabled: ALWAYS
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/blockchain_db}
+    username: ${DB_USER:postgres}
+    password: ${DB_PASSWORD:postgres}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+    open-in-view: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:29092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+      properties:
+        spring.json.add.type.headers: false
+
+server:
+  port: ${SERVER_PORT:8085}
+
+# ── Configuración Web3 ──────────────────────────────────────────────────────
+web3:
+  # JSON-RPC HTTP endpoint. En local con Anvil: http://anvil:8545 (dentro de docker)
+  # o http://127.0.0.1:8545 (desde el host). En Sepolia: el URL de tu proveedor.
+  rpc-url: ${WEB3_RPC_URL:http://127.0.0.1:8545}
+  chain-id: ${WEB3_CHAIN_ID:31337}
+  # Polling del indexer: cada cuántos segundos escanear bloques nuevos.
+  poll-interval-seconds: ${WEB3_POLL_SECONDS:6}
+  # Tamaño máximo del rango por petición eth_getLogs. Sepolia public RPCs limitan
+  # alrededor de 1000-5000; Anvil sin límite. Conservador por default.
+  max-block-range: ${WEB3_MAX_BLOCK_RANGE:500}
+  # Confirmaciones requeridas antes de considerar un evento "firme".
+  confirmations: ${WEB3_CONFIRMATIONS:1}
+
+# ── Addresses on-chain de los contratos globales ────────────────────────────
+contracts:
+  linken-token: ${LKN_ADDRESS:0x0000000000000000000000000000000000000000}
+  registry: ${REGISTRY_ADDRESS:0x0000000000000000000000000000000000000000}
+  distributor: ${DISTRIBUTOR_ADDRESS:0x0000000000000000000000000000000000000000}
+  usdc: ${USDC_ADDRESS:0x0000000000000000000000000000000000000000}
+
+# ── Endpoints de servicios internos ─────────────────────────────────────────
+services:
+  user-service-url: ${USER_SERVICE_URL:http://user-service:8080}
+  project-service-url: ${PROJECT_SERVICE_URL:http://project-service:8082}
+
+publication:
+  contracts-workspace: ${PUBLICATION_CONTRACTS_WORKSPACE:/contracts}
+  forge-command: ${FORGE_COMMAND:forge}
+  script-entry: ${PUBLICATION_SCRIPT_ENTRY:script/DeployProjectOffering.s.sol:DeployProjectOffering}
+  signer-private-key: ${PUBLICATION_SIGNER_PRIVATE_KEY:}
+  platform-admin: ${PLATFORM_ADMIN:0x0000000000000000000000000000000000000000}
+  emisor: ${EMISOR_ADDRESS:0x0000000000000000000000000000000000000000}
+  treasury: ${TREASURY_ADDRESS:0x0000000000000000000000000000000000000000}
+  deadline-zone-id: ${PUBLICATION_DEADLINE_ZONE_ID:America/Argentina/Buenos_Aires}
+
+logging:
+  level:
+    org.web3j: INFO
+    com.plataforma.blockchain: DEBUG

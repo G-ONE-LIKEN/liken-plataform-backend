@@ -19,6 +19,9 @@ public class Wallet extends Auditable {
     @Column(name = "user_id", nullable = false, unique = true)
     private Long userId;
 
+    @Column(name = "wallet_address", length = 42, unique = true)
+    private String walletAddress;
+
     @Column(nullable = false, precision = 19, scale = 4)
     @Builder.Default
     private BigDecimal balance = BigDecimal.ZERO;

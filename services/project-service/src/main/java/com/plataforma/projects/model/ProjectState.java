@@ -1,16 +1,68 @@
 package com.plataforma.projects.model;
 
+/**
+ * Estado del ciclo de vida del proyecto en el backend.
+ *
+ * <p>Es ortogonal al {@link RoundState}, que modela el estado on-chain de la
+ * ronda primaria. ProjectState habla del proyecto como entidad de negocio;
+ * RoundState habla del contrato {@code OfferingContract} que vende los LKN.
+ *
+ * <h3>Mapeo con la chain (ProjectRegistry.Stage) — Fase 6</h3>
+ * <pre>
+ *   PENDING_APPROVAL │ ─ pre-chain — admin todavía no aprobó la propuesta
+ *   DRAFT            │ ─ pre-chain — aprobado pero oculto al inversor
+ *   ─────────────────┴────────────────────────────────────────────────────
+ *   PRE_OPEN         ↔ Registry FUNDING (ronda abierta, precio earlyBird)
+ *   OPEN             ↔ Registry ACTIVE  (parque operativo, precio standard, dividendos)
+ *   CLOSED           ↔ Registry PAUSED  (proyecto dado de baja por admin/owner)
+ *   CANCELLED                            (ronda falló o admin canceló pre-PRE_OPEN)
+ * </pre>
+ *
+ * <h3>Quién dispara cada transición</h3>
+ * <pre>
+ *   PENDING_APPROVAL → DRAFT          admin aprueba (endpoint manual)
+ *   DRAFT            → PRE_OPEN       admin/owner publica (deploya OfferingContract)
+ *   PRE_OPEN         → OPEN           automática on-chain: RoundFinalized
+ *                    → CANCELLED      automática on-chain: RoundFailed
+ *   OPEN             → CLOSED         admin/owner da de baja (endpoint manual)
+ *   * (no-final)     → CANCELLED      manual; desde OPEN solo admin
+ * </pre>
+ */
 public enum ProjectState {
     /** Proyecto creado por un developer, a la espera de aprobación de un administrador. */
     PENDING_APPROVAL,
-    /** Proyecto aprobado por admin, aún no publicado. */
+    /**
+     * Aprobado por admin, pero NO visible al inversor en el catálogo público.
+     * El owner aún no lo publicó / aún no se desplegó el OfferingContract.
+     */
     DRAFT,
-    /** En etapa de pre-apertura / captación de interés. */
+    /**
+     * Ronda primaria abierta: pre-compra a precio {@code earlyBirdPrice}.
+     *
+     * <p>On-chain: el {@code ProjectRegistry} tiene este proyecto en {@code FUNDING}
+     * y el {@code OfferingContract} acepta {@code buy()}. La transición de salida
+     * (a OPEN o a CANCELLED) la dispara el Blockchain Service a partir de
+     * {@code RoundFinalized} / {@code RoundFailed}.
+     */
     PRE_OPEN,
-    /** Abierto a inversiones. */
+    /**
+     * Parque operativo: la ronda primaria fue exitosa, el proyecto está generando
+     * y distribuyendo dividendos.
+     *
+     * <p>On-chain: {@code ProjectRegistry} en {@code ACTIVE}. El precio mostrado
+     * es {@code standardPrice}. Los holders pueden reclamar dividendos vía
+     * {@code DividendDistributor.claimDividends}.
+     */
     OPEN,
-    /** Proyecto finalizado normalmente. */
+    /**
+     * Proyecto dado de baja por decisión del owner/admin. Estado final.
+     * On-chain: el {@code ProjectRegistry} pasa a {@code PAUSED}.
+     */
     CLOSED,
-    /** Proyecto cancelado (desde cualquier estado no-final). Penalizaciones/reembolsos a definir. */
+    /**
+     * Proyecto cancelado: ronda falló (soft cap no alcanzado al vencer
+     * {@code expectedOpenDate}) o cancelación manual desde un estado pre-PRE_OPEN.
+     * Estado final.
+     */
     CANCELLED
 }
