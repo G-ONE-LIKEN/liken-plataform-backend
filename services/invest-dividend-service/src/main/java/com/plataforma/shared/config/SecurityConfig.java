@@ -7,9 +7,11 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 
 @Configuration
 @EnableWebSecurity
@@ -18,6 +20,11 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final GatewayHeaderAuthFilter gatewayHeaderAuthFilter;
+
+    @Bean
+    public WebSecurityCustomizer webSecurityCustomizer() {
+        return web -> web.ignoring().requestMatchers(AntPathRequestMatcher.antMatcher("/internal/**"));
+    }
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -32,6 +39,8 @@ public class SecurityConfig {
             .httpBasic(basic -> basic.disable())
             .formLogin(form -> form.disable())
             .authorizeHttpRequests(auth -> auth
+                // Los endpoints internos se consumen entre servicios dentro de la red privada.
+                .requestMatchers(AntPathRequestMatcher.antMatcher("/internal/**")).permitAll()
                 .requestMatchers("/actuator/**", "/health").permitAll()
                 .anyRequest().authenticated()
             )

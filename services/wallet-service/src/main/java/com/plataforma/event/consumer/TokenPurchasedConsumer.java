@@ -1,12 +1,14 @@
 package com.plataforma.event.consumer;
 
-import com.plataforma.event.dto.TokenPurchasedEvent;
 import com.plataforma.wallet.model.MovementType;
 import com.plataforma.wallet.service.WalletService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
+
+import java.math.BigDecimal;
+import java.util.Map;
 
 /**
  * Consume {@code investment.token_purchased} (publicado por el Blockchain Service al
@@ -28,30 +30,31 @@ public class TokenPurchasedConsumer {
     private final WalletService walletService;
 
     @KafkaListener(topics = "investment.token_purchased", groupId = "wallet-service")
-    public void consume(TokenPurchasedEvent event) {
-        if (event.getUserId() != null) {
-            recordNormal(event, event.getUserId());
+    public void consume(Map<String, Object> payload) {
+        TokenPurchasedView event = TokenPurchasedView.from(payload);
+        if (event.userId() != null) {
+            recordNormal(event, event.userId());
             return;
         }
-        if (event.getWalletAddress() != null && !event.getWalletAddress().isBlank()) {
+        if (event.walletAddress() != null && !event.walletAddress().isBlank()) {
             recordOrPending(event);
             return;
         }
         log.warn("Evento investment.token_purchased sin userId ni walletAddress. Descartando.");
     }
 
-    private void recordNormal(TokenPurchasedEvent event, Long userId) {
+    private void recordNormal(TokenPurchasedView event, Long userId) {
         try {
             log.info("Procesando compra on-chain: usuario={}, usdc={}, lkn={}, txHash={}",
-                    userId, event.getUsdcAmount(), event.getLknAmount(), event.getTxHash());
-            walletService.recordMovement(
+                    userId, event.usdcAmount(), event.lknAmount(), event.txHash());
+            walletService.recordExternalMovement(
                     userId,
                     MovementType.TOKEN_PURCHASE,
-                    event.getUsdcAmount(),
-                    "Compra de " + event.getLknAmount() + " LKN del proyecto "
-                            + event.getProjectId() + " (tx " + event.getTxHash() + ")",
-                    event.getTxHash(),
-                    event.getEventId()
+                    event.usdcAmount(),
+                    "Compra de " + event.lknAmount() + " LKN del proyecto "
+                            + event.projectId() + " (tx " + event.txHash() + ")",
+                    event.txHash(),
+                    event.eventId()
             );
         } catch (Exception e) {
             log.error("Error procesando investment.token_purchased para usuario {}: {}",
@@ -59,22 +62,61 @@ public class TokenPurchasedConsumer {
         }
     }
 
-    private void recordOrPending(TokenPurchasedEvent event) {
-        var existing = walletService.findByWalletAddress(event.getWalletAddress());
+    private void recordOrPending(TokenPurchasedView event) {
+        var existing = walletService.findByWalletAddress(event.walletAddress());
         if (existing.isPresent()) {
             recordNormal(event, existing.get().getUserId());
         } else {
             log.warn("Compra on-chain sin usuario vinculado. Guardando como pending: wallet={} tx={}",
-                    event.getWalletAddress(), event.getTxHash());
+                    event.walletAddress(), event.txHash());
             walletService.recordPendingMovement(
-                    event.getWalletAddress(),
+                    event.walletAddress(),
                     MovementType.TOKEN_PURCHASE,
-                    event.getUsdcAmount(),
-                    "Compra de " + event.getLknAmount() + " LKN del proyecto "
-                            + event.getProjectId() + " (tx " + event.getTxHash() + ")",
-                    event.getTxHash(),
-                    event.getEventId()
+                    event.usdcAmount(),
+                    "Compra de " + event.lknAmount() + " LKN del proyecto "
+                            + event.projectId() + " (tx " + event.txHash() + ")",
+                    event.txHash(),
+                    event.eventId()
             );
         }
+    }
+
+    private record TokenPurchasedView(
+            String eventId,
+            Long userId,
+            String walletAddress,
+            Long projectId,
+            BigDecimal usdcAmount,
+            BigDecimal lknAmount,
+            String txHash
+    ) {
+        static TokenPurchasedView from(Map<String, Object> payload) {
+            return new TokenPurchasedView(
+                    str(payload.get("eventId")),
+                    toLong(payload.get("userId")),
+                    str(payload.get("walletAddress")),
+                    toLong(payload.get("projectId")),
+                    toBigDecimal(payload.get("usdcAmount")),
+                    toBigDecimal(payload.get("lknAmount")),
+                    str(payload.get("txHash"))
+            );
+        }
+    }
+
+    private static String str(Object value) {
+        return value == null ? null : value.toString();
+    }
+
+    private static Long toLong(Object value) {
+        if (value == null) return null;
+        if (value instanceof Number n) return n.longValue();
+        String s = value.toString();
+        return s.isBlank() ? null : Long.parseLong(s);
+    }
+
+    private static BigDecimal toBigDecimal(Object value) {
+        if (value == null) return BigDecimal.ZERO;
+        if (value instanceof Number n) return new BigDecimal(n.toString());
+        return new BigDecimal(value.toString());
     }
 }

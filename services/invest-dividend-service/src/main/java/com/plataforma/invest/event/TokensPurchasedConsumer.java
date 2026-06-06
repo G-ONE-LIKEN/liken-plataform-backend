@@ -1,6 +1,7 @@
 package com.plataforma.invest.event;
 
 import com.plataforma.invest.service.InvestmentService;
+import com.plataforma.invest.service.ProjectClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -29,6 +30,7 @@ import java.util.Map;
 public class TokensPurchasedConsumer {
 
     private final InvestmentService investmentService;
+    private final ProjectClient projectClient;
 
     @KafkaListener(topics = "investment.token_purchased", groupId = "invest-dividend-service")
     public void consume(Map<String, Object> payload) {
@@ -46,6 +48,10 @@ public class TokensPurchasedConsumer {
             // ProjectId desde el evento puede ser null si el Blockchain Service
             // todavía no resuelve offeringContractAddress → projectId. Si está
             // null, descartamos (re-procesable cuando se complete el mapeo).
+            if (projectId == null && offering != null && !offering.isBlank()) {
+                projectId = projectClient.resolveProjectIdByOffering(offering);
+            }
+
             if (projectId == null) {
                 log.warn("token_purchased sin projectId resuelto. offering={} txHash={}. " +
                         "Se descarta hasta que el puente resuelva la address.",

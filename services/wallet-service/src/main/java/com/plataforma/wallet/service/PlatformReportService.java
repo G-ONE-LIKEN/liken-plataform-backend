@@ -3,6 +3,7 @@ package com.plataforma.wallet.service;
 import com.plataforma.wallet.dto.PlatformReportResponse;
 import com.plataforma.wallet.dto.PlatformReportResponse.MonthlyPoint;
 import com.plataforma.wallet.model.MovementType;
+import com.plataforma.wallet.repository.PendingWalletMovementRepository;
 import com.plataforma.wallet.repository.WalletMovementRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -32,6 +33,8 @@ import java.util.TreeMap;
 public class PlatformReportService {
 
     private final WalletMovementRepository movementRepository;
+    private final PendingWalletMovementRepository pendingRepository;
+    private final PrimarySalesReportClient primarySalesReportClient;
 
     /** Comisión sobre inversión primaria. Default 2%. */
     @Value("${platform.primary-fee-rate:0.02}")
@@ -58,13 +61,13 @@ public class PlatformReportService {
             amountByType.put(t, BigDecimal.ZERO);
             countByType.put(t, 0L);
         }
-        for (Object[] row : movementRepository.sumAmountByTypeBetween(fromDt, toDt)) {
-            MovementType type = (MovementType) row[0];
-            amountByType.put(type, toBigDecimal(row[1]));
-            countByType.put(type, ((Number) row[2]).longValue());
-        }
+        mergeAmountRows(amountByType, countByType, movementRepository.sumAmountByTypeBetween(fromDt, toDt));
+        mergeAmountRows(amountByType, countByType, pendingRepository.sumAmountByTypeBetween(fromDt, toDt));
 
-        BigDecimal primaryVolume = amountByType.get(MovementType.TOKEN_PURCHASE);
+        PrimarySalesReportClient.PrimarySalesReport primarySalesReport = primarySalesReportClient.fetch(from, to);
+        BigDecimal primaryVolume = primarySalesReport != null && primarySalesReport.getPrimaryVolume() != null
+                ? primarySalesReport.getPrimaryVolume()
+                : amountByType.get(MovementType.TOKEN_PURCHASE);
         BigDecimal p2pVolume     = amountByType.get(MovementType.P2P_PURCHASE);
 
         BigDecimal primaryFees = primaryVolume.multiply(primaryFeeRate).setScale(2, RoundingMode.HALF_UP);
@@ -73,14 +76,8 @@ public class PlatformReportService {
 
         // 2) Serie temporal mensual
         Map<String, Map<MovementType, BigDecimal>> byMonth = new TreeMap<>();
-        for (Object[] row : movementRepository.monthlyAmountByType(fromDt, toDt)) {
-            int year   = ((Number) row[0]).intValue();
-            int month  = ((Number) row[1]).intValue();
-            MovementType type = (MovementType) row[2];
-            BigDecimal amt    = toBigDecimal(row[3]);
-            String period = String.format("%04d-%02d", year, month);
-            byMonth.computeIfAbsent(period, k -> new HashMap<>()).put(type, amt);
-        }
+        mergeMonthlyRows(byMonth, movementRepository.monthlyAmountByType(fromDt, toDt));
+        mergeMonthlyRows(byMonth, pendingRepository.monthlyAmountByType(fromDt, toDt));
 
         // Rellenar meses vacíos para que el gráfico no tenga huecos
         YearMonth cursor = YearMonth.from(from);
@@ -94,7 +91,7 @@ public class PlatformReportService {
         List<MonthlyPoint> monthly = byMonth.entrySet().stream()
                 .map(e -> {
                     Map<MovementType, BigDecimal> m = e.getValue();
-                    BigDecimal pv  = m.getOrDefault(MovementType.TOKEN_PURCHASE, BigDecimal.ZERO);
+                    BigDecimal pv  = primaryVolumeForPeriod(primarySalesReport, e.getKey(), m.getOrDefault(MovementType.TOKEN_PURCHASE, BigDecimal.ZERO));
                     BigDecimal p2v = m.getOrDefault(MovementType.P2P_PURCHASE,   BigDecimal.ZERO);
                     BigDecimal pf  = pv.multiply(primaryFeeRate).setScale(2, RoundingMode.HALF_UP);
                     BigDecimal p2f = p2v.multiply(p2pFeeRate).setScale(2, RoundingMode.HALF_UP);
@@ -118,7 +115,7 @@ public class PlatformReportService {
                 .p2pFees(p2pFees)
                 .totalRevenue(totalRevenue)
                 .primaryVolume(primaryVolume)
-                .primaryOperations(countByType.get(MovementType.TOKEN_PURCHASE))
+                .primaryOperations(primarySalesReport != null ? primarySalesReport.getPrimaryOperations() : countByType.get(MovementType.TOKEN_PURCHASE))
                 .p2pVolume(p2pVolume)
                 .p2pOperations(countByType.get(MovementType.P2P_PURCHASE))
                 .totalDeposits(amountByType.get(MovementType.DEPOSIT))
@@ -127,9 +124,46 @@ public class PlatformReportService {
                 .build();
     }
 
+    private static void mergeAmountRows(Map<MovementType, BigDecimal> amountByType,
+                                        Map<MovementType, Long> countByType,
+                                        List<Object[]> rows) {
+        for (Object[] row : rows) {
+            MovementType type = (MovementType) row[0];
+            amountByType.put(type, amountByType.get(type).add(toBigDecimal(row[1])));
+            countByType.put(type, countByType.get(type) + ((Number) row[2]).longValue());
+        }
+    }
+
+    private static void mergeMonthlyRows(Map<String, Map<MovementType, BigDecimal>> byMonth,
+                                         List<Object[]> rows) {
+        for (Object[] row : rows) {
+            int year   = ((Number) row[0]).intValue();
+            int month  = ((Number) row[1]).intValue();
+            MovementType type = (MovementType) row[2];
+            BigDecimal amt    = toBigDecimal(row[3]);
+            String period = String.format("%04d-%02d", year, month);
+            byMonth.computeIfAbsent(period, k -> new HashMap<>())
+                    .merge(type, amt, BigDecimal::add);
+        }
+    }
+
     private static BigDecimal toBigDecimal(Object value) {
         if (value == null) return BigDecimal.ZERO;
         if (value instanceof BigDecimal bd) return bd;
         return new BigDecimal(value.toString());
+    }
+
+    private static BigDecimal primaryVolumeForPeriod(PrimarySalesReportClient.PrimarySalesReport report,
+                                                     String period,
+                                                     BigDecimal fallback) {
+        if (report == null || report.getMonthly() == null) {
+            return fallback;
+        }
+        return report.getMonthly().stream()
+                .filter(point -> period.equals(point.getPeriod()))
+                .map(PrimarySalesReportClient.MonthlyPoint::getPrimaryVolume)
+                .filter(java.util.Objects::nonNull)
+                .findFirst()
+                .orElse(fallback);
     }
 }

@@ -40,7 +40,7 @@ public class PendingWalletMovement {
     @Column(name = "reference_id", length = 100)
     private String referenceId;
 
-    @Column(name = "external_event_id", length = 64, unique = true)
+    @Column(name = "external_event_id", length = 128, unique = true)
     private String externalEventId;
 
     @Column(name = "created_at", nullable = false)

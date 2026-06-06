@@ -8,6 +8,7 @@ import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -34,7 +35,7 @@ public class ProjectClient {
     }
 
     /**
-     * @return precio vigente del LKN en USD (escala 4 — tal cual lo devuelve el backend),
+     * @return snapshot del proyecto o {@code null} si falla la llamada.
      *         o {@code null} si el proyecto no existe / falla la llamada.
      */
     @SuppressWarnings("unchecked")
@@ -49,10 +50,32 @@ public class ProjectClient {
             Map<String, Object> data = (Map<String, Object>) body.getOrDefault("data", body);
             BigDecimal currentPrice = toBigDecimal(data.get("currentPrice"));
             String state = String.valueOf(data.get("state"));
+            String roundState = data.get("roundState") != null ? String.valueOf(data.get("roundState")) : null;
             String offering = (String) data.get("offeringContractAddress");
-            return new ProjectSnapshot(currentPrice, state, offering);
+            return new ProjectSnapshot(currentPrice, state, roundState, offering);
         } catch (Exception ex) {
             log.warn("project-service /api/projects/{} falló: {}", projectId, ex.getMessage());
+            return null;
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    public Long resolveProjectIdByOffering(String offeringContractAddress) {
+        if (offeringContractAddress == null || offeringContractAddress.isBlank()) {
+            return null;
+        }
+        try {
+            List<Map<String, Object>> body = restTemplate.getForObject(
+                    projectServiceUrl + "/internal/projects/offering-contracts",
+                    List.class);
+            if (body == null) return null;
+            return body.stream()
+                    .filter(ref -> offeringContractAddress.equalsIgnoreCase(String.valueOf(ref.get("offeringContractAddress"))))
+                    .map(ref -> toLong(ref.get("projectId")))
+                    .findFirst()
+                    .orElse(null);
+        } catch (Exception ex) {
+            log.warn("project-service /internal/projects/offering-contracts falló: {}", ex.getMessage());
             return null;
         }
     }
@@ -64,6 +87,13 @@ public class ProjectClient {
         return new BigDecimal(v.toString());
     }
 
-    public record ProjectSnapshot(BigDecimal currentPrice, String state, String offeringContractAddress) {
+    private static Long toLong(Object v) {
+        if (v == null) return null;
+        if (v instanceof Number n) return n.longValue();
+        String s = v.toString();
+        return s.isBlank() ? null : Long.parseLong(s);
+    }
+
+    public record ProjectSnapshot(BigDecimal currentPrice, String state, String roundState, String offeringContractAddress) {
     }
 }
