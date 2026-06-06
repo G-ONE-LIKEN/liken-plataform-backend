@@ -89,8 +89,8 @@ jobs:
 
       - uses: google-github-actions/get-gke-credentials@v2
         with:
-          cluster_name: ${{ secrets.GKE_CLUSTER_NAME }}
-          location: ${{ secrets.GKE_CLUSTER_ZONE }}
+          cluster_name: liken-gke
+          location: us-central1-a
           project_id: ${{ env.PROJECT_ID }}
 
       - name: Capture current frontend image
