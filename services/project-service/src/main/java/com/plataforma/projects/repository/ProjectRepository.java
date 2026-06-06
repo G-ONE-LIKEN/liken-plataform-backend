@@ -8,6 +8,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -17,11 +18,14 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
 
     Page<Project> findByActiveTrueAndState(ProjectState state, Pageable pageable);
 
-    Page<Project> findByActiveTrueAndStateNotAndEnergyType(ProjectState excludedState, EnergyType energyType, Pageable pageable);
+    Page<Project> findByActiveTrueAndStateNotAndEnergyType(ProjectState excludedState, EnergyType energyType,
+            Pageable pageable);
 
     Page<Project> findByActiveTrueAndStateAndEnergyType(ProjectState state, EnergyType energyType, Pageable pageable);
 
     Optional<Project> findByIdAndActiveTrue(Long id);
 
     Page<Project> findByActiveTrueAndOwnerId(Long ownerId, Pageable pageable);
+
+    List<Project> findByActiveTrueAndStateAndInstalledCapacityMWIsNotNull(ProjectState state);
 }

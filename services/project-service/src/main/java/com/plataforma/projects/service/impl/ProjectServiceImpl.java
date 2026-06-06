@@ -1,5 +1,6 @@
 package com.plataforma.projects.service.impl;
 
+import com.plataforma.projects.dto.ActiveProjectOracleDto;
 import com.plataforma.projects.dto.ProjectRequest;
 import com.plataforma.projects.dto.ProjectResponse;
 import com.plataforma.projects.event.ProjectEventPublisher;
@@ -18,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -35,7 +37,8 @@ public class ProjectServiceImpl implements ProjectService {
             page = projectRepository.findByActiveTrueAndState(state, pageable);
         } else if (energyType != null) {
             // Excluye proyectos pendientes de aprobación del listado público
-            page = projectRepository.findByActiveTrueAndStateNotAndEnergyType(ProjectState.PENDING_APPROVAL, energyType, pageable);
+            page = projectRepository.findByActiveTrueAndStateNotAndEnergyType(ProjectState.PENDING_APPROVAL, energyType,
+                    pageable);
         } else {
             page = projectRepository.findByActiveTrueAndStateNot(ProjectState.PENDING_APPROVAL, pageable);
         }
@@ -159,7 +162,8 @@ public class ProjectServiceImpl implements ProjectService {
         project.setDescription(request.getDescription());
         project.setEnergyType(request.getEnergyType());
         project.setProvince(request.getProvince());
-        if (request.getCountry() != null) project.setCountry(request.getCountry());
+        if (request.getCountry() != null)
+            project.setCountry(request.getCountry());
         project.setLatitude(request.getLatitude());
         project.setLongitude(request.getLongitude());
         project.setInstalledCapacityMW(request.getInstalledCapacityMW());
@@ -197,14 +201,14 @@ public class ProjectServiceImpl implements ProjectService {
         checkOwnership(project, requesterId, isAdmin);
 
         // Roles: admin | dev (owner) | investor
-        // Cancelación desde OPEN: solo admin puede hacerlo (ya hay inversores con tokens).
+        // Cancelación desde OPEN: solo admin puede hacerlo (ya hay inversores con
+        // tokens).
         // Cancelación desde DRAFT / PRE_OPEN: el dev owner también puede.
         if (newState == ProjectState.CANCELLED
                 && project.getState() == ProjectState.OPEN
                 && !isAdmin) {
             throw new UnauthorizedProjectAccessException(
-                "Solo un administrador puede cancelar un proyecto que ya está abierto a inversiones"
-            );
+                    "Solo un administrador puede cancelar un proyecto que ya está abierto a inversiones");
         }
 
         ProjectState oldState = project.getState();
@@ -225,5 +229,14 @@ public class ProjectServiceImpl implements ProjectService {
         if (!isAdmin && !project.getOwnerId().equals(requesterId)) {
             throw new UnauthorizedProjectAccessException();
         }
+    }
+
+    @Override
+    public List<ActiveProjectOracleDto> listActiveProjectsForOracle() {
+        return projectRepository
+                .findByActiveTrueAndStateAndInstalledCapacityMWIsNotNull(ProjectState.OPEN)
+                .stream()
+                .map(ActiveProjectOracleDto::from)
+                .toList();
     }
 }
