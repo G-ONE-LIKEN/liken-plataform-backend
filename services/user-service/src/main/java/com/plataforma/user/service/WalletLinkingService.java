@@ -1,6 +1,7 @@
 package com.plataforma.user.service;
 
 import com.plataforma.shared.exception.UserNotFoundException;
+import com.plataforma.user.event.producer.WalletLinkedEventProducer;
 import com.plataforma.user.model.User;
 import com.plataforma.user.repository.UserRepository;
 
@@ -52,6 +53,7 @@ public class WalletLinkingService {
     private static final String MESSAGE_PREFIX = "Linken wallet binding: ";
 
     private final UserRepository userRepository;
+    private final WalletLinkedEventProducer walletLinkedEventProducer;
     private final ConcurrentHashMap<Long, NonceEntry> nonces = new ConcurrentHashMap<>();
     private final SecureRandom random = new SecureRandom();
 
@@ -128,6 +130,9 @@ public class WalletLinkingService {
 
         nonces.remove(userId);
         log.info("Wallet vinculada: userId={} address={}", userId, checksum);
+
+        walletLinkedEventProducer.publish(userId, checksum);
+
         return saved;
     }
 

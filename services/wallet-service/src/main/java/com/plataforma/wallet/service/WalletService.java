@@ -4,8 +4,10 @@ import com.plataforma.event.WalletEventPublisher;
 import com.plataforma.shared.exception.InsufficientFundsException;
 import com.plataforma.shared.exception.WalletNotFoundException;
 import com.plataforma.wallet.model.MovementType;
+import com.plataforma.wallet.model.PendingWalletMovement;
 import com.plataforma.wallet.model.Wallet;
 import com.plataforma.wallet.model.WalletMovement;
+import com.plataforma.wallet.repository.PendingWalletMovementRepository;
 import com.plataforma.wallet.repository.WalletMovementRepository;
 import com.plataforma.wallet.repository.WalletRepository;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 @Slf4j
 @Service
@@ -24,7 +27,17 @@ public class WalletService {
 
     private final WalletRepository walletRepository;
     private final WalletMovementRepository movementRepository;
+    private final PendingWalletMovementRepository pendingRepository;
     private final WalletEventPublisher eventPublisher;
+    private final UserContextClient userContextClient;
+
+    /**
+     * Busca una wallet por su dirección on-chain.
+     */
+    @Transactional(readOnly = true)
+    public java.util.Optional<Wallet> findByWalletAddress(String walletAddress) {
+        return walletRepository.findByWalletAddress(walletAddress);
+    }
 
     /**
      * Devuelve la billetera del usuario, creándola si no existe (lazy creation).
@@ -32,13 +45,15 @@ public class WalletService {
      */
     @Transactional
     public Wallet getOrCreateWallet(Long userId) {
-        return walletRepository.findByUserId(userId)
+        Wallet wallet = walletRepository.findByUserId(userId)
                 .orElseGet(() -> {
                     log.info("Creando billetera para usuario {}", userId);
                     return walletRepository.save(Wallet.builder()
                             .userId(userId)
                             .build());
                 });
+        syncLinkedWallet(userId, wallet);
+        return wallet;
     }
 
     /**
@@ -171,14 +186,121 @@ public class WalletService {
 
     @Transactional(readOnly = true)
     public Page<WalletMovement> getMovements(Long userId, Pageable pageable) {
-        Wallet wallet = walletRepository.findByUserId(userId)
-                .orElseThrow(() -> new WalletNotFoundException(userId));
+        Wallet wallet = getOrCreateWallet(userId);
         return movementRepository.findByWalletOrderByCreatedAtDesc(wallet, pageable);
+    }
+
+    // ── Reconciliación de movements pendientes ─────────────────────────────
+
+    /**
+     * Guarda un movement como pendiente cuando no existe Wallet para el userId.
+     * Se usa desde los consumers Kafka cuando el evento tiene walletAddress
+     * pero no userId resuelto.
+     */
+    @Transactional
+    public void recordPendingMovement(String walletAddress, MovementType type,
+                                        BigDecimal amount, String description,
+                                        String referenceId, String eventId) {
+        if (eventId != null && pendingRepository.existsByExternalEventId(eventId)) {
+            log.info("Evento {} ya guardado como pending, ignorando", eventId);
+            return;
+        }
+        pendingRepository.save(PendingWalletMovement.builder()
+                .walletAddress(walletAddress)
+                .type(type)
+                .amount(amount)
+                .description(description)
+                .referenceId(referenceId)
+                .externalEventId(eventId)
+                .createdAt(LocalDateTime.now())
+                .build());
+        log.info("Movement pendiente guardado: wallet={} type={} amount={}",
+                walletAddress, type, amount);
+    }
+
+    /**
+     * Reconcilia todos los {@link PendingWalletMovement} de una walletAddress
+     * creando {@link WalletMovement} reales y actualizando el balance.
+     * Invocado automáticamente cuando el usuario vincula su wallet on-chain.
+     */
+    @Transactional
+    public void reconcilePendingMovements(Long userId, String walletAddress) {
+        walletRepository.findByWalletAddress(walletAddress)
+                .filter(existing -> !existing.getUserId().equals(userId))
+                .ifPresent(existing -> {
+                    throw new IllegalStateException("La wallet " + walletAddress + " ya está asociada al usuario " + existing.getUserId());
+                });
+
+        Wallet wallet = walletRepository.findByUserId(userId)
+                .orElseGet(() -> walletRepository.save(Wallet.builder()
+                        .userId(userId)
+                        .walletAddress(walletAddress)
+                        .build()));
+
+        if (wallet.getWalletAddress() == null || !walletAddress.equalsIgnoreCase(wallet.getWalletAddress())) {
+            wallet.setWalletAddress(walletAddress);
+            walletRepository.save(wallet);
+        }
+
+        var pending = pendingRepository.findByWalletAddress(walletAddress);
+        if (pending.isEmpty()) {
+            log.info("No hay movements pendientes para wallet={}", walletAddress);
+            return;
+        }
+
+        log.info("Reconciliando {} movements pendientes para userId={} wallet={}",
+                pending.size(), userId, walletAddress);
+
+        BigDecimal currentBalance = wallet.getBalance();
+        for (PendingWalletMovement p : pending) {
+            BigDecimal before = currentBalance;
+            currentBalance = applyMovementToBalance(currentBalance, p.getType(), p.getAmount());
+            movementRepository.save(WalletMovement.builder()
+                    .wallet(wallet)
+                    .type(p.getType())
+                    .amount(p.getAmount())
+                    .balanceBefore(before)
+                    .balanceAfter(currentBalance)
+                    .description(p.getDescription() + " (reconciliado)")
+                    .referenceId(p.getReferenceId())
+                    .externalEventId(p.getExternalEventId())
+                    .createdAt(LocalDateTime.now())
+                    .build());
+        }
+
+        wallet.setBalance(currentBalance);
+        walletRepository.save(wallet);
+        pendingRepository.deleteAll(pending);
+
+        log.info("Reconciliación completada: userId={} nuevoBalance={}", userId, currentBalance);
+    }
+
+    private BigDecimal applyMovementToBalance(BigDecimal balance, MovementType type, BigDecimal amount) {
+        return switch (type) {
+            case DIVIDEND, P2P_SALE, REFUND -> balance.add(amount);
+            case TOKEN_PURCHASE, P2P_PURCHASE -> balance.subtract(amount);
+            default -> throw new IllegalArgumentException("Tipo no soportado: " + type);
+        };
     }
 
     private void validatePositiveAmount(BigDecimal amount) {
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("El monto debe ser mayor a cero");
         }
+    }
+
+    private void syncLinkedWallet(Long userId, Wallet wallet) {
+        UserContextClient.UserContext context = userContextClient.fetch(userId);
+        String walletAddress = context != null ? context.walletAddress() : null;
+        if (walletAddress == null || walletAddress.isBlank()) {
+            return;
+        }
+
+        if (wallet.getWalletAddress() == null || !walletAddress.equalsIgnoreCase(wallet.getWalletAddress())) {
+            wallet.setWalletAddress(walletAddress);
+            walletRepository.save(wallet);
+        }
+
+        reconcilePendingMovements(userId, walletAddress);
     }
 }

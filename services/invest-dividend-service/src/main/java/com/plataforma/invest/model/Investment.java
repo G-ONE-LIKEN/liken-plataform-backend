@@ -17,7 +17,7 @@ import java.time.LocalDateTime;
  * </ul>
  */
 @Entity
-@Table(name = "investment", uniqueConstraints = @UniqueConstraint(columnNames = {"tx_hash", "user_id"}))
+@Table(name = "investment", uniqueConstraints = @UniqueConstraint(columnNames = {"tx_hash"}))
 @Getter
 @Setter
 @NoArgsConstructor
@@ -29,7 +29,7 @@ public class Investment {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "user_id", nullable = false)
+    @Column(name = "user_id")
     private Long userId;
 
     @Column(name = "wallet_address", nullable = false, length = 42)

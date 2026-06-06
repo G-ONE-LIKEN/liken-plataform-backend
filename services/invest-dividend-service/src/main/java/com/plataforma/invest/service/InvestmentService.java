@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * Lógica central de inversiones:
@@ -55,8 +56,7 @@ public class InvestmentService {
         }
         if (userId == null) {
             log.warn("recordPurchase: userId null para wallet={} txHash={}. " +
-                    "Se descarta hasta que se vincule la wallet.", walletAddress, txHash);
-            return;
+                    "Registrando compra por wallet para reconciliación posterior.", walletAddress, txHash);
         }
 
         // 1. Guardar la compra.
@@ -72,39 +72,44 @@ public class InvestmentService {
                 .createdAt(LocalDateTime.now())
                 .build());
 
-        // 2. Acumular total + recalcular tier (con lock pesimista).
-        UserInvestmentTotal total = totals.findByUserIdForUpdate(userId)
-                .orElseGet(() -> UserInvestmentTotal.builder()
-                        .userId(userId)
-                        .totalUsdcInvested(BigDecimal.ZERO)
-                        .currentTier("BRONZE")
-                        .updatedAt(LocalDateTime.now())
-                        .build());
+        // 2. Acumular total + recalcular tier (con lock pesimista) solo si hay usuario vinculado.
+        if (userId != null) {
+            UserInvestmentTotal total = totals.findByUserIdForUpdate(userId)
+                    .orElseGet(() -> UserInvestmentTotal.builder()
+                            .userId(userId)
+                            .totalUsdcInvested(BigDecimal.ZERO)
+                            .currentTier("BRONZE")
+                            .updatedAt(LocalDateTime.now())
+                            .build());
 
-        BigDecimal newTotal = total.getTotalUsdcInvested().add(usdcAmount);
-        String oldTier = total.getCurrentTier();
-        String newTier = tierCalculator.tierFor(newTotal);
+            BigDecimal newTotal = total.getTotalUsdcInvested().add(usdcAmount);
+            String oldTier = total.getCurrentTier();
+            String newTier = tierCalculator.tierFor(newTotal);
 
-        total.setTotalUsdcInvested(newTotal);
-        total.setCurrentTier(newTier);
-        total.setUpdatedAt(LocalDateTime.now());
-        totals.save(total);
+            total.setTotalUsdcInvested(newTotal);
+            total.setCurrentTier(newTier);
+            total.setUpdatedAt(LocalDateTime.now());
+            totals.save(total);
 
-        // 3. Marcar evento como procesado (idempotencia).
+            log.info("Compra registrada: userId={} projectId={} usdc={} lkn={} total={} tier={}",
+                    userId, projectId, usdcAmount, lknAmount, newTotal, newTier);
+
+            // 3. Publicar cambio de tier si cruzó umbral.
+            if (!oldTier.equals(newTier)) {
+                tierPublisher.publish(userId, oldTier, newTier);
+            }
+        } else {
+            log.info("Compra registrada (sin usuario vinculado): wallet={} projectId={} usdc={} lkn={}",
+                    walletAddress, projectId, usdcAmount, lknAmount);
+        }
+
+        // 4. Marcar evento como procesado (idempotencia).
         if (eventId != null) {
             processed.save(ProcessedEvent.builder()
                     .eventId(eventId)
                     .topic("investment.token_purchased")
                     .processedAt(LocalDateTime.now())
                     .build());
-        }
-
-        log.info("Compra registrada: userId={} projectId={} usdc={} lkn={} total={} tier={}",
-                userId, projectId, usdcAmount, lknAmount, newTotal, newTier);
-
-        // 4. Publicar cambio de tier si cruzó umbral.
-        if (!oldTier.equals(newTier)) {
-            tierPublisher.publish(userId, oldTier, newTier);
         }
     }
 
@@ -127,5 +132,40 @@ public class InvestmentService {
                         .currentTier("BRONZE")
                         .updatedAt(LocalDateTime.now())
                         .build());
+    }
+
+    @Transactional
+    public int reconcileWalletLinked(Long userId, String walletAddress) {
+        List<Investment> orphanInvestments = investments.findByUserIdIsNullAndWalletAddressIgnoreCase(walletAddress);
+        for (Investment investment : orphanInvestments) {
+            investment.setUserId(userId);
+        }
+        investments.saveAll(orphanInvestments);
+        recomputeUserTotal(userId);
+        return orphanInvestments.size();
+    }
+
+    @Transactional
+    public void recomputeUserTotal(Long userId) {
+        UserInvestmentTotal total = totals.findByUserIdForUpdate(userId)
+                .orElseGet(() -> UserInvestmentTotal.builder()
+                        .userId(userId)
+                        .totalUsdcInvested(BigDecimal.ZERO)
+                        .currentTier("BRONZE")
+                        .updatedAt(LocalDateTime.now())
+                        .build());
+
+        BigDecimal recomputedTotal = investments.sumUsdcAmountByUserId(userId);
+        String oldTier = total.getCurrentTier();
+        String newTier = tierCalculator.tierFor(recomputedTotal);
+
+        total.setTotalUsdcInvested(recomputedTotal);
+        total.setCurrentTier(newTier);
+        total.setUpdatedAt(LocalDateTime.now());
+        totals.save(total);
+
+        if (!oldTier.equals(newTier)) {
+            tierPublisher.publish(userId, oldTier, newTier);
+        }
     }
 }

@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Slf4j
 @Service
@@ -88,24 +89,40 @@ public class UserHoldingServiceImpl implements UserHoldingService {
         project.setTotalTokensSold(currentSold.add(lknAmount));
         projectRepository.save(project);
 
-        if (userId == null) {
-            log.warn("Compra registrada en proyecto sin holding de usuario: wallet={} projectId={} lkn={} usdc={}",
-                    walletAddress, projectId, lknAmount, usdcAmount);
+        UserHolding holding;
+        if (userId != null) {
+            holding = holdingRepository
+                    .findByUserIdAndProjectId(userId, projectId)
+                    .or(() -> walletAddress != null
+                            ? holdingRepository.findByWalletAddressIgnoreCaseAndProjectId(walletAddress, projectId)
+                            : java.util.Optional.empty())
+                    .orElseGet(() -> UserHolding.builder()
+                            .userId(userId)
+                            .project(project)
+                            .tokensAmount(BigDecimal.ZERO)
+                            .usdcInvested(BigDecimal.ZERO)
+                            .build());
+        } else if (walletAddress != null) {
+            holding = holdingRepository
+                    .findByWalletAddressIgnoreCaseAndProjectId(walletAddress, projectId)
+                    .orElseGet(() -> UserHolding.builder()
+                            .walletAddress(walletAddress)
+                            .project(project)
+                            .tokensAmount(BigDecimal.ZERO)
+                            .usdcInvested(BigDecimal.ZERO)
+                            .build());
+        } else {
+            log.warn("Compra registrada en proyecto sin userId ni walletAddress: projectId={} lkn={} usdc={}",
+                    projectId, lknAmount, usdcAmount);
             if (eventId != null) {
                 processedEventRepository.save(ProcessedEvent.builder().eventId(eventId).build());
             }
             return;
         }
 
-        UserHolding holding = holdingRepository
-                .findByUserIdAndProjectId(userId, projectId)
-                .orElseGet(() -> UserHolding.builder()
-                        .userId(userId)
-                        .project(project)
-                        .tokensAmount(BigDecimal.ZERO)
-                        .usdcInvested(BigDecimal.ZERO)
-                        .build());
-
+        if (userId != null && holding.getUserId() == null) {
+            holding.setUserId(userId);
+        }
         holding.setTokensAmount(holding.getTokensAmount().add(lknAmount));
         BigDecimal currentUsdc = holding.getUsdcInvested() != null ? holding.getUsdcInvested() : BigDecimal.ZERO;
         holding.setUsdcInvested(currentUsdc.add(usdcAmount));
@@ -118,6 +135,38 @@ public class UserHoldingServiceImpl implements UserHoldingService {
         if (eventId != null) {
             processedEventRepository.save(ProcessedEvent.builder().eventId(eventId).build());
         }
+    }
+
+    @Override
+    @Transactional
+    public int reconcileWalletLinked(Long userId, String walletAddress) {
+        List<UserHolding> orphanHoldings = holdingRepository.findByUserIdIsNullAndWalletAddressIgnoreCase(walletAddress);
+        int reconciled = 0;
+
+        for (UserHolding orphan : orphanHoldings) {
+            Long projectId = orphan.getProject().getId();
+            UserHolding target = holdingRepository.findByUserIdAndProjectId(userId, projectId).orElse(null);
+
+            if (target == null) {
+                orphan.setUserId(userId);
+                orphan.setWalletAddress(walletAddress);
+                orphan.setLastUpdatedAt(LocalDateTime.now());
+                holdingRepository.save(orphan);
+            } else if (!target.getId().equals(orphan.getId())) {
+                target.setTokensAmount(target.getTokensAmount().add(orphan.getTokensAmount()));
+                BigDecimal currentUsdc = target.getUsdcInvested() != null ? target.getUsdcInvested() : BigDecimal.ZERO;
+                BigDecimal orphanUsdc = orphan.getUsdcInvested() != null ? orphan.getUsdcInvested() : BigDecimal.ZERO;
+                target.setUsdcInvested(currentUsdc.add(orphanUsdc));
+                target.setWalletAddress(walletAddress);
+                target.setLastUpdatedAt(LocalDateTime.now());
+                holdingRepository.save(target);
+                holdingRepository.delete(orphan);
+            }
+
+            reconciled++;
+        }
+
+        return reconciled;
     }
 
     @Override

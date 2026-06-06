@@ -33,4 +33,6 @@ public interface UserHoldingService {
                              BigDecimal lknAmount, BigDecimal usdcAmount, String eventId);
 
     void processOrderMatched(Long sellerId, Long buyerId, Long projectId, BigDecimal amount, String eventId);
+
+    int reconcileWalletLinked(Long userId, String walletAddress);
 }

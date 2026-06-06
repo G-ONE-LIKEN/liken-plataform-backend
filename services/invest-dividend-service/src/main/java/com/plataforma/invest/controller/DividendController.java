@@ -4,6 +4,7 @@ import com.plataforma.invest.dto.DividendClaimResponse;
 import com.plataforma.invest.dto.PendingDividendsResponse;
 import com.plataforma.invest.service.ChainReader;
 import com.plataforma.invest.service.DividendService;
+import com.plataforma.invest.service.UserWalletReconciliationService;
 import com.plataforma.shared.dto.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -24,14 +25,17 @@ public class DividendController {
 
     private final DividendService dividendService;
     private final ChainReader chainReader;
+    private final UserWalletReconciliationService userWalletReconciliationService;
 
     /**
      * Historial de dividendos reclamados por el usuario autenticado.
      */
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<Page<DividendClaimResponse>>> myClaims(
-            Authentication auth, Pageable pageable) {
+            Authentication auth,
+            Pageable pageable) {
         Long userId = (Long) auth.getPrincipal();
+        userWalletReconciliationService.reconcileIfNeeded(userId);
         Page<DividendClaimResponse> page = dividendService.listForUser(userId, pageable)
                 .map(DividendClaimResponse::from);
         return ResponseEntity.ok(ApiResponse.success("OK", page));

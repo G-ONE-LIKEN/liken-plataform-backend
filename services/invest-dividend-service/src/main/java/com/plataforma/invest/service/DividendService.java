@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Slf4j
 @Service
@@ -35,8 +36,7 @@ public class DividendService {
         }
         if (userId == null) {
             log.warn("recordClaim: userId null para wallet={} txHash={}. " +
-                    "Se descarta hasta que se vincule la wallet.", walletAddress, txHash);
-            return;
+                    "Registrando claim por wallet para reconciliación posterior.", walletAddress, txHash);
         }
 
         claims.save(DividendClaim.builder()
@@ -62,5 +62,15 @@ public class DividendService {
     @Transactional(readOnly = true)
     public Page<DividendClaim> listForUser(Long userId, Pageable pageable) {
         return claims.findByUserIdOrderByCreatedAtDesc(userId, pageable);
+    }
+
+    @Transactional
+    public int reconcileWalletLinked(Long userId, String walletAddress) {
+        List<DividendClaim> orphanClaims = claims.findByUserIdIsNullAndWalletAddressIgnoreCase(walletAddress);
+        for (DividendClaim claim : orphanClaims) {
+            claim.setUserId(userId);
+        }
+        claims.saveAll(orphanClaims);
+        return orphanClaims.size();
     }
 }

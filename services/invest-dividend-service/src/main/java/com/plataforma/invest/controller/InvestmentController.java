@@ -5,6 +5,7 @@ import com.plataforma.invest.dto.InvestmentTotalResponse;
 import com.plataforma.invest.dto.PreviewResponse;
 import com.plataforma.invest.service.InvestmentService;
 import com.plataforma.invest.service.ProjectClient;
+import com.plataforma.invest.service.UserWalletReconciliationService;
 import com.plataforma.shared.dto.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -26,14 +27,17 @@ public class InvestmentController {
 
     private final InvestmentService investmentService;
     private final ProjectClient projectClient;
+    private final UserWalletReconciliationService userWalletReconciliationService;
 
     /**
      * Lista las compras primarias del usuario autenticado.
      */
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<Page<InvestmentResponse>>> myInvestments(
-            Authentication auth, Pageable pageable) {
+            Authentication auth,
+            Pageable pageable) {
         Long userId = (Long) auth.getPrincipal();
+        userWalletReconciliationService.reconcileIfNeeded(userId);
         Page<InvestmentResponse> page = investmentService.listForUser(userId, pageable)
                 .map(InvestmentResponse::from);
         return ResponseEntity.ok(ApiResponse.success("OK", page));
@@ -45,6 +49,7 @@ public class InvestmentController {
     @GetMapping("/me/total")
     public ResponseEntity<ApiResponse<InvestmentTotalResponse>> myTotal(Authentication auth) {
         Long userId = (Long) auth.getPrincipal();
+        userWalletReconciliationService.reconcileIfNeeded(userId);
         return ResponseEntity.ok(ApiResponse.success(
                 "OK", InvestmentTotalResponse.from(investmentService.getTotalForUser(userId))));
     }

@@ -13,11 +13,11 @@ import org.springframework.stereotype.Component;
  *
  * <p>El holder retiró sus dividendos llamando {@code DividendDistributor.claimDividends()}
  * con su MetaMask. El Blockchain Service indexó el evento on-chain
- * {@code DividendsWithdrawn(holder, amount)}, resolvió {@code holder → userId} contra
- * user-service y publicó este evento. El consumer sólo registra el movimiento
- * contable; el USDC ya está en la wallet del usuario on-chain.
+ * {@code DividendsWithdrawn(holder, amount)} y publicó este evento.
  *
- * <p>Reemplaza al consumer viejo de {@code dividends.distributed} (modelo push).
+ * <p>Si el evento llega sin {@code userId} pero con {@code walletAddress},
+ * intenta buscar la Wallet por walletAddress. Si existe, crea el movement normal;
+ * si no, lo guarda como pending para reconciliar cuando el usuario vincule la wallet.
  */
 @Slf4j
 @Component
@@ -28,19 +28,23 @@ public class DividendDistributedConsumer {
 
     @KafkaListener(topics = "dividends.claimed", groupId = "wallet-service")
     public void consume(DividendsClaimedEvent event) {
-        if (event.getUserId() == null) {
-            log.warn("Evento dividends.claimed sin userId resuelto (wallet={}). " +
-                    "Se descarta hasta que el lookup de wallet→user devuelva un valor",
-                    event.getWalletAddress());
+        if (event.getUserId() != null) {
+            recordNormal(event, event.getUserId());
             return;
         }
+        if (event.getWalletAddress() != null && !event.getWalletAddress().isBlank()) {
+            recordOrPending(event);
+            return;
+        }
+        log.warn("Evento dividends.claimed sin userId ni walletAddress. Descartando.");
+    }
 
+    private void recordNormal(DividendsClaimedEvent event, Long userId) {
         try {
             log.info("Procesando reclamo de dividendos: usuario={}, monto={}, txHash={}",
-                    event.getUserId(), event.getAmount(), event.getTxHash());
-
+                    userId, event.getAmount(), event.getTxHash());
             walletService.recordMovement(
-                    event.getUserId(),
+                    userId,
                     MovementType.DIVIDEND,
                     event.getAmount(),
                     "Dividendos reclamados on-chain (tx " + event.getTxHash() + ")",
@@ -49,7 +53,25 @@ public class DividendDistributedConsumer {
             );
         } catch (Exception e) {
             log.error("Error procesando evento dividends.claimed para usuario {}: {}",
-                    event.getUserId(), e.getMessage(), e);
+                    userId, e.getMessage(), e);
+        }
+    }
+
+    private void recordOrPending(DividendsClaimedEvent event) {
+        var existing = walletService.findByWalletAddress(event.getWalletAddress());
+        if (existing.isPresent()) {
+            recordNormal(event, existing.get().getUserId());
+        } else {
+            log.warn("Dividendo sin usuario vinculado. Guardando como pending: wallet={} tx={}",
+                    event.getWalletAddress(), event.getTxHash());
+            walletService.recordPendingMovement(
+                    event.getWalletAddress(),
+                    MovementType.DIVIDEND,
+                    event.getAmount(),
+                    "Dividendos reclamados on-chain (tx " + event.getTxHash() + ")",
+                    event.getTxHash(),
+                    event.getEventId()
+            );
         }
     }
 }

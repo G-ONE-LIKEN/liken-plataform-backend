@@ -15,6 +15,10 @@ import org.springframework.stereotype.Component;
  * <p>Una ronda primaria falló (deadline sin soft cap) y el inversor recuperó su
  * USDC llamando {@code refund()}. El wallet-service registra el reflejo contable
  * como {@link MovementType#REFUND}.
+ *
+ * <p>Si el evento llega sin {@code userId} pero con {@code walletAddress},
+ * intenta buscar la Wallet por walletAddress. Si existe, crea el movement normal;
+ * si no, lo guarda como pending para reconciliar cuando el usuario vincule la wallet.
  */
 @Slf4j
 @Component
@@ -25,19 +29,23 @@ public class WalletRefundConsumer {
 
     @KafkaListener(topics = "wallet.refund", groupId = "wallet-service")
     public void consume(WalletRefundEvent event) {
-        if (event.getUserId() == null) {
-            log.warn("Evento wallet.refund sin userId resuelto (wallet={}). " +
-                    "Se descarta hasta que el lookup de wallet→user devuelva un valor",
-                    event.getWalletAddress());
+        if (event.getUserId() != null) {
+            recordNormal(event, event.getUserId());
             return;
         }
+        if (event.getWalletAddress() != null && !event.getWalletAddress().isBlank()) {
+            recordOrPending(event);
+            return;
+        }
+        log.warn("Evento wallet.refund sin userId ni walletAddress. Descartando.");
+    }
 
+    private void recordNormal(WalletRefundEvent event, Long userId) {
         try {
             log.info("Procesando refund on-chain: usuario={}, monto={}, projectId={}, txHash={}",
-                    event.getUserId(), event.getUsdcAmount(), event.getProjectId(), event.getTxHash());
-
+                    userId, event.getUsdcAmount(), event.getProjectId(), event.getTxHash());
             walletService.recordMovement(
-                    event.getUserId(),
+                    userId,
                     MovementType.REFUND,
                     event.getUsdcAmount(),
                     "Refund proyecto " + event.getProjectId() + " (tx " + event.getTxHash() + ")",
@@ -46,7 +54,25 @@ public class WalletRefundConsumer {
             );
         } catch (Exception e) {
             log.error("Error procesando wallet.refund para usuario {}: {}",
-                    event.getUserId(), e.getMessage(), e);
+                    userId, e.getMessage(), e);
+        }
+    }
+
+    private void recordOrPending(WalletRefundEvent event) {
+        var existing = walletService.findByWalletAddress(event.getWalletAddress());
+        if (existing.isPresent()) {
+            recordNormal(event, existing.get().getUserId());
+        } else {
+            log.warn("Refund sin usuario vinculado. Guardando como pending: wallet={} tx={}",
+                    event.getWalletAddress(), event.getTxHash());
+            walletService.recordPendingMovement(
+                    event.getWalletAddress(),
+                    MovementType.REFUND,
+                    event.getUsdcAmount(),
+                    "Refund proyecto " + event.getProjectId() + " (tx " + event.getTxHash() + ")",
+                    event.getTxHash(),
+                    event.getEventId()
+            );
         }
     }
 }

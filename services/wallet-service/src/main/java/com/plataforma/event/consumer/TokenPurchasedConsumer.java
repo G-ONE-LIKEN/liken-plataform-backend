@@ -15,6 +15,10 @@ import org.springframework.stereotype.Component;
  * <p>Registra el reflejo contable de la compra primaria. El USDC ya viajó
  * on-chain desde la wallet del inversor al treasury de la plataforma; este
  * movimiento {@link MovementType#TOKEN_PURCHASE} mantiene la trazabilidad off-chain.
+ *
+ * <p>Si el evento llega sin {@code userId} pero con {@code walletAddress},
+ * intenta buscar la Wallet por walletAddress. Si existe, crea el movement normal;
+ * si no, lo guarda como pending para reconciliar cuando el usuario vincule la wallet.
  */
 @Slf4j
 @Component
@@ -25,19 +29,23 @@ public class TokenPurchasedConsumer {
 
     @KafkaListener(topics = "investment.token_purchased", groupId = "wallet-service")
     public void consume(TokenPurchasedEvent event) {
-        if (event.getUserId() == null) {
-            log.warn("Evento investment.token_purchased sin userId resuelto (wallet={}). " +
-                    "Se descarta hasta que el lookup de wallet→user devuelva un valor",
-                    event.getWalletAddress());
+        if (event.getUserId() != null) {
+            recordNormal(event, event.getUserId());
             return;
         }
+        if (event.getWalletAddress() != null && !event.getWalletAddress().isBlank()) {
+            recordOrPending(event);
+            return;
+        }
+        log.warn("Evento investment.token_purchased sin userId ni walletAddress. Descartando.");
+    }
 
+    private void recordNormal(TokenPurchasedEvent event, Long userId) {
         try {
             log.info("Procesando compra on-chain: usuario={}, usdc={}, lkn={}, txHash={}",
-                    event.getUserId(), event.getUsdcAmount(), event.getLknAmount(), event.getTxHash());
-
+                    userId, event.getUsdcAmount(), event.getLknAmount(), event.getTxHash());
             walletService.recordMovement(
-                    event.getUserId(),
+                    userId,
                     MovementType.TOKEN_PURCHASE,
                     event.getUsdcAmount(),
                     "Compra de " + event.getLknAmount() + " LKN del proyecto "
@@ -47,7 +55,26 @@ public class TokenPurchasedConsumer {
             );
         } catch (Exception e) {
             log.error("Error procesando investment.token_purchased para usuario {}: {}",
-                    event.getUserId(), e.getMessage(), e);
+                    userId, e.getMessage(), e);
+        }
+    }
+
+    private void recordOrPending(TokenPurchasedEvent event) {
+        var existing = walletService.findByWalletAddress(event.getWalletAddress());
+        if (existing.isPresent()) {
+            recordNormal(event, existing.get().getUserId());
+        } else {
+            log.warn("Compra on-chain sin usuario vinculado. Guardando como pending: wallet={} tx={}",
+                    event.getWalletAddress(), event.getTxHash());
+            walletService.recordPendingMovement(
+                    event.getWalletAddress(),
+                    MovementType.TOKEN_PURCHASE,
+                    event.getUsdcAmount(),
+                    "Compra de " + event.getLknAmount() + " LKN del proyecto "
+                            + event.getProjectId() + " (tx " + event.getTxHash() + ")",
+                    event.getTxHash(),
+                    event.getEventId()
+            );
         }
     }
 }
