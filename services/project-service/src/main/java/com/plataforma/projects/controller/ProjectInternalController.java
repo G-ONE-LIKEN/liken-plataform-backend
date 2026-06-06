@@ -1,5 +1,6 @@
 package com.plataforma.projects.controller;
 
+import com.plataforma.projects.dto.internal.ActiveProjectOracleDto;
 import com.plataforma.projects.dto.internal.OfferingContractRefResponse;
 import com.plataforma.projects.dto.internal.ProjectPublicationFailureRequest;
 import com.plataforma.projects.dto.internal.ProjectPublicationSuccessRequest;
@@ -34,5 +35,10 @@ public class ProjectInternalController {
             @RequestBody ProjectPublicationFailureRequest request) {
         projectService.markPublicationFailed(request);
         return ResponseEntity.accepted().build();
+    }
+
+    @GetMapping("/active")
+    public ResponseEntity<List<ActiveProjectOracleDto>> listActiveProjectsForOracle() {
+        return ResponseEntity.ok(projectService.listActiveProjectsForOracle());
     }
 }

@@ -546,6 +546,42 @@ services:
       timeout: 5s
       retries: 5
       start_period: 90s
+      
+  oracle-service:
+    build:
+      context: ./services/oracle-service
+    container_name: liken_oracle_service
+    logging: *default-logging
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      project-service:
+        condition: service_healthy
+    ports:
+      - "8088:8088"
+    environment:
+      <<: *spring-env
+      PORT: 8088
+      DB_URL: jdbc:postgresql://postgres:5432/oracle_db
+      DB_USERNAME: ${DB_USERNAME:-liken_user}
+      DB_PASSWORD: ${DB_PASSWORD:-change-me-db-password}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      PROJECT_SERVICE_URL: http://project-service:8082
+      ORACLE_INTERVAL_MS: ${ORACLE_INTERVAL_MS:-60000}
+    deploy:
+      <<: *spring-deploy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget -qO- http://localhost:8088/actuator/health || exit 1",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
 
   api-gateway:
     build:
@@ -574,6 +610,8 @@ services:
       marketplace-service:
         condition: service_healthy
       notification-service:
+        condition: service_healthy
+      oracle-service:
         condition: service_healthy
     ports:
       - "8090:8090"
