@@ -70,11 +70,6 @@ public class UserHoldingServiceImpl implements UserHoldingService {
         }
     }
 
-    /**
-     * Registra una compra primaria proveniente del evento on-chain TokensPurchased.
-     * Difiere de {@link #updateHolding} en que persiste {@code walletAddress} y
-     * {@code usdcInvested}, además del delta de LKN.
-     */
     @Override
     @Transactional
     public void recordTokenPurchase(String walletAddress, Long userId, Long projectId,
@@ -83,15 +78,24 @@ public class UserHoldingServiceImpl implements UserHoldingService {
             log.info("Evento {} ya procesado, ignorando (idempotencia)", eventId);
             return;
         }
-        if (userId == null) {
-            log.warn("recordTokenPurchase recibido con userId=null wallet={} projectId={}; " +
-                    "se descarta hasta que el lookup wallet→user devuelva un id válido",
-                    walletAddress, projectId);
-            return;
-        }
 
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new ProjectNotFoundException(projectId));
+
+        BigDecimal currentRaised = project.getRaisedAmount() != null ? project.getRaisedAmount() : BigDecimal.ZERO;
+        BigDecimal currentSold = project.getTotalTokensSold() != null ? project.getTotalTokensSold() : BigDecimal.ZERO;
+        project.setRaisedAmount(currentRaised.add(usdcAmount));
+        project.setTotalTokensSold(currentSold.add(lknAmount));
+        projectRepository.save(project);
+
+        if (userId == null) {
+            log.warn("Compra registrada en proyecto sin holding de usuario: wallet={} projectId={} lkn={} usdc={}",
+                    walletAddress, projectId, lknAmount, usdcAmount);
+            if (eventId != null) {
+                processedEventRepository.save(ProcessedEvent.builder().eventId(eventId).build());
+            }
+            return;
+        }
 
         UserHolding holding = holdingRepository
                 .findByUserIdAndProjectId(userId, projectId)

@@ -43,6 +43,7 @@ public class ProjectResponse {
     private BigDecimal raisedAmount;
     private BigDecimal expectedAnnualYield;
     private BigDecimal expectedAnnualProductionMWh;
+    private BigDecimal totalTokensSold;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private Long approvedBy;
@@ -81,6 +82,7 @@ public class ProjectResponse {
                 .raisedAmount(p.getRaisedAmount())
                 .expectedAnnualYield(p.getExpectedAnnualYield())
                 .expectedAnnualProductionMWh(p.getExpectedAnnualProductionMWh())
+                .totalTokensSold(p.getTotalTokensSold())
                 .createdAt(p.getCreatedAt())
                 .updatedAt(p.getUpdatedAt())
                 .approvedBy(p.getApprovedBy())

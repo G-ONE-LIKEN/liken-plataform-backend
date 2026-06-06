@@ -97,12 +97,14 @@ class ProjectServiceImplTest {
 
     @Test
     void getProject_existente_devuelveResponse() {
+        draftProject.setTotalTokensSold(new BigDecimal("5.00000000"));
         when(projectRepository.findByIdAndActiveTrue(1L)).thenReturn(Optional.of(draftProject));
 
         ProjectResponse response = projectService.getProject(1L);
 
         assertThat(response.getId()).isEqualTo(1L);
         assertThat(response.getName()).isEqualTo("Solar Test");
+        assertThat(response.getTotalTokensSold()).isEqualByComparingTo("5.00000000");
     }
 
     @Test

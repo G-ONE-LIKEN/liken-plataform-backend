@@ -139,6 +139,11 @@ public class Project extends Auditable {
     @Builder.Default
     private BigDecimal raisedAmount = BigDecimal.ZERO;
 
+    /** LKN vendidos en la ronda primaria, segun eventos TokensPurchased. */
+    @Column(name = "total_tokens_sold", precision = 20, scale = 8)
+    @Builder.Default
+    private BigDecimal totalTokensSold = BigDecimal.ZERO;
+
     @Column(name = "expected_annual_yield", precision = 5, scale = 2)
     private BigDecimal expectedAnnualYield;
 
