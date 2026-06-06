@@ -1,0 +1,5 @@
+resources:
+  - serviceaccounts.yaml
+  - infra.yaml
+  - apps.yaml
+  - networking.yaml

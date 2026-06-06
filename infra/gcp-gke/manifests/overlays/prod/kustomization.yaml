@@ -1,0 +1,39 @@
+namespace: app
+
+resources:
+  - ../../base
+  - namespace.yaml
+  - configmap.yaml
+
+patchesStrategicMerge:
+  - serviceaccount-patch.yaml
+  - ingress-patch.yaml
+
+images:
+  - name: frontend
+    newName: __REGISTRY_URL__/frontend
+    newTag: latest
+  - name: api-gateway
+    newName: __REGISTRY_URL__/api-gateway
+    newTag: latest
+  - name: auth-service
+    newName: __REGISTRY_URL__/auth-service
+    newTag: latest
+  - name: user-service
+    newName: __REGISTRY_URL__/user-service
+    newTag: latest
+  - name: project-service
+    newName: __REGISTRY_URL__/project-service
+    newTag: latest
+  - name: wallet-service
+    newName: __REGISTRY_URL__/wallet-service
+    newTag: latest
+  - name: notification-service
+    newName: __REGISTRY_URL__/notification-service
+    newTag: latest
+  - name: invest-dividend-service
+    newName: __REGISTRY_URL__/invest-dividend-service
+    newTag: latest
+  - name: blockchain-service
+    newName: __REGISTRY_URL__/blockchain-service
+    newTag: latest

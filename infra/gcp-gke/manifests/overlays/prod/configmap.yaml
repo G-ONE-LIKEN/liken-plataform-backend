@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: liken-config
+data:
+  GCP_PROJECT_ID: "__PROJECT_ID__"
+  GCS_BUCKET_NAME: "__GCS_BUCKET_NAME__"
+  FRONTEND_URL: "__FRONTEND_ORIGIN__"
+  KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"
+  REDIS_HOST: "redis"
+  REDIS_PORT: "6379"
+  USER_SERVICE_URL: "http://user-service:8080"
+  PROJECT_SERVICE_URL: "http://project-service:8082"
+  AUTH_URL: "http://auth-service:8081"
+  USUARIOS_URL: "http://user-service:8080"
+  PROYECTOS_URL: "http://project-service:8082"
+  WALLET_URL: "http://wallet-service:8084"
+  INVEST_URL: "http://invest-dividend-service:8083"
+  NOTIFICATION_SERVICE_URL: "http://notification-service:8087"
+  NOTIFICATION_URL: "http://notification-service:8087"
+  BLOCKCHAIN_SERVICE_URL: "http://blockchain-service:8085"
+  PUBLICATION_CONTRACTS_WORKSPACE: "/contracts"
+  FORGE_COMMAND: "forge"
+  PUBLICATION_SCRIPT_ENTRY: "script/DeployProjectOffering.s.sol:DeployProjectOffering"
+  PUBLICATION_DEADLINE_ZONE_ID: "America/Argentina/Buenos_Aires"
+  MAIL_HOST: "smtp.resend.com"
+  MAIL_PORT: "465"
+  MAIL_AUTH: "true"
+  MAIL_STARTTLS: "false"
+  MAIL_SSL: "true"
+  MAIL_FROM_NAME: "LIKEN"

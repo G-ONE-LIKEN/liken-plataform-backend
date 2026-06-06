@@ -1,0 +1,40 @@
+﻿namespace: app
+
+resources:
+  - ../../base
+  - namespace.yaml
+  - configmap.yaml
+
+patchesStrategicMerge:
+  - serviceaccount-patch.yaml
+  - ingress-patch.yaml
+
+images:
+  - name: frontend
+    newName: us-central1-docker.pkg.dev/liken-plataform/liken-platform/frontend
+    newTag: latest
+  - name: api-gateway
+    newName: us-central1-docker.pkg.dev/liken-plataform/liken-platform/api-gateway
+    newTag: latest
+  - name: auth-service
+    newName: us-central1-docker.pkg.dev/liken-plataform/liken-platform/auth-service
+    newTag: latest
+  - name: user-service
+    newName: us-central1-docker.pkg.dev/liken-plataform/liken-platform/user-service
+    newTag: latest
+  - name: project-service
+    newName: us-central1-docker.pkg.dev/liken-plataform/liken-platform/project-service
+    newTag: latest
+  - name: wallet-service
+    newName: us-central1-docker.pkg.dev/liken-plataform/liken-platform/wallet-service
+    newTag: latest
+  - name: notification-service
+    newName: us-central1-docker.pkg.dev/liken-plataform/liken-platform/notification-service
+    newTag: latest
+  - name: invest-dividend-service
+    newName: us-central1-docker.pkg.dev/liken-plataform/liken-platform/invest-dividend-service
+    newTag: latest
+  - name: blockchain-service
+    newName: us-central1-docker.pkg.dev/liken-plataform/liken-platform/blockchain-service
+    newTag: latest
+

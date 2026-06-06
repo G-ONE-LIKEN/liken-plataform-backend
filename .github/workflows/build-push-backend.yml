@@ -1,0 +1,192 @@
+name: Backend CI-CD To GKE
+
+on:
+  push:
+    branches: ["main", "master"]
+    paths:
+      - "api-gateway/**"
+      - "services/**"
+      - "infra/gcp-gke/**"
+      - ".github/workflows/build-push-backend.yml"
+  workflow_dispatch:
+
+env:
+  REGION: ${{ secrets.GCP_REGION }}
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  REPOSITORY: ${{ secrets.ARTIFACT_REGISTRY_REPOSITORY }}
+  IMAGE_TAG: ${{ github.sha }}
+
+jobs:
+  build-push:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: api-gateway
+            context: api-gateway
+          - image: auth-service
+            context: services/auth-service
+          - image: user-service
+            context: services/user-service
+          - image: project-service
+            context: services/project-service
+          - image: wallet-service
+            context: services/wallet-service
+          - image: notification-service
+            context: services/notification-service
+          - image: invest-dividend-service
+            context: services/invest-dividend-service
+          - image: blockchain-service
+            context: services/blockchain-service
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      - name: Build image
+        run: |
+          docker build \
+            -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ matrix.image }}:${{ env.IMAGE_TAG }} \
+            -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ matrix.image }}:latest \
+            ./${{ matrix.context }}
+
+      - name: Push images
+        run: |
+          docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ matrix.image }}:${{ env.IMAGE_TAG }}
+          docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ matrix.image }}:latest
+
+  deploy:
+    needs: build-push
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: ${{ secrets.GKE_CLUSTER_NAME }}
+          location: ${{ secrets.GKE_CLUSTER_ZONE }}
+          project_id: ${{ env.PROJECT_ID }}
+
+      - name: Capture current frontend image
+        shell: bash
+        run: |
+          CURRENT_FRONTEND_IMAGE="$(kubectl -n app get deployment frontend -o jsonpath='{.spec.template.spec.containers[0].image}' 2>/dev/null || true)"
+          echo "CURRENT_FRONTEND_IMAGE=$CURRENT_FRONTEND_IMAGE" >> "$GITHUB_ENV"
+
+      - name: Render production manifests
+        shell: pwsh
+        run: |
+          @'
+          $Values = @{
+            ProjectId           = "${{ env.PROJECT_ID }}"
+            Region              = "${{ env.REGION }}"
+            RegistryUrl         = "${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}"
+            GcsBucketName       = "${{ secrets.GCS_BUCKET_NAME }}"
+            FrontendOrigin      = "${{ secrets.FRONTEND_ORIGIN }}"
+            StaticIpName        = "${{ secrets.GKE_STATIC_IP_NAME }}"
+            WorkloadIdentityGsa = "${{ secrets.GKE_WORKLOAD_IDENTITY_GSA }}"
+            ManifestsRepoUrl    = "direct-apply"
+            ManifestsBranch     = "${{ github.ref_name }}"
+          }
+          '@ | Set-Content -Path infra/gcp-gke/scripts/prod-values.ci.ps1 -Encoding utf8
+          ./infra/gcp-gke/scripts/render-prod-manifests.ps1 -ValuesFile ./infra/gcp-gke/scripts/prod-values.ci.ps1
+
+      - name: Set backend image tags for this deploy
+        run: |
+          python - <<'PY'
+          import pathlib
+          import os
+
+          path = pathlib.Path("infra/gcp-gke/rendered/overlays/prod/kustomization.yaml")
+          backend = {
+              "api-gateway",
+              "auth-service",
+              "user-service",
+              "project-service",
+              "wallet-service",
+              "notification-service",
+              "invest-dividend-service",
+              "blockchain-service",
+          }
+
+          current_frontend = os.environ.get("CURRENT_FRONTEND_IMAGE", "").strip()
+          frontend_name = ""
+          frontend_tag = ""
+
+          if current_frontend:
+              if "@" in current_frontend:
+                  frontend_name, frontend_tag = current_frontend.split("@", 1)
+              elif ":" in current_frontend.rsplit("/", 1)[-1]:
+                  frontend_name, frontend_tag = current_frontend.rsplit(":", 1)
+
+          lines = path.read_text().splitlines()
+          rendered = []
+          current_image = None
+
+          for line in lines:
+              stripped = line.strip()
+
+              if stripped.startswith("- name:"):
+                  current_image = stripped.split(":", 1)[1].strip()
+                  rendered.append(line)
+                  continue
+
+              if current_image in backend and stripped.startswith("newTag:"):
+                  indent = line[: len(line) - len(line.lstrip())]
+                  rendered.append(f"{indent}newTag: ${{{{ env.IMAGE_TAG }}}}")
+                  continue
+
+              if current_image == "frontend" and frontend_name and stripped.startswith("newName:"):
+                  indent = line[: len(line) - len(line.lstrip())]
+                  rendered.append(f"{indent}newName: {frontend_name}")
+                  continue
+
+              if current_image == "frontend" and frontend_tag and stripped.startswith("newTag:"):
+                  indent = line[: len(line) - len(line.lstrip())]
+                  rendered.append(f"{indent}newTag: {frontend_tag}")
+                  continue
+
+              rendered.append(line)
+
+          path.write_text("\n".join(rendered) + "\n")
+          PY
+
+      - name: Apply manifests to GKE
+        run: kubectl apply -k infra/gcp-gke/rendered/overlays/prod
+
+      - name: Wait for backend rollouts
+        run: |
+          kubectl -n app rollout status deployment/api-gateway --timeout=300s
+          kubectl -n app rollout status deployment/auth-service --timeout=300s
+          kubectl -n app rollout status deployment/user-service --timeout=300s
+          kubectl -n app rollout status deployment/project-service --timeout=300s
+          kubectl -n app rollout status deployment/wallet-service --timeout=300s
+          kubectl -n app rollout status deployment/notification-service --timeout=300s
+          kubectl -n app rollout status deployment/invest-dividend-service --timeout=300s
+          kubectl -n app rollout status deployment/blockchain-service --timeout=300s

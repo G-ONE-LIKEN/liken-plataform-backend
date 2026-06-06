@@ -1,0 +1,6 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: liken-ingress
+  annotations:
+    kubernetes.io/ingress.global-static-ip-name: "__STATIC_IP_NAME__"

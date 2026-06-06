@@ -1,0 +1,50 @@
+apiVersion: cloud.google.com/v1
+kind: BackendConfig
+metadata:
+  name: liken-frontend-backend-config
+spec:
+  healthCheck:
+    checkIntervalSec: 15
+    timeoutSec: 5
+    healthyThreshold: 1
+    unhealthyThreshold: 2
+    type: HTTP
+    requestPath: /api/health
+---
+apiVersion: cloud.google.com/v1
+kind: BackendConfig
+metadata:
+  name: liken-gateway-backend-config
+spec:
+  healthCheck:
+    checkIntervalSec: 15
+    timeoutSec: 5
+    healthyThreshold: 1
+    unhealthyThreshold: 2
+    type: HTTP
+    requestPath: /actuator/health
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: liken-ingress
+  annotations:
+    kubernetes.io/ingress.class: "gce"
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: api-gateway
+                port:
+                  number: 80
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80
