@@ -1,0 +1,70 @@
+# ADR-0002: Healthcheck de Zookeeper vía HTTP AdminServer
+
+- **Estado:** Aceptado
+- **Fecha:** 2026-06-06
+- **Contexto:** Backend liken-plataform, entorno de desarrollo local
+
+---
+
+## Contexto
+
+El `docker-compose.yml` original definía el healthcheck de Zookeeper usando el comando `ruok` del protocolo Four Letter Words (4lw) de Zookeeper vía `nc` (netcat):
+
+```yaml
+healthcheck:
+  test: ["CMD-SHELL", "echo ruok | nc localhost 2181 | grep imok"]
+```
+
+Este check fallaba sistemáticamente en la imagen `confluentinc/cp-zookeeper:7.5.0`, impidiendo que el contenedor alcanzara el estado `healthy` y bloqueando el arranque de Kafka y todos los microservicios dependientes.
+
+Se identificaron dos causas raíz durante el diagnóstico:
+
+1. **`nc` (netcat) no está disponible** en la imagen `confluentinc/cp-zookeeper:7.5.0`. El binario no existe en el PATH del contenedor.
+2. **Respuesta con `\r\n`**: el protocolo 4lw termina las respuestas con `\r\n`. Los intentos posteriores usando `/dev/tcp` de bash y `read` fallaban porque `$line` contenía `imok\r` en lugar de `imok`, y la comparación `[[ "$line" == *imok* ]]` no matcheaba correctamente bajo el shell del contenedor.
+
+---
+
+## Decisión
+
+Se reemplazó el healthcheck por una llamada HTTP al **AdminServer** de Zookeeper, que corre embebido en el mismo proceso en el puerto `8080`:
+
+```yaml
+healthcheck:
+  test: ["CMD-SHELL", "wget -qO- http://localhost:8080/commands/ruok | grep -q ruok"]
+  interval: 10s
+  timeout: 5s
+  retries: 10
+  start_period: 30s
+```
+
+`wget` está disponible en la imagen de Confluent. El AdminServer expone los comandos 4lw como endpoints HTTP REST, eliminando completamente la dependencia de `nc` y los problemas de parsing de texto crudo con `\r\n`.
+
+El endpoint `/commands/ruok` devuelve JSON con el campo `command: "ruok"` cuando el servidor está operativo, lo cual es suficiente para confirmar que Zookeeper está listo para aceptar conexiones.
+
+---
+
+## Consecuencias
+
+### Positivas
+- Healthcheck confiable y sin dependencias externas al proceso Zookeeper
+- `wget` disponible en la imagen sin necesidad de instalar paquetes adicionales
+- Sin problemas de parsing de protocolos de texto crudo
+- El AdminServer ya estaba habilitado por defecto; no requiere configuración adicional
+
+### Negativas / Advertencias
+- El AdminServer corre en el puerto `8080` dentro del contenedor. Si en el futuro se agrega otro servicio que también use el puerto `8080` en la misma red Docker, puede haber colisión. El puerto del AdminServer es configurable vía `KAFKA_OPTS: -Dzookeeper.admin.serverPort=<puerto>`.
+- El check verifica que el endpoint responde, no que Zookeeper haya completado la elección de líder (relevante solo en clusters multi-nodo; en standalone no aplica).
+
+### No aplica a
+- Entornos productivos con Zookeeper en cluster: considerar checks más exhaustivos como `/commands/stat` que incluye información de quorum.
+
+---
+
+## Alternativas consideradas
+
+| Alternativa | Motivo de descarte |
+|---|---|
+| `echo ruok \| nc localhost 2181` (original) | `nc` no disponible en la imagen |
+| `/dev/tcp` bash + `read` | Problemas con `\r\n` en la respuesta; frágil y difícil de debuggear |
+| `zkServer.sh status` | Script disponible en la imagen pero requiere configuración adicional de classpath y genera una JVM extra por cada healthcheck call |
+| Deshabilitar el healthcheck (`disable: true`) | Kafka arranca antes de que Zookeeper esté listo, causando errores de conexión intermitentes al inicio |

@@ -1,3 +1,4 @@
+# services/auth-service/Dockerfile
 # ── Stage 1: build ──────────────────────────────────────────────────────────
 FROM maven:3.9-eclipse-temurin-21-alpine AS build
 
@@ -28,4 +29,12 @@ EXPOSE 8081
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
   CMD wget -qO- http://localhost:${PORT}/actuator/health || exit 1
 
-ENTRYPOINT ["java", "-Dserver.port=${PORT:-8081}", "-jar", "app.jar"]
+ENTRYPOINT ["java", \
+  "-XX:+UseContainerSupport", \
+  "-XX:MaxRAMPercentage=70.0", \
+  "-XX:+UseSerialGC", \
+  "-XX:TieredStopAtLevel=1", \
+  "-Djava.security.egd=file:/dev/./urandom", \
+  "-Dserver.port=${PORT:-8081}", \
+  "-jar", "app.jar"]
+
