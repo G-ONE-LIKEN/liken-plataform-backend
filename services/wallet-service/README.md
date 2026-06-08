@@ -8,10 +8,12 @@ Microservicio de la plataforma LIKEN responsable de la gestión de billeteras y 
 
 - Lazy creation de billeteras al primer acceso del usuario
 - Registro de depósitos y retiros vía endpoints HTTP
-- Consumo de eventos Kafka para acreditar dividendos y procesar transacciones P2P
-- Idempotencia en consumers vía `external_event_id` (ver DD010)
+- Consumo de eventos Kafka para acreditar dividendos, reembolsos de rondas fallidas y movimientos derivados de compras
+- Reconciliación de billetera al vincularse una wallet on-chain (`user.wallet_linked`)
+- Reporte de plataforma para ADMIN
+- Idempotencia en consumers vía `external_event_id` (ver ADR-0012)
 - Concurrencia segura con `PESSIMISTIC_WRITE` sobre la fila de wallet
-- Publicación de eventos `wallets.funded` y `wallets.debited` para notificaciones
+- Publicación de eventos `wallet.credited` y `wallet.debited` para notificaciones
 
 ## Stack
 
@@ -20,7 +22,7 @@ Microservicio de la plataforma LIKEN responsable de la gestión de billeteras y 
 | Framework | Spring Boot 3.2.4 / Java 21 |
 | Persistencia | Spring Data JPA + PostgreSQL + Flyway |
 | Mensajería | Apache Kafka (at-least-once + idempotencia local) |
-| Seguridad | Spring Security + `GatewayHeaderAuthFilter` (DD002) |
+| Seguridad | Spring Security + `GatewayHeaderAuthFilter` (ADR-0004) |
 | Tests | JUnit 5 + Mockito |
 
 ## Estructura
@@ -36,13 +38,14 @@ com.plataforma/
 │   └── dto/
 ├── event/
 │   ├── WalletEventPublisher.java
-│   ├── consumer/     # TokenPurchasedConsumer, DividendDistributedConsumer, OrderMatchedConsumer
-│   └── dto/          # eventos con campos canónicos eventId/occurredAt/version (DD010)
+│   ├── consumer/     # TokenPurchasedConsumer, DividendDistributedConsumer,
+│   │                 #   OrderMatchedConsumer, WalletLinkedConsumer, WalletRefundConsumer
+│   └── dto/          # eventos con campos canónicos eventId/occurredAt/version (ADR-0012)
 └── shared/
     ├── config/       # KafkaConfig, SecurityConfig
     ├── exception/    # WalletNotFoundException, InsufficientFundsException, GlobalExceptionHandler
     ├── model/        # Auditable
-    └── security/     # GatewayHeaderAuthFilter (DD002)
+    └── security/     # GatewayHeaderAuthFilter (ADR-0004)
 ```
 
 ## Endpoints
@@ -51,8 +54,9 @@ com.plataforma/
 |--------|------|---------|-------------|
 | GET | `/api/wallets/me` | Autenticado | Saldo y datos de la billetera propia (lazy creation si no existe) |
 | GET | `/api/wallets/me/movements` | Autenticado | Historial de movimientos paginado |
-| POST | `/api/wallets/deposit` | Autenticado | Acreditar fondos (publica `wallets.funded`) |
-| POST | `/api/wallets/withdraw` | Autenticado | Debitar fondos (publica `wallets.debited`) |
+| POST | `/api/wallets/deposit` | Autenticado | Acreditar fondos (publica `wallet.credited`) |
+| POST | `/api/wallets/withdraw` | Autenticado | Debitar fondos (publica `wallet.debited`) |
+| GET | `/api/wallets/admin/platform-report` | `ADMIN` | Reporte agregado de la plataforma |
 
 ## Eventos Kafka
 
@@ -60,21 +64,23 @@ com.plataforma/
 
 | Tópico | Cuándo |
 |--------|--------|
-| `wallets.funded` | Al acreditar fondos en una billetera (depósito) |
-| `wallets.debited` | Al debitar fondos de una billetera (retiro) |
+| `wallet.credited` | Al acreditar fondos en una billetera (depósito, dividendo, refund) |
+| `wallet.debited` | Al debitar fondos de una billetera (retiro) |
 
 **Consume:**
 
 | Tópico | Publicado por | Para qué |
 |--------|--------------|---------|
-| `dividends.distributed` | invest-dividend-service | Acreditar dividendos en la billetera del inversor |
-| `investment.token_purchased` | invest-dividend-service | Debitar el costo de los tokens comprados |
-| `marketplace.order_matched` | marketplace-service | Registrar movimientos P2P (vendedor + comprador) |
+| `dividends.claimed` | blockchain-service | Acreditar dividendos en la billetera del inversor |
+| `investment.token_purchased` | blockchain-service | Registrar el movimiento de la compra de tokens |
+| `wallet.refund` | blockchain-service | Acreditar el reembolso de una ronda fallida |
+| `user.wallet_linked` | user-service | Reconciliar la billetera al vincular la wallet on-chain |
+| `marketplace.order_matched` | marketplace-service | Registrar movimientos P2P (pendiente) |
 
 > Idempotencia: cada consumer pasa `event.getEventId()` a `WalletService.recordMovement`,
 > que persiste el ID en la columna `external_event_id` con constraint `UNIQUE`. Una
 > segunda entrega del mismo evento hace early-return sin modificar el balance.
-> Detalles en DD010 + V2 migration.
+> Detalles en ADR-0012 + V2 migration.
 
 ## Migraciones Flyway
 
@@ -94,7 +100,7 @@ com.plataforma/
 | `KAFKA_BOOTSTRAP_SERVERS` | `localhost:9092` | Brokers de Kafka |
 
 > No usa `JWT_SECRET` — el gateway valida el JWT antes de rutear y este servicio
-> confía en los headers `X-User-Id` / `X-User-Role` / `X-User-Permissions` (DD002).
+> confía en los headers `X-User-Id` / `X-User-Role` / `X-User-Permissions` (ADR-0004).
 
 ## Tests
 

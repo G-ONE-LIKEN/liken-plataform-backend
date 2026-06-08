@@ -4,13 +4,20 @@ Microservicio de autenticación de la plataforma LIKEN. Emite y gestiona tokens 
 
 ## Responsabilidades
 
-- Login: verifica credenciales y emite JWT
-- Cambio de contraseña: verifica la contraseña actual y actualiza la nueva
-- Comunicación interna con `user-service` para leer/escribir datos de usuario
+- **Login**: verifica credenciales y emite un access token JWT (15 min) + un refresh token HttpOnly en cookie (7 días).
+- **Login con Google**: valida el `idToken` de Google OAuth y emite la misma pareja access+refresh (provisiona el usuario en `user-service` si es la primera vez).
+- **Registro con verificación de email**: `register/request` dispara el envío de un código; el alta real se confirma con `email-verification/confirm`.
+- **Verificación de email**: solicitar / confirmar / reenviar código (con TTL, cooldown y máximo de intentos).
+- **Refresh con rotación**: emite un nuevo access token y rota el refresh token (revoca el viejo, emite uno nuevo).
+- **Logout**: revoca el refresh token y limpia la cookie.
+- **Cambio de contraseña**: verifica la actual y actualiza la nueva.
+- **Comunicación interna** con `user-service` (datos de usuario) y `notification-service` (envío de códigos de verificación).
+
+No tiene base de datos relacional propia: usa **Redis** para refresh tokens y códigos de verificación de email.
 
 ## Por qué es un servicio separado
 
-Ver DD006 en `docs/decisiones-de-diseno.md`. Resumen: auth tiene un ciclo de vida y responsabilidades distintos al CRUD de usuarios. Separarlo permite escalar, auditar y evolucionar la estrategia de autenticación de forma independiente.
+Ver [ADR-0008](../../docs/adr/ADR-0008-auth-service-como-microservicio-independiente). Resumen: auth tiene un ciclo de vida y responsabilidades distintos al CRUD de usuarios. Separarlo permite escalar, auditar y evolucionar la estrategia de autenticación de forma independiente.
 
 ## Dominio
 
@@ -18,16 +25,19 @@ Ver DD006 en `docs/decisiones-de-diseno.md`. Resumen: auth tiene un ciclo de vid
 com.plataforma
 ├── auth/
 │   ├── controller/AuthController.java
-│   ├── service/AuthService.java
-│   └── dto/LoginRequest.java, ChangePasswordRequest.java
+│   ├── service/
+│   │   ├── AuthService.java                 # login, google, refresh, logout, change-password
+│   │   ├── EmailVerificationService.java    # registro + verificación de email (Redis)
+│   │   ├── RefreshTokenService.java         # emisión/rotación/revocación (Redis)
+│   │   └── GoogleTokenService.java          # valida idToken de Google
+│   └── dto/...                              # Login/Register/Google/EmailVerification requests
 └── shared/
-    ├── client/UserServiceClient.java       # HTTP interno a user-service
-    ├── client/dto/UserAuthDTO.java
-    ├── config/AppConfig.java               # RestTemplate, PasswordEncoder
-    ├── config/SecurityConfig.java          # Stateless, todo público (sin filtro JWT)
-    ├── dto/ApiResponse.java
+    ├── client/UserServiceClient.java        # HTTP interno a user-service
+    ├── client/NotificationServiceClient.java# envío de códigos vía notification-service
+    ├── config/AppConfig.java                # RestTemplate, PasswordEncoder
+    ├── config/SecurityConfig.java           # Stateless, todo público (sin filtro JWT)
     ├── exception/...
-    └── security/JwtUtils.java              # generateToken (login emite JWT)
+    └── security/JwtUtils.java               # generateToken (login emite JWT)
 ```
 
 ## Stack
@@ -36,29 +46,40 @@ com.plataforma
 |------|------------|
 | Framework | Spring Boot 3.2.4 / Java 21 |
 | JWT | JJWT 0.11.5 (HS256) |
+| Estado | Redis 7 (refresh tokens + códigos de verificación) |
+| OAuth | Google Identity (validación de `idToken`) |
 | HTTP cliente | RestTemplate (Spring Web) |
 | Tests | JUnit 5 + Mockito |
 
 ## Endpoints
 
-| Método | Ruta | Descripción |
-|--------|------|-------------|
-| POST | `/api/auth/login` | Verifica credenciales y devuelve JWT |
-| POST | `/api/auth/change-password` | Cambia contraseña del usuario autenticado |
+| Método | Ruta | JWT | Descripción |
+|--------|------|-----|-------------|
+| POST | `/api/auth/login` | No | Credenciales → access token (body) + refresh token (cookie). |
+| POST | `/api/auth/google` | No | `idToken` de Google → access + refresh. |
+| POST | `/api/auth/register/request` | No | Inicia registro: envía código de verificación al email. |
+| POST | `/api/auth/email-verification/request` | No | Solicita un código de verificación. |
+| POST | `/api/auth/email-verification/confirm` | No | Confirma el email con el código. |
+| POST | `/api/auth/email-verification/resend` | No | Reenvía el código (respeta cooldown). |
+| POST | `/api/auth/refresh` | No (usa cookie) | Renueva el access token y rota el refresh token. |
+| POST | `/api/auth/logout` | No (usa cookie) | Revoca el refresh token y limpia la cookie. |
+| POST | `/api/auth/change-password` | Sí | Cambia la contraseña del usuario autenticado. |
 
 ### Login
 ```json
 POST /api/auth/login
 { "email": "user@mail.com", "password": "secreto" }
 
-→ 200 { "data": "<jwt-token>", ... }
+→ 200 { "data": { "accessToken": "<jwt>" }, ... }   + Set-Cookie: refresh_token=...; HttpOnly; SameSite=Lax
 → 401 si credenciales inválidas o cuenta inactiva
 ```
+
+El access token dura 15 min (`jwt.expiration-ms=900000`); el refresh token, 7 días. El frontend renueva vía `/refresh` usando la cookie.
 
 ### Cambio de contraseña
 ```json
 POST /api/auth/change-password
-X-User-Id: 42                    # inyectado por el gateway (DD002)
+X-User-Id: 42                    # inyectado por el gateway (ADR-0004)
 { "oldPassword": "actual", "newPassword": "nueva" }
 
 → 200 si exitoso
@@ -69,21 +90,31 @@ X-User-Id: 42                    # inyectado por el gateway (DD002)
 
 ## Comunicación interna con user-service
 
-| Llamada | Endpoint en user-service |
-|---------|--------------------------|
-| Buscar usuario por email (login) | `GET /internal/users/by-email/{email}` |
-| Buscar usuario por ID (changePassword) | `GET /internal/users/{id}` |
-| Actualizar contraseña | `PUT /internal/users/{id}/password` |
+| Llamada | Endpoint |
+|---------|----------|
+| Buscar usuario por email (login) | `GET user-service /internal/users/by-email/{email}` |
+| Buscar usuario por ID (changePassword) | `GET user-service /internal/users/{id}` |
+| Actualizar contraseña | `PUT user-service /internal/users/{id}/password` |
+| Marcar email verificado | `PUT user-service /internal/users/{id}/email-verified` |
+| Provisionar / login Google | `POST user-service /internal/users/google` |
+| Alta tras verificación | `POST user-service /internal/users` |
+| Enviar código de verificación | `POST notification-service /internal/emails/transactional` |
 
-Los endpoints `/internal/**` de user-service no llevan JWT — están protegidos a nivel de red (ClusterIP en Kubernetes, ver DD003).
+Los endpoints `/internal/**` no llevan JWT — están protegidos a nivel de red (ClusterIP en Kubernetes, ver ADR-0005).
 
 ## Variables de entorno
 
 | Variable | Descripción | Default desarrollo |
 |----------|-------------|-------------------|
-| `JWT_SECRET` | Clave HS256 (mínimo 256 bits) | valor en application.properties |
-| `USER_SERVICE_URL` | URL interna de user-service | `http://localhost:8080` |
 | `PORT` | Puerto del servicio | `8081` |
+| `JWT_SECRET` | Clave HS256 (mínimo 256 bits) | — |
+| `REDIS_HOST` / `REDIS_PORT` | Redis (refresh tokens + códigos de verificación) | `localhost` / `6379` |
+| `USER_SERVICE_URL` | URL interna de user-service | `http://localhost:8080` |
+| `NOTIFICATION_SERVICE_URL` | URL interna de notification-service (envío de códigos) | `http://localhost:8087` |
+| `GOOGLE_CLIENT_ID` | Client ID de Google OAuth (validación del `idToken`) | (vacío) |
+| `EMAIL_VERIFICATION_TTL_MINUTES` | Vigencia del código | `10` |
+| `EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS` | Cooldown entre reenvíos | `60` |
+| `EMAIL_VERIFICATION_MAX_ATTEMPTS` | Intentos máximos por código | `5` |
 
 El `JWT_SECRET` debe ser **idéntico** al configurado en `api-gateway` (que valida los tokens emitidos por este servicio).
 
@@ -92,7 +123,7 @@ El `JWT_SECRET` debe ser **idéntico** al configurado en `api-gateway` (que vali
 | Quién | Responsabilidad |
 |-------|----------------|
 | `auth-service` | Verifica credenciales (login) y **emite** JWTs |
-| `api-gateway` | **Valida** JWTs en todas las requests posteriores (DD002) |
+| `api-gateway` | **Valida** JWTs en todas las requests posteriores (ADR-0004) |
 | Servicios backend | Confían en los headers `X-User-Id`, `X-User-Role`, `X-User-Permissions` inyectados por el gateway |
 
 `auth-service` no valida JWTs entrantes: el gateway ya lo hizo antes de rutear la request a este servicio.

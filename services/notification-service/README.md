@@ -1,110 +1,91 @@
 # notification-service
 
-> **Estado: ⏳ pendiente de implementación** (ver Paso 7 en `docs/plan-mvp.md`)
-
-Microservicio de la plataforma LIKEN responsable del envío de notificaciones por email a los usuarios en respuesta a eventos relevantes del sistema.
+Microservicio de notificaciones de la plataforma LIKEN. Reacciona a eventos Kafka del sistema y genera **notificaciones in-app** (persistidas en `notification_db`), **emails transaccionales** (vía Resend SMTP + Thymeleaf) y **push en tiempo real** al frontend (Server-Sent Events).
 
 ## Responsabilidades
 
-- Consumir eventos de Kafka definidos por DD010 y transformarlos en emails
-- Renderizar templates HTML por tipo de evento
-- Envío de emails transaccionales (confirmación de inversión, dividendo, KYC aprobado, etc.)
-- Idempotencia: descartar eventos duplicados vía `eventId` (DD010) — opcionalmente persiste audit log en tabla `notifications`
-- Monitorear tópicos `<tópico>.dlq` para alertar a admins sobre eventos que fallaron 3 veces (DD010)
-- Sin API pública: opera exclusivamente como consumidor de Kafka. Solo expone `/actuator/health`
+- **Consumir eventos Kafka** y, según el tipo, crear notificación in-app y/o enviar email.
+- **Persistir** cada notificación en la tabla `notification` (sirve de historial y de soporte para el badge de no leídas).
+- **Push en tiempo real** vía SSE: cuando se crea una notificación, se emite al instante a las conexiones abiertas de ese usuario.
+- **Emails transaccionales** renderizando templates Thymeleaf y enviándolos por Resend.
+- **Broadcast** administrativo a una audiencia (todos, admins, developers, inversores o un usuario puntual).
+- **Idempotencia**: cada notificación generada por un evento usa un `eventId` estable (derivado del recurso) para no duplicar.
 
-## Stack previsto
+## Endpoints
 
-| Capa | Tecnología |
-|------|------------|
-| Framework | Spring Boot 3.2.4 / Java 21 |
-| Mensajería | Apache Kafka (solo consumer) |
-| Email | Spring Mail (SMTP) — MailHog en dev, **proveedor SMTP en prod a decidir** |
-| Templates | Thymeleaf (HTML inline + plain text fallback) |
-| Persistencia | Opcional: PostgreSQL + Flyway para audit log de notificaciones enviadas |
-| Tests | JUnit 5 + Mockito + spring-kafka-test |
+### Públicos (vía gateway, autenticado)
 
-> **Sobre el proveedor SMTP en prod:** DD014 estableció GCP como cloud. AWS SES queda
-> descartado. Candidatos a evaluar cuando se implemente: SendGrid, Google Workspace SMTP
-> (si el equipo ya tiene Workspace), Mailgun, Postmark. Decisión a documentar en un DD nuevo.
+| Método | Ruta | Descripción |
+|---|---|---|
+| GET | `/api/notifications?unread=false` | Lista paginada de notificaciones del usuario. |
+| GET | `/api/notifications/unread-count` | Cantidad de no leídas (para el badge). |
+| POST | `/api/notifications/{id}/read` | Marca una notificación como leída. |
+| POST | `/api/notifications/read-all` | Marca todas como leídas. |
+| GET | `/api/notifications/stream` | Stream SSE (`text/event-stream`). **Sin rate-limit** en el gateway por ser conexión de larga duración. |
+| POST | `/api/notifications/broadcast` | **Solo ADMIN.** Envía un mensaje a una audiencia. |
 
-## Sin endpoints públicos
+### Internos (red privada, sin JWT)
 
-Este servicio no se rutea desde el `api-gateway`. Opera exclusivamente consumiendo Kafka.
-El único endpoint expuesto es `/actuator/health` para que el docker-compose pueda chequear su salud.
+| Método | Ruta | Descripción |
+|---|---|---|
+| POST | `/internal/emails/transactional` | Envía un email transaccional (`to`, `subject`, `templateName`, `variables`). Lo usan otros servicios. |
+
+### Operativos
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| GET | `/actuator/health` | Healthcheck. |
 
 ## Eventos Kafka consumidos
 
-Todos los eventos siguen el modelo canónico DD010 (incluyen `eventId`, `occurredAt`, `version`).
+| Tópico | Notificación generada |
+|---|---|
+| `projects.pending_approval` | A los admins: "Nuevo proyecto pendiente de aprobación". |
+| `projects.approved` | Al owner: "Tu proyecto fue aprobado" (+ email). |
+| `projects.rejected` | Al owner: "Tu proyecto fue rechazado" (+ email, con motivo). |
+| `user.registered` | Al usuario: bienvenida in-app + email (usa el email del payload para evitar la race con la tx de registro). |
+| `user.developer_registered` | A los admins: "Nuevo developer esperando verificación". |
+| `user.developer_status_changed` | Al usuario: aprobado/rechazado como developer (+ email). |
+| `investment.token_purchased` | Al inversor: "Compra de tokens confirmada" (+ email). |
+| `dividends.distributed` | Al inversor: "Dividendo acreditado" (+ email). |
+| `wallet.credited` | Al usuario: "Depósito recibido". |
+| `wallet.debited` | Al usuario: "Retiro procesado". |
 
-| Tópico | Publicado por | Notificación que genera |
-|--------|--------------|-------------------------|
-| `investment.token_purchased` | invest-dividend | "Compra de tokens confirmada" al inversor |
-| `dividends.distributed` | invest-dividend | "Dividendo acreditado" al inversor |
-| `marketplace.order_matched` | marketplace | "Tu orden fue ejecutada" al vendedor Y al comprador |
-| `projects.state_changed` | project-service | "Tu proyecto cambió de estado" al owner del proyecto |
-| `wallets.funded` | wallet-service | "Depósito recibido en tu billetera" |
-| `wallets.debited` | wallet-service | "Retiro procesado" |
-| `user.tier_changed` | invest-dividend | "Subiste al tier {SILVER\|GOLD}" 🎉 |
-| `<tópico>.dlq` | Kafka (auto) | Alerta a admin: "Evento {tópico} falló 3 veces" |
+`NotificationType`: `USER_WELCOME`, `ADMIN_DEVELOPER_PENDING`, `ADMIN_PROJECT_PENDING`, `DEVELOPER_STATUS_CHANGED`, `PROJECT_APPROVED`, `PROJECT_REJECTED`, `INVESTMENT_CONFIRMED`, `DIVIDEND_RECEIVED`, `WALLET_FUNDED`, `WALLET_DEBITED`, `BROADCAST`.
 
-## Idempotencia (DD010)
+> **Nota:** el consumer de dividendos escucha `dividends.distributed`. El `blockchain-service` emite `dividends.claimed` / `dividends.deposited`; verificá que exista un servicio que republique `dividends.distributed` o esas notificaciones no se disparan.
 
-Cada consumer chequea si ya procesó el `eventId` antes de enviar el email. Implementación recomendada (a confirmar al implementar):
+## Templates de email
 
-- **Opción A — Sin DB propia:** cache local (Caffeine) con TTL de 24h con los `eventId` ya procesados. Simple pero pierde estado al reiniciar.
-- **Opción B — Con tabla `notifications`:** persistir cada email enviado con `external_event_id UNIQUE`. Sirve también como audit log. Más robusto.
+Thymeleaf en `src/main/resources/templates/`:
 
-DD010 + el patrón de wallet-service (V2 migration) sugieren la opción B.
-
-## Templates
-
-Estructura sugerida en `src/main/resources/templates/`:
 ```
 templates/
-├── token-purchased.html
-├── dividend-received.html
-├── order-matched-seller.html
-├── order-matched-buyer.html
-├── project-state-changed.html
-├── wallet-funded.html
-├── wallet-debited.html
-├── tier-upgraded.html
-└── kyc-result.html         # invocado por user-service vía evento futuro
+├── welcome.html              # bienvenida (user.registered)
+├── notification.html         # template genérico para emails transaccionales
+└── email-verification.html   # verificación de email
 ```
 
-Cada template recibe el payload del evento como contexto Thymeleaf.
+## Configuración
 
-## Variables de entorno previstas
+| Env | Default | Descripción |
+|---|---|---|
+| `PORT` | `8087` | Puerto HTTP. |
+| `DB_URL` | `jdbc:postgresql://localhost:5432/notification_db` | Postgres del servicio. |
+| `DB_USERNAME` / `DB_PASSWORD` | — | Credenciales Postgres. |
+| `KAFKA_BOOTSTRAP_SERVERS` | `localhost:9092` | Broker Kafka. |
+| `MAIL_HOST` | `smtp.resend.com` | SMTP de Resend. |
+| `MAIL_PORT` | `465` | Puerto SMTP (SSL directo). |
+| `MAIL_USERNAME` | — | Usuario SMTP (`resend`). |
+| `MAIL_PASSWORD` | — | API key de Resend. |
+| `MAIL_AUTH` / `MAIL_STARTTLS` / `MAIL_SSL` | `true`/`false`/`true` | Flags SMTP. |
+| `MAIL_FROM` | `onboarding@resend.dev` | Remitente. |
+| `MAIL_FROM_NAME` | `LIKEN` | Nombre del remitente. |
+| `USER_SERVICE_URL` | `http://localhost:8080` | Resuelve audiencias del broadcast y destinatarios admin. |
+| `FRONTEND_URL` | `http://localhost:3000` | Base para los links en los emails. |
 
-| Variable | Default | Descripción |
-|----------|---------|-------------|
-| `PORT` | `8087` | Puerto (solo actuator/health) |
-| `KAFKA_BOOTSTRAP_SERVERS` | `localhost:9092` | Brokers de Kafka |
-| `MAIL_HOST` | `localhost` | SMTP host (MailHog en dev) |
-| `MAIL_PORT` | `1025` | SMTP port (MailHog en dev) |
-| `MAIL_USERNAME` | — | Credencial SMTP (vacío en MailHog) |
-| `MAIL_PASSWORD` | — | Credencial SMTP (vacío en MailHog) |
-| `MAIL_FROM` | `noreply@liken.local` | Remitente |
-| `DB_URL` | `jdbc:postgresql://localhost:5432/notification_db` | Solo si se elige Opción B de idempotencia |
+> El timeout de Tomcat está en `10m` para sostener las conexiones SSE; el gateway debe respetar ese timeout en la ruta `/api/notifications/stream`.
 
-## Para dev local: MailHog
+## Stack
 
-Cuando se implemente, agregar al `docker-compose.yml` raíz:
-
-```yaml
-mailhog:
-  image: mailhog/mailhog
-  container_name: liken_mailhog
-  ports:
-    - "1025:1025"   # SMTP
-    - "8025:8025"   # UI web — abrir en http://localhost:8025
-```
-
-MailHog captura los emails enviados sin entregarlos realmente — útil para inspeccionarlos en dev sin ensuciar inbox de nadie.
-
-## Fuera del MVP
-
-- Push notifications (móvil) — queda para V1.1, ver `docs/plan-mvp.md` Paso 10+
-- SMS — no contemplado
-- Internacionalización (i18n) de templates — V1.1
+Spring Boot 3.2.4 / Java 21 / PostgreSQL + Flyway / Kafka (consumer) / Spring Mail + Resend / Thymeleaf / SSE.

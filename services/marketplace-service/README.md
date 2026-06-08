@@ -1,6 +1,9 @@
 # marketplace-service
 
-> **Estado: pendiente de implementación**
+> **Estado: pendiente de implementación.** Hoy este directorio contiene solo este
+> README de diseño: no hay código, no se buildea en CI y no tiene Deployment en
+> GKE. Es el único servicio del MVP que sigue sin implementar. Todo lo que sigue
+> es una propuesta tentativa, sujeta a cambios al implementarlo.
 
 Microservicio de la plataforma LIKEN responsable del mercado secundario (P2P) de tokens de proyectos de energía renovable.
 
@@ -47,7 +50,7 @@ Microservicio de la plataforma LIKEN responsable del mercado secundario (P2P) de
 
 | Variable | Default | Descripción |
 |----------|---------|-------------|
-| `PORT` | `8085` | Puerto del servidor |
+| `PORT` | `8086` | Puerto del servidor (8085 ya lo usa blockchain-service) |
 | `DB_URL` | `jdbc:postgresql://localhost:5432/marketplace_db` | URL de PostgreSQL |
 | `DB_USERNAME` | `dev_user` | Usuario de la DB |
 | `DB_PASSWORD` | `${DB_PASSWORD}` | Contraseña de la DB |
