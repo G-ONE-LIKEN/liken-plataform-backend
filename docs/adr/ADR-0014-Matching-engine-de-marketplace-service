@@ -1,0 +1,47 @@
+# ADR-0014: Matching engine de marketplace-service
+
+- **Estado:** Propuesto (servicio aún no implementado)
+- **Fecha:** 2026-05-28
+- **DD original:** DD012
+- **Contexto:** Mercado secundario P2P de tokens
+
+---
+
+## Contexto
+
+`marketplace-service` permitirá a inversores comprar/vender tokens de un proyecto entre ellos. El motor de matching es la decisión más cara de cambiar después: afecta latencia, justicia percibida y complejidad. También faltan políticas de fees, cancelación y vencimiento.
+
+## Decisión
+
+- **Algoritmo:** FIFO con price-time priority, **sin matching parcial** en MVP (una orden se ejecuta completa o queda `OPEN`). Matching **síncrono** al crear la orden (`SELECT FOR UPDATE` sobre la mejor contraparte).
+- **Tablas:** `orders` (`side BUY/SELL`, `tokensAmount`, `pricePerToken`, `status`, `expiresAt`, ...) y `trades`. Estados de orden: `OPEN`, `MATCHED`, `CANCELLED`, `EXPIRED`.
+- **Fees:** `MARKETPLACE_FEE_PERCENT` (default 1%), descontado del lado vendedor, acumulado en una wallet de plataforma.
+- **Cancelación:** el dueño cancela una orden `OPEN` (no una `MATCHED`).
+- **Vencimiento:** TTL `ORDER_TTL_DAYS` (default 30); un `@Scheduled` horario marca `EXPIRED` las vencidas.
+- **Validación de holdings:** los tokens no se "bloquean" al crear la orden; se valida disponibilidad en el momento del match consultando holdings.
+
+## Alternativas consideradas
+
+| Alternativa | Motivo de descarte |
+|---|---|
+| Matching parcial | Justo pero duplica la complejidad (partial fills, estado intermedio); post-MVP. |
+| Order book en memoria + matching asíncrono | Mejor performance pero requiere recovery del state machine; innecesario para el volumen. |
+| Engine externo | Sobredimensionado. |
+| Bloquear tokens al crear la orden | Más simple validar en el match; la condición de carrera es muy improbable a este volumen. |
+
+## Consecuencias
+
+### Positivas
+- FIFO + price-time priority es estándar, predecible y simple de implementar.
+
+### Negativas / Advertencias
+- Sin matching parcial, órdenes de montos dispares pueden quedar sin ejecutar.
+- Validar holdings en el match (no bloquear) deja una ventana de doble-venta improbable pero existente.
+
+## Estado de implementación (2026-06-08) — ❌ no implementado
+
+`marketplace-service` contiene **solo un README de diseño**: no hay código, no se buildea en CI y no tiene Deployment en GKE. Es el único servicio del MVP pendiente.
+
+Consecuencias visibles en el resto del sistema: los tópicos `marketplace.order_matched` que `wallet-service` y `project-service` ya consumen **no tienen productor** todavía (consumidores en espera). Reservado el puerto `8086` (el `8085` lo ocupa `blockchain-service`).
+
+**Nota:** al implementarlo deberá integrarse con el **modelo on-chain** (ver [ADR-0013](ADR-0013-Bounded-context-de-invest-dividend-service)), que no existía cuando se escribió este DD; el diseño off-chain de órdenes/holdings deberá revisarse contra los contratos `LinkenToken`/`OfferingContract`.

@@ -1,0 +1,45 @@
+# ADR-0015: Tiers de usuario y KYC en user-service
+
+- **Estado:** Aceptado (con desviaciones)
+- **Fecha:** 2026-05-28
+- **DD original:** DD013
+- **Contexto:** Tiers de inversor y KYC, transversales a varios servicios
+
+---
+
+## Contexto
+
+El producto define dos conceptos transversales que no existían: **tiers de inversor** (niveles que se ganan invirtiendo, con beneficios futuros) y **KYC** (proceso obligatorio para invertir). Ambos viven en `user-service` (dueño de la identidad) pero su efecto lo aplican otros servicios (invest-dividend, marketplace). Sin diseñar la integración, cada servicio inventaría su propio chequeo.
+
+## Decisión
+
+- **Tiers:** tres niveles con upgrade automático por monto invertido acumulado. Campo `tier` en `users`. `invest-dividend-service` recalcula tras cada compra y publica `user.tier_changed`; `user-service` lo consume y actualiza `users.tier`. El tier se propaga como header `X-User-Tier`.
+- **KYC:** enum `KycStatus` (`NOT_STARTED`/`PENDING`/`APPROVED`/`REJECTED`) en `users` + tabla `kyc_documents`. Documentos en el bucket de storage bajo prefijo `kyc/{userId}/`. Endpoints: subir (usuario → `PENDING`), consultar propio, aprobar/rechazar (ADMIN). Endpoint interno `GET /internal/users/{id}/kyc-status`.
+- **Gates:** invest-dividend y marketplace rechazan operaciones críticas con `403 KYC_REQUIRED` si `kyc_status != APPROVED`.
+
+## Alternativas consideradas
+
+| Alternativa | Motivo de descarte |
+|---|---|
+| Calcular tier on-demand sin persistir | Consultar el total invertido en cada request es costoso. |
+| KYC en un servicio separado | Sobredimensionado: es un atributo del usuario. |
+| Verificación KYC automatizada (Veriff/Onfido) | Post-MVP; el gate es contra el estado, no contra el proveedor. |
+
+## Consecuencias
+
+### Positivas
+- Tier persistido = queries rápidas; integración por Kafka mantiene desacoplados user-service e invest-dividend.
+- KYC como flujo simple (subir → revisar → cambiar estado) cubre el MVP.
+
+### Negativas / Advertencias
+- Ambos lados (user-service e invest-dividend) deben mantener los mismos umbrales de tier en sincronía.
+
+## Estado de implementación (2026-06-08) — ⚠️ con desviaciones
+
+✅ KYC implementado: estados, `kyc_documents`, subida a **GCS** (no S3 — ver [ADR-0016](ADR-0016-Cloud-provider-GCP-y-storage-en-GCS)), endpoints públicos + interno. Tiers implementados con publicación/consumo de `user.tier_changed`.
+
+Desviaciones respecto del DD original:
+- **Nombres de tier:** el código usa **`BRONZE`/`SILVER`/`GOLD`** (default `BRONZE`), no `BASIC`/`SILVER`/`GOLD`.
+- **Umbral de GOLD:** `TierCalculator` usa **GOLD ≥ $5.000** (SILVER ≥ $1.000). El DD original decía GOLD = $10.000 → **inconsistencia a resolver** (alinear DD/código).
+- **Riesgo de drift de umbrales:** los umbrales están duplicados en `user-service` (enum `Tier`) y en `invest-dividend-service` (`TierCalculator`), en strings independientes; deben moverse juntos.
+- **Bonus APY por tier:** fuera del MVP, como estaba previsto (el campo existe, nadie lo lee aún).

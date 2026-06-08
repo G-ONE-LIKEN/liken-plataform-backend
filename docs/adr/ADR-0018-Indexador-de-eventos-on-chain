@@ -1,0 +1,52 @@
+# ADR-0018: Indexador de eventos on-chain — polling con checkpoints, confirmaciones e idempotencia
+
+- **Estado:** Aceptado
+- **Fecha:** 2026-06-06
+- **Contexto:** Cómo el `blockchain-service` lee la cadena de forma confiable
+
+---
+
+## Contexto
+
+[ADR-0017](ADR-0017-Modelo-de-integracion-on-chain-Web2-Web3) define que los servicios off-chain proyectan eventos de la cadena. Falta decidir **cómo** se leen esos eventos de forma confiable frente a tres problemas reales de las blockchains: reorganizaciones (reorgs), reinicios del servicio, y entregas duplicadas.
+
+## Decisión
+
+El `blockchain-service` corre un **indexador por polling** con estas propiedades:
+
+- **Polling `eth_getLogs`** por rangos de bloques cada `WEB3_POLL_SECONDS` (default 6 s), con tamaño de rango acotado (`WEB3_MAX_BLOCK_RANGE`, default 500) por los límites de los RPC públicos.
+- **Checkpoint persistido por contrato** (`indexer_checkpoint.last_processed_block`): tras reiniciar, reanuda desde donde quedó sin re-procesar.
+- **Confirmaciones:** solo procesa hasta `safeHead = head − WEB3_CONFIRMATIONS`, para no indexar bloques que un reorg podría revertir.
+- **Idempotencia con `eventId = txHash:logIndex`** (determinístico): los consumidores deduplican aunque un log se reentregue.
+- **Descubrimiento dinámico de Offerings:** además de los contratos globales (LKN/Registry/Distributor), en cada ciclo pide a `project-service` la lista de proyectos con `offeringContractAddress` y los suma al set monitoreado.
+- **Degradación segura:** si las addresses están en `0x0` o el RPC falla, el indexador queda idle/loguea y no rompe el resto del stack.
+
+## Alternativas consideradas
+
+| Alternativa | Motivo de descarte |
+|---|---|
+| Suscripción `eth_subscribe` (WebSocket) | Más reactivo, pero frágil ante caídas de conexión y no todos los RPC lo ofrecen; el polling con checkpoint es más robusto y reanudable. |
+| Sin confirmaciones (indexar `head`) | Expuesto a reorgs: publicaría eventos que luego se revierten. |
+| Sin checkpoint (re-escanear desde 0) | Costoso y lento; reprocesa todo en cada arranque. |
+| Idempotencia con UUID aleatorio | No es estable entre reintentos del indexador; `txHash:logIndex` es natural y determinístico. |
+| Servicio de indexación gestionado (The Graph, etc.) | Dependencia externa y curva; el indexador propio alcanza para esta escala. |
+
+## Consecuencias
+
+### Positivas
+- Resiliente a reorgs (confirmaciones), reinicios (checkpoint) y duplicados (eventId determinístico).
+- Reconstruible: bajando el checkpoint se puede re-indexar un rango.
+
+### Negativas / Advertencias
+- **Single-instance:** con >1 réplica ambas escanearían los mismos bloques (la idempotencia evita duplicados de negocio pero gasta RPC y compite por el checkpoint). No escalable horizontalmente sin un lock distribuido. Ver `implementar.md` #14.
+- Latencia inherente = `poll-interval + confirmaciones × block-time` (consistencia eventual de [ADR-0017](ADR-0017-Modelo-de-integracion-on-chain-Web2-Web3)).
+- `WEB3_CONFIRMATIONS=1` (default) es bajo para mainnet; en redes con reorgs profundos debería subirse.
+
+### No aplica a
+- Lecturas en vivo (ej. `pendingDividends`), que usan `eth_call` directo, no el indexador.
+
+## Estado de implementación (2026-06-08)
+
+✅ Implementado en `BlockchainIndexer` (`@Scheduled`), `IndexerCheckpoint(Repository)` y `EventHandlerService`. Observabilidad vía `GET /indexer/state` (checkpoint por contrato + head + estado del RPC).
+
+⚠️ Para escalar: agregar lock distribuido (Redis `SET NX` / ShedLock) o particionar por contrato. Mientras tanto fijar `replicas: 1` explícitamente.

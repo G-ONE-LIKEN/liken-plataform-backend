@@ -1,0 +1,39 @@
+# ADR-0006: El JWT contiene solo userId; los permisos se consultan en tiempo real
+
+- **Estado:** Aceptado
+- **Fecha:** 2026-05-27
+- **DD original:** DD004
+- **Contexto:** Qué información lleva el JWT y cómo obtiene el gateway los permisos
+
+---
+
+## Contexto
+
+Hay que definir qué claims lleva el JWT y cómo el gateway obtiene rol/permisos para inyectarlos como headers. Si los permisos viajan en el token, quedan "congelados" hasta que expira; si el token lleva solo `userId`, el gateway puede consultar permisos frescos en cada request.
+
+## Decisión
+
+**El JWT contiene solo `userId` en el subject.** En cada request autenticado, el gateway consulta a `user-service` (`GET /internal/users/{id}/context`) para obtener rol y permisos actuales, y los inyecta como headers. La latencia se mitiga con cache ([ADR-0007](ADR-0007-Cache-de-contexto-de-usuario-en-el-gateway)).
+
+## Alternativas consideradas
+
+| Alternativa | Motivo de descarte |
+|---|---|
+| Permisos dentro del JWT | Un cambio de rol o una suspensión no tendría efecto hasta que expire el token. Inaceptable para operaciones financieras (bloqueo de cuenta, cambio de rol deben ser inmediatos). |
+
+## Consecuencias
+
+### Positivas
+- Revocación inmediata: suspender o degradar a un usuario surte efecto al instante (modulado por el TTL del cache, [ADR-0007](ADR-0007-Cache-de-contexto-de-usuario-en-el-gateway)).
+- El JWT es mínimo y no filtra rol/permisos.
+
+### Negativas / Advertencias
+- El gateway necesita un cliente HTTP interno a `user-service` y agrega una llamada por request (mitigada por cache).
+- `user-service` debe exponer `GET /internal/users/{id}/context`, no expuesto al exterior.
+
+### No aplica a
+- La emisión del token (responsabilidad de `auth-service`, [ADR-0008](ADR-0008-auth-service-como-microservicio-independiente)).
+
+## Estado de implementación (2026-06-08)
+
+✅ Implementado. `auth-service.JwtUtils.generateToken` emite el JWT con `setSubject(userId)` y sin claims extra. `user-service.UserInternalController` expone `GET /internal/users/{id}/context` devolviendo `{ userId, role, permissions[], tier, kycStatus }` (se sumaron `tier` y `kycStatus` respecto del DD original). El gateway extrae el `userId` del subject, resuelve el contexto vía `UserContextService` (cache, [ADR-0007](ADR-0007-Cache-de-contexto-de-usuario-en-el-gateway)) e inyecta los headers ([ADR-0009](ADR-0009-Headers-de-identidad-inyectados-por-el-gateway)).

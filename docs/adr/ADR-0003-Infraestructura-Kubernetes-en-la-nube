@@ -1,0 +1,48 @@
+# ADR-0003: Infraestructura — Kubernetes en la nube
+
+- **Estado:** Aceptado
+- **Fecha:** 2026-05-27
+- **DD original:** DD001
+- **Contexto:** Plataforma LIKEN, decisión de infraestructura base
+
+---
+
+## Contexto
+
+La plataforma necesita escalar horizontalmente, garantizar alta disponibilidad y soportar múltiples servicios independientes que se comunican entre sí. Hay que definir sobre qué infraestructura corre el sistema completo, y ese sustrato condiciona el modelo de seguridad (ver [ADR-0004](ADR-0004-Validacion-JWT-centralizada-en-el-gateway) y [ADR-0005](ADR-0005-Aislamiento-de-red-servicios-internos-ClusterIP)).
+
+## Decisión
+
+La plataforma corre sobre **Kubernetes en la nube** (GKE — ver [ADR-0016](ADR-0016-Cloud-provider-GCP-y-storage-en-GCS)). Cada microservicio se empaqueta como imagen Docker y se despliega como un `Deployment` con su `Service`. Solo el `api-gateway` se expone al exterior (vía `Ingress`); el resto usa `Service` de tipo `ClusterIP`.
+
+## Alternativas consideradas
+
+| Alternativa | Motivo de descarte |
+|---|---|
+| Docker Compose en un VPS | Sin orquestación real, failover automático ni escalado horizontal. No cumple los RNF de escalabilidad/disponibilidad. |
+| Serverless (Lambda / Cloud Run) | Incompatible con servicios stateful (Kafka, Postgres) y conexiones persistentes. |
+| Service Mesh desde el día 1 | Complejidad operacional no justificada en esta etapa. |
+
+## Consecuencias
+
+### Positivas
+- Escalado horizontal nativo vía réplicas y HPA.
+- Reinicio automático de pods caídos (autorrecuperación).
+- Portabilidad: los contenedores corren igual en cualquier proveedor cloud.
+- Aislamiento de red nativo: los servicios internos no son alcanzables desde fuera sin definirlo explícitamente — base de [ADR-0004](ADR-0004-Validacion-JWT-centralizada-en-el-gateway)/[ADR-0005](ADR-0005-Aislamiento-de-red-servicios-internos-ClusterIP).
+
+### Negativas / Advertencias
+- Requiere configurar `ConfigMaps` y `Secrets` por servicio. Las variables sensibles (`JWT_SECRET`, credenciales DB, claves de pago, clave del firmante on-chain) van en `Secrets`, nunca en ConfigMaps planos.
+- Curva operacional mayor que un compose/VPS.
+
+### No aplica a
+- Desarrollo local, que usa Docker Compose ([ADR-0010](ADR-0010-docker-compose-unico-en-la-raiz)).
+
+## Estado de implementación (2026-06-08)
+
+✅ Desplegado en GKE (`infra/gcp-gke/`): cluster `liken-gke`, node pool con autoscaling 1–3, Ingress GCE con IP estática, Workload Identity. Gateway expuesto, resto ClusterIP.
+
+⚠️ Desviaciones / pendientes (ver `implementar.md`):
+- Todos los Deployments corren con `replicas: 1` y **sin** `resources.requests/limits` ni HPA → no hay HA real todavía.
+- `deletion_protection = false` en el cluster.
+- Postgres/Kafka/Redis corren como pods con una sola réplica (SPOF); migración a servicios gestionados pendiente (ver [ADR-0016](ADR-0016-Cloud-provider-GCP-y-storage-en-GCS)).

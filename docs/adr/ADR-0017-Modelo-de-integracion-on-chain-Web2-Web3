@@ -1,0 +1,65 @@
+# ADR-0017: Modelo de integración on-chain — la cadena como fuente de verdad, servicios off-chain como proyecciones
+
+- **Estado:** Aceptado
+- **Fecha:** 2026-06-06
+- **Contexto:** Integración de la plataforma con los contratos en Ethereum/Sepolia
+
+---
+
+## Contexto
+
+LIKEN tokeniza proyectos: las compras de tokens, los reembolsos y los dividendos ocurren en contratos on-chain (`OfferingContract`, `DividendDistributor`, `LinkenToken`, `ProjectRegistry`) que firma el usuario con su wallet (MetaMask). El backend necesita reflejar ese estado para listar inversiones, calcular tiers, notificar y mostrar saldos — pero **no controla** las transacciones del usuario ni debe custodiar sus fondos.
+
+La pregunta de arquitectura es: ¿el backend es la fuente de verdad del estado financiero, o lo es la cadena?
+
+Esta decisión no estaba en los DD originales (DD011/[ADR-0013](ADR-0013-Bounded-context-de-invest-dividend-service) asumía un modelo off-chain con holdings y distribuciones calculadas en el backend) y emergió al integrar la blockchain.
+
+## Decisión
+
+**La cadena es la fuente de verdad del estado financiero. Los servicios off-chain son proyecciones (read models) construidas a partir de los eventos on-chain.**
+
+Flujo unidireccional:
+
+```
+Usuario firma tx (MetaMask) ──▶ Contrato emite evento
+                                      │
+                  blockchain-service indexa el log (ADR-0018)
+                                      │
+                          publica a Kafka (ADR-0012)
+                                      ▼
+   invest-dividend (compras, dividendos, tiers) · wallet (movimientos)
+   · project (holders, recaudación, estado) · notification (avisos)
+```
+
+- El backend **no firma** transacciones de usuario ni mueve fondos del usuario. La única escritura on-chain que hace el backend es el **deploy del Offering** de cada proyecto ([ADR-0019](ADR-0019-Publicacion-de-contratos-via-Foundry)).
+- Cada servicio mantiene su propia proyección y la materializa de forma **idempotente** desde los eventos.
+- Las lecturas que deben ser "en vivo" (ej. dividendos pendientes) se hacen con `eth_call` read-only contra el contrato, no contra la proyección.
+
+## Alternativas consideradas
+
+| Alternativa | Motivo de descarte |
+|---|---|
+| Backend como fuente de verdad (modelo DD011 original) | Implica custodiar fondos/saldos y conciliar contra la cadena; duplica el estado autoritativo y abre inconsistencias backend↔chain. |
+| Backend firma las compras en nombre del usuario (custodial) | Custodia de claves y fondos de usuarios: riesgo legal/seguridad enorme, fuera del alcance. |
+| Frontend lee todo directo de la cadena, sin backend | Sin proyección no hay notificaciones, reportes, tiers ni queries eficientes; el RPC público no escala para listados. |
+
+## Consecuencias
+
+### Positivas
+- El backend nunca custodia fondos de usuario: superficie de riesgo acotada.
+- Consistencia eventual simple: si una proyección se corrompe, se puede **reconstruir** re-indexando desde un bloque (los eventos son la verdad).
+- Desacople: cada servicio proyecta solo lo que necesita.
+
+### Negativas / Advertencias
+- **Consistencia eventual:** hay latencia entre la tx confirmada y la proyección actualizada (polling + confirmaciones, [ADR-0018](ADR-0018-Indexador-de-eventos-on-chain)). El frontend debe tolerar ese desfase.
+- El `projectId` de negocio no viaja en los logs on-chain → algunos consumidores deben resolverlo por `offeringContractAddress` (causa del payload mismatch de `implementar.md` #4).
+- La identidad off-chain (userId) puede no existir cuando llega el evento (la wallet aún no se vinculó) → ver [ADR-0020](ADR-0020-Reconciliacion-de-actividad-on-chain-huerfana).
+
+### No aplica a
+- Operaciones puramente off-chain (registro, KYC, roles), que siguen siendo autoritativas en sus servicios.
+
+## Estado de implementación (2026-06-08)
+
+✅ Implementado para compras (`investment.token_purchased`), reembolsos (`wallet.refund`), finalización/fracaso de ronda (`projects.round_finalized/failed`), dividendos (`dividends.claimed/deposited`) y transferencias de LKN.
+
+⚠️ El cálculo de dividendos por snapshot del DD011 quedó **superado**: la distribución y el reclamo ocurren on-chain (`DividendDistributor`); el backend solo proyecta. Ver [ADR-0013](ADR-0013-Bounded-context-de-invest-dividend-service).

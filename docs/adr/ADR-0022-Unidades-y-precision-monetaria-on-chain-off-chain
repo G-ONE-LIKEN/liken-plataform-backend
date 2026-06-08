@@ -1,0 +1,52 @@
+# ADR-0022: Unidades y precisión monetaria on-chain ↔ off-chain
+
+- **Estado:** Aceptado
+- **Fecha:** 2026-06-06
+- **Contexto:** Conversión de montos entre la cadena y el backend sin perder precisión
+
+---
+
+## Contexto
+
+On-chain los montos son enteros (`uint256` en la mínima unidad): USDC con 6 decimales, LKN (ERC-20) con 18. Off-chain el backend opera con `BigDecimal` y persiste montos en columnas con escala fija. Si la conversión usa `double`, o escalas inconsistentes entre servicios, aparecen errores de redondeo en valores **monetarios** — inaceptable.
+
+## Decisión
+
+**Toda conversión usa `BigInteger`/`BigDecimal` con escalas explícitas y `RoundingMode.HALF_UP`. Nunca `double`/`float`.**
+
+Convenciones fijas:
+
+| Magnitud | On-chain | Off-chain (BigDecimal) |
+|---|---|---|
+| USDC (montos y precios) | `uint256`, 6 decimales | escala **6** |
+| LKN (cantidad de tokens) | `uint256`, 18 decimales | escala **8** (matchea `user_holdings.tokens_amount`) |
+
+- On-chain → off-chain: `movePointLeft(decimals)` + `setScale(..., HALF_UP)` (`UnitConverter` en blockchain-service).
+- Off-chain → on-chain (deploy de Offering): `movePointRight(6)` para USDC, `movePointRight(18)` para LKN, a entero (`ProjectPublicationService`).
+- Preview de compra: `usdcAmount / currentPrice` con escala 8 y `RoundingMode.DOWN` (no se le promete al inversor más LKN del que recibirá).
+
+## Alternativas consideradas
+
+| Alternativa | Motivo de descarte |
+|---|---|
+| `double`/`float` para montos | Errores de redondeo en aritmética monetaria; prohibido. |
+| Guardar LKN con escala 18 (igual que la cadena) | Innecesario para el negocio y más pesado; 8 decimales alcanzan para mostrar/operar holdings. |
+| Escala libre por servicio | Divergencia entre servicios → discrepancias al comparar/sumar; las escalas se fijan por convención. |
+
+## Consecuencias
+
+### Positivas
+- Aritmética monetaria exacta y consistente entre servicios.
+- El redondeo está acotado y es explícito (HALF_UP para representar, DOWN para no sobre-prometer en previews).
+
+### Negativas / Advertencias
+- LKN pierde precisión más allá de 8 decimales al proyectarse off-chain (aceptable: la verdad de la cantidad exacta sigue on-chain, [ADR-0017](ADR-0017-Modelo-de-integracion-on-chain-Web2-Web3)).
+- Las escalas son un **contrato implícito** entre productor (blockchain-service) y consumidores: si cambian, hay que migrarlas en conjunto. Idealmente se documentarían junto al esquema de eventos ([ADR-0012](ADR-0012-Modelo-canonico-de-eventos-Kafka)).
+- `USDC_ADDRESS` en Sepolia tiene 6 decimales como en mainnet; si se cambiara de red/token con otra escala, hay que revisar estas constantes.
+
+### No aplica a
+- Magnitudes no monetarias (timestamps, ids), que se manejan como `long`.
+
+## Estado de implementación (2026-06-08)
+
+✅ Implementado en `UnitConverter` (USDC 6, LKN 18→8, HALF_UP), `ChainReader.pendingDividends` (USDC escala 6) y `ProjectPublicationService` (`toUsdc6`/`toLkn18`). El preview de inversión usa escala 8 + `RoundingMode.DOWN`.

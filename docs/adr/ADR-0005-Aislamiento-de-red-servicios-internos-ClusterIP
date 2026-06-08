@@ -1,0 +1,42 @@
+# ADR-0005: Aislamiento de red — servicios internos no públicos
+
+- **Estado:** Aceptado
+- **Fecha:** 2026-05-27
+- **DD original:** DD003
+- **Contexto:** Garantía de red que sostiene el modelo de confianza del gateway
+
+---
+
+## Contexto
+
+El modelo de confianza de [ADR-0004](ADR-0004-Validacion-JWT-centralizada-en-el-gateway) (los servicios confían en los headers del gateway) solo es seguro si nadie puede llamar a los servicios directamente inyectando headers falsos. Hay que definir cómo se garantiza que los servicios internos sean inaccesibles desde el exterior.
+
+## Decisión
+
+Los servicios internos se despliegan con `Service` de tipo **ClusterIP**. Solo el `api-gateway` tiene un `Service` expuesto externamente (vía `Ingress`). Ningún puerto de los servicios internos se mapea fuera del cluster. Los endpoints `/internal/**` quedan accesibles únicamente dentro de la red del cluster.
+
+## Alternativas consideradas
+
+| Alternativa | Motivo de descarte |
+|---|---|
+| Validar el origen del request en cada servicio | Frágil, no escala, no es un mecanismo de seguridad real. |
+| mTLS entre servicios | Seguro pero agrega complejidad operacional significativa; reservado a futuro si el modelo de amenazas lo justifica. |
+
+## Consecuencias
+
+### Positivas
+- Garantía a nivel de red, sin lógica adicional en la aplicación. Forma estándar de proteger servicios internos en Kubernetes.
+- Habilita el modelo de [ADR-0004](ADR-0004-Validacion-JWT-centralizada-en-el-gateway) (headers confiables) y los endpoints `/internal/**` sin JWT.
+
+### Negativas / Advertencias
+- El aislamiento de red **no** sustituye la sanitización en el gateway: el cliente igual habla con el gateway, y si el gateway no limpia los headers de identidad entrantes, la confianza de los servicios se ve comprometida (ver desviación en [ADR-0004](ADR-0004-Validacion-JWT-centralizada-en-el-gateway)).
+- Solo el `api-gateway` necesita certificado TLS / HTTPS externo.
+
+### No aplica a
+- Desarrollo local (Docker Compose), donde los puertos de los servicios pueden quedar expuestos para debugging — aceptable porque no es producción.
+
+## Estado de implementación (2026-06-08)
+
+✅ En GKE todos los servicios salvo el gateway son ClusterIP; el Ingress solo enruta `/api` → gateway y `/` → frontend. Los `/internal/**` no están expuestos externamente.
+
+⚠️ Pendiente relacionado: el Ingress sirve HTTP plano (sin TLS), por lo que el `api-gateway` aún no cumple el "certificado TLS externo" que esta decisión asume (ver `implementar.md` #12).

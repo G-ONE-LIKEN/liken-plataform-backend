@@ -1,0 +1,52 @@
+# ADR-0011: Rate limiting en el API Gateway con Redis
+
+- **Estado:** Aceptado
+- **Fecha:** 2026-05-27
+- **DD original:** DD009
+- **Contexto:** Protección del punto de entrada único contra abuso
+
+---
+
+## Contexto
+
+El gateway es el único punto de entrada. Sin rate limiting, cualquier cliente puede saturar los servicios internos; el riesgo más concreto es fuerza bruta sobre `/api/auth/login`. Con múltiples réplicas del gateway, el estado del limiter no puede vivir en memoria: debe ser compartido.
+
+## Decisión
+
+Rate limiting con el filtro `RequestRateLimiter` de Spring Cloud Gateway y **Redis** como backend de estado (algoritmo token bucket). Clave por `X-User-Id` en rutas autenticadas, por IP en públicas (y en `/api/auth/**`). Al exceder: `429 Too Many Requests`. Si Redis no está disponible: **fail open** (los requests pasan) para no comprometer disponibilidad.
+
+## Alternativas consideradas
+
+| Alternativa | Motivo de descarte |
+|---|---|
+| Rate limiting en memoria por instancia | No funciona con múltiples réplicas (cada una su contador → N× el límite). |
+| Rate limiting en cada microservicio | Duplica lógica y no centraliza la protección. |
+| Nginx/Envoy delante del gateway | Componente extra; Spring Cloud Gateway ya integra Redis nativamente. |
+
+## Consecuencias
+
+### Positivas
+- Estado compartido entre réplicas; token bucket permite ráfagas legítimas.
+- Reusa el Redis ya presente para otras necesidades.
+
+### Negativas / Advertencias
+- **Fail open:** si Redis cae, no hay rate limiting (decisión consciente a favor de disponibilidad).
+- El gateway depende de Redis (`depends_on`, `REDIS_HOST`/`REDIS_PORT`).
+
+### No aplica a
+- La ruta SSE `/api/notifications/stream`, que se excluye del limiter por ser conexión de larga duración.
+
+## Estado de implementación (2026-06-08)
+
+✅ Implementado y **ampliado** a las rutas nuevas. Límites vigentes (sostenido / burst):
+
+| Ruta | Clave | replenish | burst |
+|------|-------|-----------|-------|
+| `/api/auth/**` | IP | 2/s (×5 tokens ≈ 24/min) | 10 |
+| `/api/projects/**` | userId/IP | 30/s | 60 |
+| `/api/users/**` | userId/IP | 20/s | 40 |
+| `/api/wallets/**` | userId/IP | 20/s | 40 |
+| `/api/investments/**`, `/api/dividends/**` | userId/IP | 20/s | 40 |
+| `/api/notifications/**` | userId/IP | 30/s | 60 |
+| `/api/notifications/stream` | — | sin límite (SSE) | — |
+| `/api/roles/**`, `/api/permissions/**` | userId/IP | 10/s | 20 |
