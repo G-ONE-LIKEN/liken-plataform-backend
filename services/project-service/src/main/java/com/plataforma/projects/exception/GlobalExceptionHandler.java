@@ -76,6 +76,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleGeneral(Exception ex) {
+        ex.printStackTrace();
         return response("Ocurrió un error interno en el servidor", HttpStatus.INTERNAL_SERVER_ERROR);
     }
 }

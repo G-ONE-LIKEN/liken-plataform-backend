@@ -49,7 +49,7 @@ Los demás servicios reaccionan a esos eventos: `invest-dividend-service` materi
 | invest-dividend-service | 8083 | Compras de tokens, holdings, dividendos y recálculo de tiers a partir de eventos on-chain. Idempotente, con reconciliación de actividad por wallet. | ✅ Listo |
 | blockchain-service | 8085 | Puente on-chain: indexer de eventos (Web3j) → Kafka, y publicación de contratos Offering vía Foundry (`forge`). | ✅ Listo |
 | notification-service | 8087 | Notificaciones in-app + email (Resend) + stream SSE, a partir de eventos Kafka. | ✅ Listo |
-| marketplace-service | 8086 | Mercado P2P de tokens (matching engine). | ⏳ Pendiente |
+| marketplace-service | 8086 | Mercado P2P de tokens (matching engine). | ✅ Listo |
 
 ## Stack común
 
