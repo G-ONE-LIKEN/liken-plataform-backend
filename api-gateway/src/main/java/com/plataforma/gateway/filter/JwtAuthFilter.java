@@ -48,20 +48,34 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
-        ServerHttpRequest request = exchange.getRequest();
-        String path = request.getURI().getPath();
-        HttpMethod method = request.getMethod();
+        final ServerHttpRequest request = exchange.getRequest();
+
+        // Sanitizar headers para evitar identity spoofing
+        final ServerHttpRequest cleaned = request.mutate()
+                .headers(h -> {
+                    h.remove("X-User-Id");
+                    h.remove("X-User-Role");
+                    h.remove("X-User-Permissions");
+                    h.remove("X-User-Tier");
+                    h.remove("X-User-KycStatus");
+                    h.remove("X-Developer-Status");
+                })
+                .build();
+        final ServerWebExchange finalExchange = exchange.mutate().request(cleaned).build();
+
+        String path = cleaned.getURI().getPath();
+        HttpMethod method = cleaned.getMethod();
 
         if (isPublic(path, method)) {
-            return chain.filter(exchange);
+            return chain.filter(finalExchange);
         }
 
-        String token = extractToken(request);
+        String token = extractToken(cleaned);
         if (token == null || token.isBlank()) {
-            return rejectUnauthorized(exchange, "Token ausente");
+            return rejectUnauthorized(finalExchange, "Token ausente");
         }
         if (!jwtUtils.validateToken(token)) {
-            return rejectUnauthorized(exchange, "Token inválido o expirado");
+            return rejectUnauthorized(finalExchange, "Token inválido o expirado");
         }
 
         Long userId = jwtUtils.getUserId(token);
@@ -69,7 +83,7 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
         return userContextService.getContext(userId)
                 .flatMap(ctx -> {
                     String permissions = String.join(",", ctx.getPermissions());
-                    ServerHttpRequest.Builder reqBuilder = request.mutate()
+                    ServerHttpRequest.Builder reqBuilder = cleaned.mutate()
                             .header("X-User-Id", String.valueOf(ctx.getUserId()))
                             .header("X-User-Role", ctx.getRole())
                             .header("X-User-Permissions", permissions)
@@ -79,9 +93,9 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
                         reqBuilder.header("X-Developer-Status", ctx.getDeveloperStatus());
                     }
                     ServerHttpRequest mutated = reqBuilder.build();
-                    return chain.filter(exchange.mutate().request(mutated).build());
+                    return chain.filter(finalExchange.mutate().request(mutated).build());
                 })
-                .onErrorResume(e -> rejectUnauthorized(exchange, "Usuario no encontrado o inactivo"));
+                .onErrorResume(e -> rejectUnauthorized(finalExchange, "Usuario no encontrado o inactivo"));
     }
 
     private boolean isPublic(String path, HttpMethod method) {

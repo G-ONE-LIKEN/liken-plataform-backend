@@ -5,9 +5,9 @@
 # =============================================================================
 FROM maven:3.9-eclipse-temurin-21 AS build
 WORKDIR /workspace
-COPY pom.xml .
+COPY services/blockchain-service/pom.xml .
 RUN mvn -B -q dependency:go-offline
-COPY src ./src
+COPY services/blockchain-service/src ./src
 RUN mvn -B -q -DskipTests package
 
 FROM eclipse-temurin:21-jre
@@ -19,6 +19,7 @@ RUN apt-get update \
     && /root/.foundry/bin/foundryup \
     && ln -s /root/.foundry/bin/forge /usr/local/bin/forge
 COPY --from=build /workspace/target/app.jar /app/app.jar
+COPY contracts /contracts
 EXPOSE 8085
 ENTRYPOINT ["java", \
   "-XX:+UseContainerSupport", \

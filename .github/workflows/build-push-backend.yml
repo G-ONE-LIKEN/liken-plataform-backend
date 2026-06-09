@@ -38,7 +38,8 @@ jobs:
           - image: invest-dividend-service
             context: services/invest-dividend-service
           - image: blockchain-service
-            context: services/blockchain-service
+            context: .
+            dockerfile: services/blockchain-service/Dockerfile
 
     permissions:
       contents: read
@@ -62,6 +63,7 @@ jobs:
           docker build \
             -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ matrix.image }}:${{ env.IMAGE_TAG }} \
             -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ matrix.image }}:latest \
+            ${{ matrix.dockerfile && format('-f {0}', matrix.dockerfile) || '' }} \
             ./${{ matrix.context }}
 
       - name: Push images

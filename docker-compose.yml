@@ -302,6 +302,8 @@ services:
         condition: service_healthy
       user-service:
         condition: service_healthy
+      project-service:
+        condition: service_healthy
     ports:
       - "8087:8087"
     environment:
@@ -311,6 +313,7 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:-change-me-db-password}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       USER_SERVICE_URL: http://user-service:8080
+      PROJECT_SERVICE_URL: http://project-service:8082
       # SMTP - configurado para Resend.
       # Defini estas vars en tu .env:
       #   MAIL_HOST=smtp.resend.com
@@ -379,7 +382,8 @@ services:
 
   blockchain-service:
     build:
-      context: ./services/blockchain-service
+      context: .
+      dockerfile: services/blockchain-service/Dockerfile
     container_name: liken_blockchain_service
     depends_on:
       postgres:
@@ -432,6 +436,39 @@ services:
       # Permite resolver host.docker.internal en Linux (Mac/Windows lo tienen built-in).
       - "host.docker.internal:host-gateway"
 
+  marketplace-service:
+    build:
+      context: ./services/marketplace-service
+    container_name: liken_marketplace_service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      project-service:
+        condition: service_healthy
+    ports:
+      - "8086:8086"
+    environment:
+      SERVER_PORT: 8086
+      DB_URL: jdbc:postgresql://postgres:5432/marketplace_db
+      DB_USER: ${POSTGRES_USER:-liken_user}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-change-me-db-password}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      PROJECT_SERVICE_URL: http://project-service:8082
+      MARKETPLACE_FEE_PERCENT: ${MARKETPLACE_FEE_PERCENT:-1.0}
+      ORDER_TTL_DAYS: ${ORDER_TTL_DAYS:-30}
+    deploy:
+      resources:
+        limits:
+          memory: 350M
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8086/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 90s
+
   api-gateway:
     build:
       context: ./api-gateway
@@ -453,6 +490,8 @@ services:
         condition: service_healthy
       invest-dividend-service:
         condition: service_healthy
+      marketplace-service:
+        condition: service_healthy
       notification-service:
         condition: service_healthy
     ports:
@@ -468,6 +507,7 @@ services:
       REDIS_PORT:    6379
       WALLET_URL:    http://wallet-service:8084
       INVEST_URL:    http://invest-dividend-service:8083
+      MARKETPLACE_URL: http://marketplace-service:8086
       NOTIFICATION_URL: http://notification-service:8087
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     deploy:
