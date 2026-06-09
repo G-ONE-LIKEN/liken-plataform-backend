@@ -20,4 +20,9 @@ RUN apt-get update \
     && ln -s /root/.foundry/bin/forge /usr/local/bin/forge
 COPY --from=build /workspace/target/app.jar /app/app.jar
 EXPOSE 8085
-ENTRYPOINT ["java", "-XX:+UseContainerSupport", "-jar", "/app/app.jar"]
+ENTRYPOINT ["java", \
+  "-XX:+UseContainerSupport", \
+  "-XX:MaxRAMPercentage=70.0", \
+  "-XX:+UseSerialGC", \
+  "-Djava.security.egd=file:/dev/./urandom", \
+  "-jar", "app.jar"]
