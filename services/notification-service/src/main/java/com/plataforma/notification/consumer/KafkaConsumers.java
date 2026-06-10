@@ -1,6 +1,7 @@
 package com.plataforma.notification.consumer;
 
 import com.plataforma.notification.client.UserServiceClient;
+import com.plataforma.notification.client.ProjectServiceClient;
 import com.plataforma.notification.model.NotificationType;
 import com.plataforma.notification.service.EmailService;
 import com.plataforma.notification.service.NotificationService;
@@ -30,6 +31,7 @@ public class KafkaConsumers {
     private final NotificationService notificationService;
     private final UserServiceClient userServiceClient;
     private final EmailService emailService;
+    private final ProjectServiceClient projectServiceClient;
 
     // ───────────────────────── PROYECTOS ─────────────────────────
 
@@ -196,48 +198,53 @@ public class KafkaConsumers {
 
     @KafkaListener(topics = "investment.token_purchased", groupId = "notification-service")
     public void onTokenPurchased(Map<String, Object> payload) {
-        Long userId   = asLong(payload.get("userId"));
-        Long projectId = asLong(payload.get("projectId"));
-        Object amount  = payload.get("amount");
-        Object tokens  = payload.get("tokens");
+        Long userId = asLong(payload.get("userId"));
         if (userId == null) return;
-        log.info("[event] investment.token_purchased userId={} projectId={}", userId, projectId);
+
+        Object amount = payload.get("usdcAmount");
+        Object tokens = payload.get("lknAmount");
+        
+        String offering = (String) payload.get("offeringContractAddress");
+        Long projectId = asLong(payload.get("projectId"));
+        if (projectId == null && offering != null) {
+            projectId = projectServiceClient.resolveProjectIdByOffering(offering);
+        }
+        
+        log.info("[event] investment.token_purchased userId={} projectId={} offering={}", userId, projectId, offering);
 
         notificationService.notify(
                 userId,
                 NotificationType.INVESTMENT_CONFIRMED,
                 "Compra de tokens confirmada",
-                String.format("Tu inversión de %s en el proyecto #%s fue confirmada.", amount, projectId),
-                Map.of("projectId", projectId, "amount", amount, "tokens", tokens,
-                        "url", "/projects/" + projectId),
+                String.format("Tu inversión de %s USDC en el proyecto #%s fue confirmada.", amount != null ? amount : "0", projectId != null ? projectId : "?"),
+                Map.of("projectId", projectId != null ? projectId : 0L, "amount", amount != null ? amount : 0, "tokens", tokens != null ? tokens : 0,
+                        "url", projectId != null ? "/projects/" + projectId : "/dashboard"),
                 String.valueOf(payload.getOrDefault("eventId", "tx-" + userId + "-" + projectId + "-" + amount)),
                 true,
                 "notification",
                 "Compra de tokens confirmada",
-                Map.of("projectId", projectId, "amount", amount, "tokens", tokens)
+                Map.of("projectId", projectId != null ? projectId : 0L, "amount", amount != null ? amount : 0, "tokens", tokens != null ? tokens : 0)
         );
     }
 
-    @KafkaListener(topics = "dividends.distributed", groupId = "notification-service")
-    public void onDividendDistributed(Map<String, Object> payload) {
+    @KafkaListener(topics = "dividends.claimed", groupId = "notification-service")
+    public void onDividendClaimed(Map<String, Object> payload) {
         Long userId   = asLong(payload.get("userId"));
-        Long projectId = asLong(payload.get("projectId"));
         Object amount  = payload.get("amount");
         if (userId == null) return;
-        log.info("[event] dividends.distributed userId={} projectId={}", userId, projectId);
+        log.info("[event] dividends.claimed userId={} amount={}", userId, amount);
 
         notificationService.notify(
                 userId,
                 NotificationType.DIVIDEND_RECEIVED,
-                "Dividendo acreditado",
-                String.format("Recibiste un dividendo de %s del proyecto #%s.", amount, projectId),
-                Map.of("projectId", projectId, "amount", amount,
-                        "url", "/projects/" + projectId),
-                String.valueOf(payload.getOrDefault("eventId", "div-" + userId + "-" + projectId)),
+                "Dividendo reclamado",
+                String.format("Tu reclamo de dividendo por %s USDC fue confirmado on-chain.", amount),
+                Map.of("amount", amount != null ? amount : 0),
+                String.valueOf(payload.getOrDefault("eventId", "div-" + userId + "-" + amount + "-" + System.nanoTime())),
                 true,
                 "notification",
-                "Dividendo acreditado",
-                Map.of("projectId", projectId, "amount", amount)
+                "Dividendo reclamado",
+                Map.of("amount", amount != null ? amount : 0)
         );
     }
 
