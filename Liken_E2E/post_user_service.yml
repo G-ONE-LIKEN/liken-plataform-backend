@@ -1,0 +1,24 @@
+info:
+  name: post_user_service
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: http://localhost:8080/api/users
+  headers:
+    - name: Content-Type
+      value: application/json
+
+runtime:
+  variables:
+    - name: email
+      value: fede@test.com
+    - name: password
+      value: mipass123
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
