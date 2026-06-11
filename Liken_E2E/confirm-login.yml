@@ -1,0 +1,24 @@
+info:
+  name: confirm-login
+  type: http
+
+http:
+  method: POST
+  url: http://localhost:8090/api/auth/email-verification/confirm
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "email": "federicoclarosv.15@gmail.com",
+        "code": ""
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

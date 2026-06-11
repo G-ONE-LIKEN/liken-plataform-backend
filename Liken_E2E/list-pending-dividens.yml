@@ -1,0 +1,18 @@
+info:
+  name: list-pending-dividens
+  type: http
+
+http:
+  method: GET
+  url: http://localhost:8090/api/dividends/pending?wallet=
+  params:
+    - name: wallet
+      value: ""
+      type: query
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

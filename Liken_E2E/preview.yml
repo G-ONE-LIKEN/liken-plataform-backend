@@ -1,0 +1,23 @@
+info:
+  name: preview
+  type: http
+  seq: 1
+
+http:
+  method: GET
+  url: http://localhost:8090/api/investments/preview?projectId=15&usdcAmount=100
+  params:
+    - name: projectId
+      value: "15"
+      type: query
+    - name: usdcAmount
+      value: "100"
+      type: query
+  auth:
+    type: bearer
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

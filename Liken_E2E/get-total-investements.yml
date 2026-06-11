@@ -1,0 +1,15 @@
+info:
+  name: get-total-investements
+  type: http
+
+http:
+  method: GET
+  url: http://localhost:8090/api/investments/me/total
+  auth:
+    type: bearer
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

@@ -1,0 +1,15 @@
+info:
+  name: get-my-wallet-info
+  type: http
+
+http:
+  method: GET
+  url: http://localhost:8090/api/wallets/me
+  auth:
+    type: bearer
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

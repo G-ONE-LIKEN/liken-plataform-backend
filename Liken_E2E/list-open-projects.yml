@@ -1,0 +1,18 @@
+info:
+  name: list-open-projects
+  type: http
+
+http:
+  method: GET
+  url: http://localhost:8090/api/projects?state=OPEN
+  params:
+    - name: state
+      value: OPEN
+      type: query
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
