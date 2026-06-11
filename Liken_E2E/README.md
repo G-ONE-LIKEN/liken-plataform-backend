@@ -269,7 +269,7 @@ $env:RPC_URL="https://eth-sepolia.g.alchemy.com/v2/TU_API_KEY"
 $env:PRIVATE_KEY="TU_PRIVATE_KEY"
 ```
 
-## Verificar wallet
+### Verificar wallet
 
 Obtener address desde la private key:
 
@@ -288,7 +288,7 @@ cast balance \
   --rpc-url $RPC_URL
 ```
 
-## Consultar balance USDC
+### Consultar balance USDC
 
 Usando la dirección configurada:
 
@@ -315,7 +315,14 @@ Coincide con:
 WEB3_CHAIN_ID=11155111
 ```
 
+### Firmar
+
+```bash
+cast wallet sign --account dev "<nonce>"
+```
+
 ## Flujo tentativo de inversión
+
 1. Obtener proyecto
 
 > GET /api/projects

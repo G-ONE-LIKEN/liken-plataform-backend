@@ -1,0 +1,22 @@
+info:
+  name: vincular-wallet
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: http://localhost:8090/api/users/me/wallet
+  body:
+    type: json
+    data: |-
+      {
+        "walletAddress": "0xTU_ADDRESS",
+        "signature": "0xLA_FIRMA"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
