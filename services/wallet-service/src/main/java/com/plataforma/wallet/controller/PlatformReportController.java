@@ -1,3 +1,4 @@
+// services/wallet-service/src/main/java/com/plataforma/wallet/controller/PlatformReportController.java
 package com.plataforma.wallet.controller;
 
 import com.plataforma.shared.dto.ApiResponse;

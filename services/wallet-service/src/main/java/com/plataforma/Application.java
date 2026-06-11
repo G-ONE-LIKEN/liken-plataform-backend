@@ -1,3 +1,4 @@
+// services/wallet-service/src/main/java/com/plataforma/Application.java
 package com.plataforma;
 
 import org.springframework.boot.SpringApplication;
