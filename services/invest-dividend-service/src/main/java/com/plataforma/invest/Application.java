@@ -1,3 +1,4 @@
+// services/invest-dividend-service/src/main/java/com/plataforma/invest/Application.java
 package com.plataforma.invest;
 
 import org.springframework.boot.SpringApplication;

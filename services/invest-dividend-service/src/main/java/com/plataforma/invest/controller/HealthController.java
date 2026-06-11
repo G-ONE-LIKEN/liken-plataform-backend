@@ -1,3 +1,4 @@
+// services/invest-dividend-service/src/main/java/com/plataforma/invest/controller/HealthController.java
 package com.plataforma.invest.controller;
 
 import org.springframework.http.ResponseEntity;

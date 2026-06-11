@@ -1,3 +1,4 @@
+// services/invest-dividend-service/src/main/java/com/plataforma/invest/controller/DividendController.java
 package com.plataforma.invest.controller;
 
 import com.plataforma.invest.dto.DividendClaimResponse;
