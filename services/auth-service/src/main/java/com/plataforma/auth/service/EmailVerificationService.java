@@ -1,3 +1,4 @@
+// service/src/main/java/com/plataforma/auth/service/EmailVerificationService.java
 package com.plataforma.auth.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;

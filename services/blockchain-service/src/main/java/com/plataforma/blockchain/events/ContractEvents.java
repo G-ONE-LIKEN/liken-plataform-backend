@@ -1,3 +1,4 @@
+// services/blockchain-service/src/main/java/com/plataforma/blockchain/events/ContractEvents.java
 package com.plataforma.blockchain.events;
 
 import org.web3j.abi.EventEncoder;

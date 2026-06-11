@@ -1,3 +1,4 @@
+// services/auth-service/src/main/java/com/plataforma/auth/controller/AuthController.java
 package com.plataforma.auth.controller;
 
 import com.plataforma.auth.dto.ChangePasswordRequest;
