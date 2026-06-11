@@ -10,10 +10,13 @@ FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 COPY --from=build /app/target/app.jar app.jar
 EXPOSE 8087
-ENTRYPOINT ["java", \
-  "-XX:+UseContainerSupport", \
-  "-XX:MaxRAMPercentage=70.0", \
-  "-XX:+UseSerialGC", \
-  "-XX:TieredStopAtLevel=1", \
-  "-Djava.security.egd=file:/dev/./urandom", \
-  "-jar", "app.jar"]
+ENTRYPOINT ["java",\
+  "-Xms64m",\
+  "-Xmx256m",\
+  "-XX:+UseSerialGC",\
+  "-XX:TieredStopAtLevel=1",\
+  "-XX:+ExitOnOutOfMemoryError",\
+  "-Xshare:auto",\
+  "-Djava.security.egd=file:/dev/./urandom",\
+  "-jar",\
+  "app.jar"]

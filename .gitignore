@@ -26,6 +26,8 @@ logs/**/*.log.gz
 logs/**/archive/
 !logs/**/.gitkeep
 logs/
+contracts/out/
+contracts/cache/
 
 # Variables de entorno
 .env
