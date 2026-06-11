@@ -29,13 +29,12 @@ EXPOSE 8081
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
   CMD wget -qO- http://localhost:${PORT}/actuator/health || exit 1
 
-ENTRYPOINT ["java",\
-  "-Xms32m",\
-  "-Xmx192m",\
-  "-XX:+UseSerialGC",\
-  "-XX:TieredStopAtLevel=1",\
-  "-XX:+ExitOnOutOfMemoryError",\
-  "-Xshare:auto",\
-  "-Djava.security.egd=file:/dev/./urandom",\
-  "-jar",\
-  "app.jar"]
+ENTRYPOINT ["java", \
+  "-XX:+UseContainerSupport", \
+  "-XX:+UseSerialGC", \
+  "-XX:TieredStopAtLevel=1", \
+  "-XX:+ExitOnOutOfMemoryError", \
+  "-Xshare:auto", \
+  "-Djava.security.egd=file:/dev/./urandom", \
+  "-Dserver.port=${PORT:-8081}", \
+  "-jar", "app.jar"]

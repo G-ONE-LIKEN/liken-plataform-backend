@@ -8,15 +8,20 @@ RUN mvn package -DskipTests -q
 
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 COPY --from=build /app/target/app.jar app.jar
+RUN chown appuser:appgroup app.jar
+USER appuser
+ENV PORT=8086
 EXPOSE 8086
-ENTRYPOINT ["java",\
-  "-Xms64m",\
-  "-Xmx256m",\
-  "-XX:+UseSerialGC",\
-  "-XX:TieredStopAtLevel=1",\
-  "-XX:+ExitOnOutOfMemoryError",\
-  "-Xshare:auto",\
-  "-Djava.security.egd=file:/dev/./urandom",\
-  "-jar",\
-  "app.jar"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+  CMD wget -qO- http://localhost:${PORT}/actuator/health || exit 1
+ENTRYPOINT ["java", \
+  "-XX:+UseContainerSupport", \
+  "-XX:+UseSerialGC", \
+  "-XX:TieredStopAtLevel=1", \
+  "-XX:+ExitOnOutOfMemoryError", \
+  "-Xshare:auto", \
+  "-Djava.security.egd=file:/dev/./urandom", \
+  "-Dserver.port=${PORT:-8086}", \
+  "-jar", "app.jar"]

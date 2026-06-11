@@ -3,22 +3,43 @@
 # Uso:
 #   docker compose up --build        # primera vez o después de cambiar código
 #   docker compose up                # sin cambios de código (usa imágenes en caché)
-#   docker compose up --build <nombre>  # rebuil solo un servicio
+#   docker compose up --build <nombre>  # rebuild solo un servicio
 #   docker compose down              # bajar todo (datos persisten)
 #   docker compose down -v           # bajar todo y borrar datos
 #   docker compose logs -f <nombre>  # ver logs de un servicio
 
-# ── Logging por defecto para todos los servicios ──────────────────────────────
-# Limita cada log a 10MB con 3 rotaciones máximo (30MB por servicio).
-# Evita que los logs crezcan indefinidamente y afecten el disco (btrfs/CoW).
+# ── Logging por defecto ────────────────────────────────────────────────────────
+# 10 MB × 3 rotaciones = 30 MB máx por servicio.
 x-logging: &default-logging
   driver: "json-file"
   options:
     max-size: "10m"
     max-file: "3"
 
-services:
+# ── JVM: variables de entorno para todos los Spring Boot ──────────────────────
+# JAVA_TOOL_OPTIONS se fusiona con los flags fijos del ENTRYPOINT del Dockerfile.
+# Ajustá -Xmx/-Xms si un servicio puntual necesita más heap.
+x-spring-env: &spring-env
+  JAVA_TOOL_OPTIONS: >-
+    -Xmx180m
+    -Xms80m
+    -Xss256k
+    -XX:ReservedCodeCacheSize=48m
+    -XX:MaxMetaspaceSize=96m
+    -XX:+DisableExplicitGC
+  SPRING_MAIN_LAZY_INITIALIZATION: "true"
 
+# ── Recursos para todos los Spring Boot ───────────────────────────────────────
+# memory: 180 heap + 96 metaspace + 48 code cache + ~76 OS/JVM overhead = ~400 MB
+# cpus: 0.50 → cada servicio puede usar máximo 50ms cada 100ms de CPU.
+#   No limita a infra (postgres, kafka, zookeeper) para que arranquen rápido.
+x-spring-deploy: &spring-deploy
+  resources:
+    limits:
+      memory: 400M
+      cpus: "0.50"
+
+services:
   # ════════════════════════════════════════════════════════════
   # INFRAESTRUCTURA
   # ════════════════════════════════════════════════════════════
@@ -36,9 +57,18 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    # Sin límite de CPU: postgres necesita burst al arrancar y en queries pesadas.
+    deploy:
+      resources:
+        limits:
+          memory: 256M
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-liken_user} -d ${POSTGRES_DB:-user_db}"]
-      interval: 10s
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-liken_user} -d ${POSTGRES_DB:-user_db}",
+        ]
+      interval: 15s # era 10s — reducimos frecuencia para aliviar disco
       timeout: 5s
       retries: 5
       start_period: 30s
@@ -50,10 +80,14 @@ services:
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       KAFKA_OPTS: "-Dzookeeper.4lw.commands.whitelist=ruok,srvr"
-      KAFKA_HEAP_OPTS: "-Xmx256m -Xms128m"
+      KAFKA_HEAP_OPTS: "-Xmx128m -Xms64m" # era 256m/128m
+    deploy:
+      resources:
+        limits:
+          memory: 196M
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/commands/ruok | grep -q ruok"]
-      interval: 10s
+      test: ["CMD-SHELL", "echo ruok | nc -w 2 localhost 2181 | grep -q imok"]
+      interval: 15s
       timeout: 5s
       retries: 10
       start_period: 30s
@@ -77,10 +111,21 @@ services:
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
-      KAFKA_HEAP_OPTS: "-Xmx256m -Xms128m"
+      KAFKA_HEAP_OPTS: "-Xmx192m -Xms96m" # era 256m/128m
+      # Reduce retención en disco para dev local
+      KAFKA_LOG_RETENTION_HOURS: 2
+      KAFKA_LOG_SEGMENT_BYTES: 52428800 # 50 MB por segmento
+    deploy:
+      resources:
+        limits:
+          memory: 320M
     healthcheck:
-      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/9092' 2>/dev/null || exit 1"]
-      interval: 10s
+      test:
+        [
+          "CMD-SHELL",
+          "bash -c 'echo > /dev/tcp/localhost/9092' 2>/dev/null || exit 1",
+        ]
+      interval: 15s
       timeout: 5s
       retries: 10
       start_period: 60s
@@ -91,14 +136,28 @@ services:
     logging: *default-logging
     ports:
       - "6379:6379"
+    # maxmemory evita que redis crezca sin freno si se usan como caché
+    command:
+      [
+        "redis-server",
+        "--maxmemory",
+        "64mb",
+        "--maxmemory-policy",
+        "allkeys-lru",
+      ]
+    deploy:
+      resources:
+        limits:
+          memory: 96M
+          cpus: "0.25"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
+      interval: 15s
       timeout: 5s
       retries: 5
 
   fake-gcs:
-    image: fsouza/fake-gcs-server:latest
+    image: fsouza/fake-gcs-server:1.49.2 # fijamos versión, no latest
     container_name: liken_fake_gcs
     logging: *default-logging
     command: >
@@ -111,9 +170,15 @@ services:
       - "4443:4443"
     volumes:
       - fake_gcs_data:/storage
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+          cpus: "0.25"
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:4443/storage/v1/b || exit 1"]
-      interval: 10s
+      test:
+        ["CMD-SHELL", "wget -qO- http://localhost:4443/storage/v1/b || exit 1"]
+      interval: 15s
       timeout: 5s
       retries: 5
 
@@ -143,7 +208,7 @@ services:
         fi
 
   # ════════════════════════════════════════════════════════════
-  # SERVICIOS
+  # SERVICIOS SPRING BOOT
   # ════════════════════════════════════════════════════════════
 
   user-service:
@@ -165,6 +230,7 @@ services:
     ports:
       - "8080:8080"
     environment:
+      <<: *spring-env
       PORT: 8080
       SPRING_PROFILES_ACTIVE: dev
       DB_URL: jdbc:postgresql://postgres:5432/user_db
@@ -180,11 +246,13 @@ services:
       GCS_EMULATOR_HOST: http://fake-gcs:4443
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     deploy:
-      resources:
-        limits:
-          memory: 350M
+      <<: *spring-deploy
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health || exit 1"]
+      test:
+        [
+          "CMD-SHELL",
+          "wget -qO- http://localhost:8080/actuator/health || exit 1",
+        ]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -205,6 +273,7 @@ services:
     ports:
       - "8081:8081"
     environment:
+      <<: *spring-env
       PORT: 8081
       JWT_SECRET: ${JWT_SECRET:-change-me-jwt-secret-with-at-least-32-characters}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
@@ -213,11 +282,13 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
     deploy:
-      resources:
-        limits:
-          memory: 350M
+      <<: *spring-deploy
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8081/actuator/health || exit 1"]
+      test:
+        [
+          "CMD-SHELL",
+          "wget -qO- http://localhost:8081/actuator/health || exit 1",
+        ]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -238,6 +309,7 @@ services:
     ports:
       - "8082:8082"
     environment:
+      <<: *spring-env
       PORT: 8082
       DB_URL: jdbc:postgresql://postgres:5432/project_db
       DB_USERNAME: ${DB_USERNAME:-liken_user}
@@ -249,11 +321,13 @@ services:
       GCS_BUCKET_NAME: liken-documents
       GCS_EMULATOR_HOST: http://fake-gcs:4443
     deploy:
-      resources:
-        limits:
-          memory: 350M
+      <<: *spring-deploy
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8082/actuator/health || exit 1"]
+      test:
+        [
+          "CMD-SHELL",
+          "wget -qO- http://localhost:8082/actuator/health || exit 1",
+        ]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -272,17 +346,20 @@ services:
     ports:
       - "8084:8084"
     environment:
+      <<: *spring-env
       PORT: 8084
       DB_URL: jdbc:postgresql://postgres:5432/wallet_db
       DB_USERNAME: ${DB_USERNAME:-liken_user}
       DB_PASSWORD: ${DB_PASSWORD:-change-me-db-password}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     deploy:
-      resources:
-        limits:
-          memory: 350M
+      <<: *spring-deploy
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8084/actuator/health || exit 1"]
+      test:
+        [
+          "CMD-SHELL",
+          "wget -qO- http://localhost:8084/actuator/health || exit 1",
+        ]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -305,6 +382,7 @@ services:
     ports:
       - "8087:8087"
     environment:
+      <<: *spring-env
       PORT: 8087
       DB_URL: jdbc:postgresql://postgres:5432/notification_db
       DB_USERNAME: ${DB_USERNAME:-liken_user}
@@ -323,11 +401,13 @@ services:
       MAIL_FROM_NAME: ${MAIL_FROM_NAME:-LIKEN}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
     deploy:
-      resources:
-        limits:
-          memory: 350M
+      <<: *spring-deploy
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8087/actuator/health || exit 1"]
+      test:
+        [
+          "CMD-SHELL",
+          "wget -qO- http://localhost:8087/actuator/health || exit 1",
+        ]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -350,6 +430,7 @@ services:
     ports:
       - "8083:8083"
     environment:
+      <<: *spring-env
       SERVER_PORT: 8083
       DB_URL: jdbc:postgresql://postgres:5432/invest_db
       DB_USER: ${POSTGRES_USER:-liken_user}
@@ -359,6 +440,8 @@ services:
       USER_SERVICE_URL: http://user-service:8080
       WEB3_RPC_URL: ${WEB3_RPC_URL:-http://host.docker.internal:8545}
       DISTRIBUTOR_ADDRESS: ${DISTRIBUTOR_ADDRESS:-0x0000000000000000000000000000000000000000}
+    deploy:
+      <<: *spring-deploy
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8083/health || exit 1"]
       interval: 15s
@@ -384,6 +467,7 @@ services:
     ports:
       - "8085:8085"
     environment:
+      <<: *spring-env
       SERVER_PORT: 8085
       DB_URL: jdbc:postgresql://postgres:5432/blockchain_db
       DB_USER: ${POSTGRES_USER:-liken_user}
@@ -411,6 +495,11 @@ services:
       PUBLICATION_DEADLINE_ZONE_ID: ${PUBLICATION_DEADLINE_ZONE_ID:-America/Argentina/Buenos_Aires}
     volumes:
       - ./contracts:/contracts
+    deploy:
+      resources:
+        limits:
+          memory: 450M  # resto se queda en 400M
+          cpus: '0.50'
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8085/health || exit 1"]
       interval: 15s
@@ -435,6 +524,7 @@ services:
     ports:
       - "8086:8086"
     environment:
+      <<: *spring-env
       SERVER_PORT: 8086
       DB_URL: jdbc:postgresql://postgres:5432/marketplace_db
       DB_USER: ${POSTGRES_USER:-liken_user}
@@ -444,9 +534,7 @@ services:
       MARKETPLACE_FEE_PERCENT: ${MARKETPLACE_FEE_PERCENT:-1.0}
       ORDER_TTL_DAYS: ${ORDER_TTL_DAYS:-30}
     deploy:
-      resources:
-        limits:
-          memory: 350M
+      <<: *spring-deploy
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8086/health || exit 1"]
       interval: 15s
@@ -483,25 +571,28 @@ services:
     ports:
       - "8090:8090"
     environment:
+      <<: *spring-env
       PORT: 8090
       FRONTEND_URL: http://localhost:*
       JWT_SECRET: ${JWT_SECRET:-change-me-jwt-secret-with-at-least-32-characters}
-      AUTH_URL:      http://auth-service:8081
-      USUARIOS_URL:  http://user-service:8080
+      AUTH_URL: http://auth-service:8081
+      USUARIOS_URL: http://user-service:8080
       PROYECTOS_URL: http://project-service:8082
-      REDIS_HOST:    redis
-      REDIS_PORT:    6379
-      WALLET_URL:    http://wallet-service:8084
-      INVEST_URL:    http://invest-dividend-service:8083
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      WALLET_URL: http://wallet-service:8084
+      INVEST_URL: http://invest-dividend-service:8083
       MARKETPLACE_URL: http://marketplace-service:8086
       NOTIFICATION_URL: http://notification-service:8087
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     deploy:
-      resources:
-        limits:
-          memory: 350M
+      <<: *spring-deploy
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8090/actuator/health || exit 1"]
+      test:
+        [
+          "CMD-SHELL",
+          "wget -qO- http://localhost:8090/actuator/health || exit 1",
+        ]
       interval: 15s
       timeout: 5s
       retries: 5
