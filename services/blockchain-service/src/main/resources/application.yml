@@ -21,6 +21,9 @@ spring:
     baseline-on-migrate: true
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:29092}
+    # Propagar el traceId en los eventos publicados (ADR-0025)
+    template:
+      observation-enabled: true
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
@@ -71,3 +74,13 @@ logging:
   level:
     org.web3j: INFO
     com.plataforma.blockchain: DEBUG
+
+# ===== Observabilidad (ADR-0025) =====
+management:
+  tracing:
+    sampling:
+      probability: 1.0
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics

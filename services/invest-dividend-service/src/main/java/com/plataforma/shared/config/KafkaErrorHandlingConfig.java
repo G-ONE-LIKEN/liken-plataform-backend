@@ -24,11 +24,15 @@ import org.springframework.util.backoff.FixedBackOff;
 public class KafkaErrorHandlingConfig {
 
     @Bean
-    public DefaultErrorHandler kafkaErrorHandler(KafkaTemplate<String, Object> template) {
+    public DefaultErrorHandler kafkaErrorHandler(KafkaTemplate<String, Object> template,
+                                                 io.micrometer.core.instrument.MeterRegistry meterRegistry) {
         // Partición 0 fija: el DLT se auto-crea con 1 partición; usar la
         // partición original rompería si el topic fuente tiene más de una.
-        var recoverer = new DeadLetterPublishingRecoverer(template,
-                (record, ex) -> new TopicPartition(record.topic() + ".DLT", 0));
+        // Cada derivación incrementa kafka.dlt.messages para alertar (ADR-0025).
+        var recoverer = new DeadLetterPublishingRecoverer(template, (record, ex) -> {
+            meterRegistry.counter("kafka.dlt.messages", "topic", record.topic()).increment();
+            return new TopicPartition(record.topic() + ".DLT", 0);
+        });
 
         var handler = new DefaultErrorHandler(recoverer, new FixedBackOff(2_000L, 3));
         handler.setCommitRecovered(true);

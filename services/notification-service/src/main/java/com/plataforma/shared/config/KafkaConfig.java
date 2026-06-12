@@ -38,6 +38,8 @@ public class KafkaConfig {
         ConcurrentKafkaListenerContainerFactory<String, Object> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(consumerFactory());
+        // Propagar el traceId desde los headers Kafka al MDC (ADR-0025)
+        factory.getContainerProperties().setObservationEnabled(true);
         return factory;
     }
 }

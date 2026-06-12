@@ -20,9 +20,13 @@ public class KafkaConfig {
      * Spring Boot lo enchufa automáticamente en la container factory.
      */
     @Bean
-    public DefaultErrorHandler kafkaErrorHandler(KafkaTemplate<String, Object> template) {
-        var recoverer = new DeadLetterPublishingRecoverer(template,
-                (record, ex) -> new TopicPartition(record.topic() + ".DLT", 0));
+    public DefaultErrorHandler kafkaErrorHandler(KafkaTemplate<String, Object> template,
+                                                 io.micrometer.core.instrument.MeterRegistry meterRegistry) {
+        // Cada derivación al DLT incrementa kafka.dlt.messages (ADR-0025).
+        var recoverer = new DeadLetterPublishingRecoverer(template, (record, ex) -> {
+            meterRegistry.counter("kafka.dlt.messages", "topic", record.topic()).increment();
+            return new TopicPartition(record.topic() + ".DLT", 0);
+        });
         var handler = new DefaultErrorHandler(recoverer, new FixedBackOff(2_000L, 3));
         handler.setCommitRecovered(true);
         return handler;

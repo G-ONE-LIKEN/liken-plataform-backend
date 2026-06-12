@@ -34,8 +34,21 @@ public class BlockchainIndexer {
     private final IndexerCheckpointRepository checkpoints;
     private final EventHandlerService handler;
     private final ProjectServiceClient projectServiceClient;
+    private final io.micrometer.core.instrument.MeterRegistry meterRegistry;
 
     private final Map<String, ContractKind> contractMap = new LinkedHashMap<>();
+
+    /**
+     * Métrica indexer.lag.blocks (ADR-0025): bloques entre el head confirmado
+     * y el checkpoint más atrasado. Si crece sostenido, el indexer no sigue
+     * el ritmo de la chain (RPC caído, errores repetidos) → alertar.
+     */
+    private final java.util.concurrent.atomic.AtomicLong lagBlocks = new java.util.concurrent.atomic.AtomicLong();
+
+    @jakarta.annotation.PostConstruct
+    void registerMetrics() {
+        meterRegistry.gauge("indexer.lag.blocks", lagBlocks);
+    }
 
     @Scheduled(fixedDelayString = "${web3.poll-interval-seconds:6}000",
             initialDelayString = "${web3.initial-delay-seconds:10}000")
@@ -64,6 +77,18 @@ public class BlockchainIndexer {
                 log.error("Error escaneando {} ({}): {}", entry.getKey(), entry.getValue(), ex.getMessage(), ex);
             }
         }
+        updateLagMetric(safeHead);
+    }
+
+    private void updateLagMetric(long safeHead) {
+        long maxLag = 0;
+        for (String address : contractMap.keySet()) {
+            long lag = checkpoints.findById(address.toLowerCase())
+                    .map(cp -> Math.max(0, safeHead - cp.getLastProcessedBlock()))
+                    .orElse(0L);
+            maxLag = Math.max(maxLag, lag);
+        }
+        lagBlocks.set(maxLag);
     }
 
     private void scanContract(String address, ContractKind kind, long safeHead) throws Exception {

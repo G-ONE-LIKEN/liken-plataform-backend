@@ -38,7 +38,10 @@ public class KafkaConfig {
 
     @Bean
     public KafkaTemplate<String, Object> kafkaTemplate() {
-        return new KafkaTemplate<>(producerFactory());
+        KafkaTemplate<String, Object> template = new KafkaTemplate<>(producerFactory());
+        // Propagar el traceId en los headers Kafka (ADR-0025)
+        template.setObservationEnabled(true);
+        return template;
     }
 
     // ── Consumer ──────────────────────────────────────────────────────────────
@@ -62,11 +65,16 @@ public class KafkaConfig {
      * va a {@code <topic>.DLT}. Los movimientos de wallet son dinero: un
      * evento no procesable no se descarta, se aparta para reproceso (los
      * consumers son idempotentes por eventId).
+     * Cada derivación incrementa la métrica {@code kafka.dlt.messages}
+     * (etiquetada por topic) para alertar en monitoreo (ADR-0025).
      */
     @Bean
-    public DefaultErrorHandler kafkaErrorHandler(KafkaTemplate<String, Object> template) {
-        var recoverer = new DeadLetterPublishingRecoverer(template,
-                (record, ex) -> new TopicPartition(record.topic() + ".DLT", 0));
+    public DefaultErrorHandler kafkaErrorHandler(KafkaTemplate<String, Object> template,
+                                                 io.micrometer.core.instrument.MeterRegistry meterRegistry) {
+        var recoverer = new DeadLetterPublishingRecoverer(template, (record, ex) -> {
+            meterRegistry.counter("kafka.dlt.messages", "topic", record.topic()).increment();
+            return new TopicPartition(record.topic() + ".DLT", 0);
+        });
         var handler = new DefaultErrorHandler(recoverer, new FixedBackOff(2_000L, 3));
         handler.setCommitRecovered(true);
         return handler;
@@ -79,6 +87,8 @@ public class KafkaConfig {
                 new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(consumerFactory());
         factory.setCommonErrorHandler(kafkaErrorHandler);
+        // Propagar el traceId desde los headers Kafka al MDC (ADR-0025)
+        factory.getContainerProperties().setObservationEnabled(true);
         return factory;
     }
 }
