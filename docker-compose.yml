@@ -1,15 +1,15 @@
 # Levanta toda la plataforma localmente.
 #
 # Uso:
-#   docker compose up --build        # primera vez o después de cambiar código
-#   docker compose up                # sin cambios de código (usa imágenes en caché)
+#   docker compose up --build        # primera vez o despues de cambiar codigo
+#   docker compose up                # sin cambios de codigo (usa imagenes en cache)
 #   docker compose up --build <nombre>  # rebuild solo un servicio
 #   docker compose down              # bajar todo (datos persisten)
 #   docker compose down -v           # bajar todo y borrar datos
 #   docker compose logs -f <nombre>  # ver logs de un servicio
 
 # ── Logging por defecto ────────────────────────────────────────────────────────
-# 10 MB × 3 rotaciones = 30 MB máx por servicio.
+# 10 MB × 3 rotaciones = 30 MB max por servicio.
 x-logging: &default-logging
   driver: "json-file"
   options:
@@ -18,7 +18,7 @@ x-logging: &default-logging
 
 # ── JVM: variables de entorno para todos los Spring Boot ──────────────────────
 # JAVA_TOOL_OPTIONS se fusiona con los flags fijos del ENTRYPOINT del Dockerfile.
-# Ajustá -Xmx/-Xms si un servicio puntual necesita más heap.
+# Ajusta -Xmx/-Xms si un servicio puntual necesita mas heap.
 x-spring-env: &spring-env
   JAVA_TOOL_OPTIONS: >-
     -Xmx180m
@@ -28,11 +28,15 @@ x-spring-env: &spring-env
     -XX:MaxMetaspaceSize=96m
     -XX:+DisableExplicitGC
   SPRING_MAIN_LAZY_INITIALIZATION: "true"
+  SPRING_MAIN_BANNER_MODE: "off"          # deshabilitar el banner en los logs (ahorras lineas de logs)
+  LOGGING_LEVEL_ROOT: "warn"              # el nivel de report lo paso a warning para enfocarnos en errores.
+  LOGGING_LEVEL_ORG_APACHE_KAFKA: "warn"  # idem, para el de kafka
+  LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_KAFKA: "warn"
 
 # ── Recursos para todos los Spring Boot ───────────────────────────────────────
 # memory: 180 heap + 96 metaspace + 48 code cache + ~76 OS/JVM overhead = ~400 MB
-# cpus: 0.50 → cada servicio puede usar máximo 50ms cada 100ms de CPU.
-#   No limita a infra (postgres, kafka, zookeeper) para que arranquen rápido.
+# cpus: 0.50 → cada servicio puede usar maximo 50ms cada 100ms de CPU.
+#   No limita a infra (postgres, kafka, zookeeper) para que arranquen rapido.
 x-spring-deploy: &spring-deploy
   resources:
     limits:
@@ -57,7 +61,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
-    # Sin límite de CPU: postgres necesita burst al arrancar y en queries pesadas.
+    # Sin limite de CPU: postgres necesita burst al arrancar y en queries pesadas.
     deploy:
       resources:
         limits:
@@ -81,6 +85,7 @@ services:
       ZOOKEEPER_CLIENT_PORT: 2181
       KAFKA_OPTS: "-Dzookeeper.4lw.commands.whitelist=ruok,srvr"
       KAFKA_HEAP_OPTS: "-Xmx128m -Xms64m" # era 256m/128m
+      KAFKA_LOG4J_OPTS: "-Dlog4j.rootLogger=WARN,stdout" # reportar warnings y errors
     deploy:
       resources:
         limits:
@@ -111,10 +116,10 @@ services:
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
-      KAFKA_HEAP_OPTS: "-Xmx192m -Xms96m" # era 256m/128m
-      # Reduce retención en disco para dev local
-      KAFKA_LOG_RETENTION_HOURS: 2
-      KAFKA_LOG_SEGMENT_BYTES: 52428800 # 50 MB por segmento
+      KAFKA_HEAP_OPTS: "-Xmx192m -Xms96m"                # era 256m/128m
+      KAFKA_LOG4J_OPTS: "-Dlog4j.rootLogger=WARN,stdout" # solo logs de warning y errors
+      KAFKA_LOG_RETENTION_HOURS: 2                       # Reduce retencion en disco para dev local
+      KAFKA_LOG_SEGMENT_BYTES: 52428800                  # 50 MB por segmento
     deploy:
       resources:
         limits:
@@ -136,7 +141,7 @@ services:
     logging: *default-logging
     ports:
       - "6379:6379"
-    # maxmemory evita que redis crezca sin freno si se usan como caché
+    # maxmemory evita que redis crezca sin freno si se usan como cache
     command:
       [
         "redis-server",
@@ -157,7 +162,7 @@ services:
       retries: 5
 
   fake-gcs:
-    image: fsouza/fake-gcs-server:1.49.2 # fijamos versión, no latest
+    image: fsouza/fake-gcs-server:1.49.2 # fijamos version, no latest
     container_name: liken_fake_gcs
     logging: *default-logging
     command: >
@@ -228,7 +233,7 @@ services:
       kafka:
         condition: service_healthy
     ports:
-      - "8080:8080"
+      - "9090:8080"
     environment:
       <<: *spring-env
       PORT: 8080
@@ -411,7 +416,7 @@ services:
       interval: 15s
       timeout: 5s
       retries: 5
-      start_period: 60s
+      start_period: 100s
 
   invest-dividend-service:
     build:
@@ -547,8 +552,10 @@ services:
       context: ./api-gateway
     container_name: liken_gateway
     logging: *default-logging
-    volumes:
-      - ./logs/api-gateway:/app/logs
+#    volumes:
+#      - ./logs/api-gateway:/app/logs  # Al hacer esto, el volumen de Docker pisa por completo la carpeta creada en Dockerfile.
+# El directorio pasa a pertenecer al usuario de la maquina local y, cuando appuser dentro del contenedor intenta escribir el archivo app.log,
+# Linux le tira un Permission denied.
     depends_on:
       redis:
         condition: service_healthy

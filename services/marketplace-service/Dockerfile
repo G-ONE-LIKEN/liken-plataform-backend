@@ -11,6 +11,7 @@ WORKDIR /app
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 COPY --from=build /app/target/app.jar app.jar
 RUN chown appuser:appgroup app.jar
+RUN mkdir -p /app/logs && chown -R appuser:appgroup /app/logs
 USER appuser
 ENV PORT=8086
 EXPOSE 8086
