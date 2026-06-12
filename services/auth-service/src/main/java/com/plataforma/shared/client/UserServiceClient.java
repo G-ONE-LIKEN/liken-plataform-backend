@@ -5,6 +5,7 @@ import com.plataforma.shared.client.dto.LocalUserRegistrationRequest;
 import com.plataforma.shared.client.dto.UserAuthDTO;
 import com.plataforma.shared.exception.UnauthorizedAccessException;
 import com.plataforma.shared.exception.UserNotFoundException;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
@@ -18,8 +19,18 @@ import org.springframework.web.util.UriUtils;
 
 import java.nio.charset.StandardCharsets;
 
+/**
+ * Cliente interno hacia user-service.
+ *
+ * Todas las llamadas pasan por el circuit breaker "user-service"
+ * (config en application.properties): tras varias fallas consecutivas el
+ * breaker abre y las llamadas fallan rápido con CallNotPermittedException,
+ * que el GlobalExceptionHandler traduce a 503. Los 4xx de negocio
+ * (ej. 404 usuario inexistente) NO cuentan como falla del breaker.
+ */
 @Component
 @RequiredArgsConstructor
+@CircuitBreaker(name = "user-service")
 public class UserServiceClient {
 
     private final RestTemplate restTemplate;

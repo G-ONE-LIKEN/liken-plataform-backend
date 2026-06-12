@@ -27,6 +27,14 @@
             <artifactId>spring-cloud-starter-gateway</artifactId>
         </dependency>
 
+        <!-- Circuit breaker reactivo sobre la llamada a user-service en
+             JwtAuthFilter: si user-service cae, el gateway responde 503
+             inmediato en vez de colgar cada request autenticado. -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-circuitbreaker-reactor-resilience4j</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>

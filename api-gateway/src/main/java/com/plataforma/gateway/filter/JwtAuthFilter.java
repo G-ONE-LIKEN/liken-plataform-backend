@@ -15,6 +15,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.stereotype.Component;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
@@ -81,7 +82,12 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
                     ServerHttpRequest mutated = reqBuilder.build();
                     return chain.filter(exchange.mutate().request(mutated).build());
                 })
-                .onErrorResume(e -> rejectUnauthorized(exchange, "Usuario no encontrado o inactivo"));
+                .onErrorResume(WebClientResponseException.NotFound.class,
+                        e -> rejectUnauthorized(exchange, "Usuario no encontrado o inactivo"))
+                // Cualquier otra falla (timeout, circuit breaker abierto, 5xx de
+                // user-service) NO es culpa del usuario: 503 honesto, no 401.
+                .onErrorResume(e -> reject(exchange, HttpStatus.SERVICE_UNAVAILABLE,
+                        "Servicio temporalmente no disponible. Intenta en unos segundos."));
     }
 
     private boolean isPublic(String path, HttpMethod method) {
@@ -123,8 +129,12 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
     }
 
     private Mono<Void> rejectUnauthorized(ServerWebExchange exchange, String message) {
+        return reject(exchange, HttpStatus.UNAUTHORIZED, message);
+    }
+
+    private Mono<Void> reject(ServerWebExchange exchange, HttpStatus status, String message) {
         ServerHttpResponse response = exchange.getResponse();
-        response.setStatusCode(HttpStatus.UNAUTHORIZED);
+        response.setStatusCode(status);
         response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
 
         Map<String, Object> body = Map.of(

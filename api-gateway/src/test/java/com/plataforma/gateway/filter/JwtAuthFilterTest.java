@@ -11,6 +11,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
 import org.springframework.mock.web.server.MockServerWebExchange;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
@@ -145,16 +146,33 @@ class JwtAuthFilterTest {
     }
 
     @Test
-    void getUsers_userContextResolutionFails_returns401() {
+    void getUsers_userNotFound_returns401() {
         when(jwtUtils.validateToken("good-token")).thenReturn(true);
         when(jwtUtils.getUserId("good-token")).thenReturn(99L);
-        when(userContextService.getContext(99L)).thenReturn(Mono.error(new RuntimeException("404 from user-service")));
+        // 404 de user-service = el usuario del token no existe o está inactivo
+        when(userContextService.getContext(99L)).thenReturn(Mono.error(
+                WebClientResponseException.create(404, "Not Found", HttpHeaders.EMPTY, new byte[0], null)));
 
         MockServerWebExchange exchange = exchangeFor("GET", "/api/users", "Bearer good-token");
 
         filter.filter(exchange, chain()).block();
 
         assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
+    @Test
+    void getUsers_userServiceUnavailable_returns503() {
+        when(jwtUtils.validateToken("good-token")).thenReturn(true);
+        when(jwtUtils.getUserId("good-token")).thenReturn(99L);
+        // Timeout / breaker abierto / 5xx = falla de infraestructura, no del
+        // usuario: el gateway responde 503, nunca un 401 engañoso (ADR-0023).
+        when(userContextService.getContext(99L)).thenReturn(Mono.error(new RuntimeException("connection timed out")));
+
+        MockServerWebExchange exchange = exchangeFor("GET", "/api/users", "Bearer good-token");
+
+        filter.filter(exchange, chain()).block();
+
+        assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
     }
 
     // --- helpers ---

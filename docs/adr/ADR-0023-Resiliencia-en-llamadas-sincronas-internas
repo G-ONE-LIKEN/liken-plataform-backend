@@ -1,0 +1,78 @@
+# ADR-0023: Resiliencia en llamadas síncronas internas (timeouts + circuit breakers)
+
+- **Estado:** Aceptado
+- **Fecha:** 2026-06-12
+- **Contexto:** Comunicación síncrona entre microservicios
+
+---
+
+## Contexto
+
+Varias operaciones críticas dependen de llamadas HTTP síncronas entre servicios:
+
+- **api-gateway → user-service**: en *cada request autenticado* el gateway resuelve
+  el contexto del usuario (`/internal/users/{id}/context`, cache de 30s).
+- **auth-service → user-service**: el login y el refresh consultan credenciales.
+- Los demás servicios (invest, wallet, blockchain, project, notification) hacen
+  lookups internos puntuales.
+
+Antes de este ADR, el gateway y auth-service llamaban **sin timeout ni circuit
+breaker**. Consecuencia: si user-service se colgaba (no caía — colgaba), cada
+request autenticado bloqueaba un thread/conexión hasta el timeout del sistema
+operativo. El pool se agotaba y **toda la plataforma** dejaba de responder,
+incluidas las rutas que no dependen de user-service. Además, cualquier falla
+se reportaba como `401 Usuario no encontrado` — un error engañoso que culpa
+al usuario por una falla de infraestructura.
+
+## Decisión
+
+1. **Timeouts agresivos en todos los clientes internos**: conexión 2-3s,
+   lectura 3-5s. Una llamada interna que tarda más que eso ya falló.
+2. **Circuit breaker en los dos caminos críticos**:
+   - Gateway: `ReactiveCircuitBreaker` (Spring Cloud + Resilience4j) sobre la
+     llamada de contexto, con TimeLimiter de 3s.
+   - Auth: `@CircuitBreaker` (Resilience4j) sobre `UserServiceClient`.
+   - Config común: ventana de 10 llamadas, abre al 50% de fallas, half-open
+     automático a los 15s con 2 llamadas de prueba.
+3. **Los 4xx de negocio no abren el breaker**: un 404 (usuario inexistente) es
+   una respuesta válida del servicio, no una falla. Solo cuentan timeouts,
+   errores de conexión y 5xx.
+4. **Códigos de error honestos**: falla de infraestructura → `503 Service
+   Unavailable` con mensaje "intenta en unos segundos". El `401` queda
+   reservado para problemas reales de credenciales/identidad.
+5. **Sin retries en el camino del request**: un retry automático sobre un
+   servicio degradado duplica su carga justo cuando peor está. El cliente
+   (frontend) decide si reintenta.
+
+## Alternativas consideradas
+
+| Alternativa | Motivo de descarte |
+|---|---|
+| Solo timeouts, sin breaker | Evita el cuelgue pero cada request sigue pagando el timeout completo (3s) durante toda la caída; el breaker corta a milisegundos. |
+| Retries automáticos con backoff | Amplifica la carga sobre el servicio degradado (retry storm); para lookups de identidad no hay valor: si falló, falló. |
+| Service mesh (Istio/Anthos) | Resuelve esto en infraestructura, pero el costo operativo y de aprendizaje no se justifica para 8 servicios; Resilience4j son 2 dependencias. |
+| Fallback con contexto cacheado vencido | Servir contexto stale > 30s implica decisiones de autorización con datos viejos (roles revocados). Preferimos fallar explícito. |
+
+## Consecuencias
+
+### Positivas
+- Falla parcial ≠ falla total: con user-service caído, las rutas públicas
+  siguen vivas y las autenticadas degradan con 503 inmediato.
+- El breaker es observable (`/actuator/circuitbreakers` en auth-service,
+  health indicator) — demo de caos reproducible en `scripts/chaos-demo.ps1`.
+- Recuperación automática sin intervención (half-open a los 15s).
+
+### Negativas / Advertencias
+- Usuarios con cache de contexto vigente (< 30s) siguen operando durante una
+  caída breve; los demás reciben 503. Comportamiento heterogéneo aceptado.
+- Los umbrales (50%, 10 llamadas, 15s) son punto de partida razonable, no
+  valores afinados con tráfico real.
+- El resto de los clientes internos tiene timeouts pero no breaker: su patrón
+  de fallback (devolver null/empty y degradar) ya acota el impacto.
+
+## Estado de implementación (2026-06-12)
+
+✅ Gateway (`ResilienceConfig`, `UserContextService`, `JwtAuthFilter` con 503),
+auth-service (`AppConfig` con timeouts, `@CircuitBreaker` en `UserServiceClient`,
+handlers 503 en `GlobalExceptionHandler`), notification-service (timeouts en
+`RestClient`). Demo: `scripts/chaos-demo.ps1`.
