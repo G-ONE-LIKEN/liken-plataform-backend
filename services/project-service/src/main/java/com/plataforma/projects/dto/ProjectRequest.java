@@ -14,10 +14,10 @@ public class ProjectRequest {
     @NotBlank(message = "El nombre es obligatorio")
     private String name;
 
-    @NotBlank(message = "La descripción es obligatoria")
+    @NotBlank(message = "La descripcion es obligatoria")
     private String description;
 
-    @NotNull(message = "El tipo de energía es obligatorio")
+    @NotNull(message = "El tipo de energia es obligatorio")
     private EnergyType energyType;
 
     private String province;
@@ -46,7 +46,7 @@ public class ProjectRequest {
     @DecimalMin(value = "0.01", message = "El standard price debe ser mayor a cero")
     private BigDecimal standardPrice;
 
-    @DecimalMin(value = "0.01", message = "La inversión mínima debe ser mayor a cero")
+    @DecimalMin(value = "0.01", message = "La inversion minima debe ser mayor a cero")
     private BigDecimal minimumInvestment;
 
     @DecimalMin(value = "0.01", message = "El soft cap debe ser mayor a cero")
@@ -56,13 +56,13 @@ public class ProjectRequest {
     private BigDecimal hardCap;
 
     /**
-     * Fecha esperada de apertura del parque. Único campo de fecha. Se usa también como
-     * {@code OfferingContract.deadline} al deployar el contrato (deadline implícito del soft cap).
+     * Fecha esperada de apertura del parque. unico campo de fecha. Se usa también como
+     * {@code OfferingContract.deadline} al deployar el contrato (deadline implicito del soft cap).
      */
     private LocalDate expectedOpenDate;
 
     private BigDecimal expectedAnnualYield;
 
-    @DecimalMin(value = "0.0001", message = "La producción anual estimada debe ser mayor a cero")
+    @DecimalMin(value = "0.0001", message = "La produccion anual estimada debe ser mayor a cero")
     private BigDecimal expectedAnnualProductionMWh;
 }

@@ -39,7 +39,7 @@ public class WalletMovement {
     private String referenceId;
 
     /**
-     * ID único del evento Kafka que originó este movimiento. Permite detectar
+     * ID unico del evento Kafka que origino este movimiento. Permite detectar
      * y descartar duplicados (at-least-once delivery — ver DD010).
      * NULL para movimientos creados por endpoints HTTP (deposit/withdraw).
      */

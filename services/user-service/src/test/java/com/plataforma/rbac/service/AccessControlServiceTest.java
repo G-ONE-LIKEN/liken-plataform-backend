@@ -69,7 +69,7 @@ class AccessControlServiceTest {
 
         assertThrows(UnauthorizedAccessException.class, () ->
                 accessControlService.validateChangeRole(basic, target, devRole),
-                "Un usuario básico no puede cambiar permisos");
+                "Un usuario basico no puede cambiar permisos");
     }
 
     @Test

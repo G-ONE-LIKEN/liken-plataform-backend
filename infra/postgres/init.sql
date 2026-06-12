@@ -1,5 +1,5 @@
 -- Se ejecuta una sola vez al crear el contenedor.
--- "user_db" ya la crea Postgres con POSTGRES_DB; las demás se crean acá.
+-- "user_db" ya la crea Postgres con POSTGRES_DB; las demas se crean aca.
 
 CREATE DATABASE project_db;
 CREATE DATABASE wallet_db;

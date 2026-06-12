@@ -1,12 +1,12 @@
 -- src/test/resources/data.sql
 -- Seed para tests @Tag("unit") con H2 (perfil "test").
 --
--- Replica V2__seed_roles_permissions.sql en SQL estándar compatible con H2.
+-- Replica V2__seed_roles_permissions.sql en SQL estandar compatible con H2.
 -- Se ejecuta DESPUÉS de que Hibernate crea las tablas gracias a:
 --   spring.jpa.defer-datasource-initialization=true  (application-test.properties)
 --
--- CONVENCIÓN DE PERMISOS: formato "recurso:accion" en minúsculas.
--- Debe mantenerse en sincronía con V2__seed_roles_permissions.sql.
+-- CONVENCIoN DE PERMISOS: formato "recurso:accion" en minusculas.
+-- Debe mantenerse en sincronia con V2__seed_roles_permissions.sql.
 
 -- =========================
 -- PERMISSIONS
@@ -26,7 +26,7 @@ INSERT INTO permissions (name, description) VALUES
 -- ROLES
 -- =========================
 INSERT INTO roles (name, description, active, created_at) VALUES
-    ('BASIC',     'Usuario básico',        true, NOW()),
+    ('BASIC',     'Usuario basico',        true, NOW()),
     ('INVESTOR',  'Usuario inversor',      true, NOW()),
     ('DEVELOPER', 'Usuario desarrollador', true, NOW()),
     ('ADMIN',     'Administrador',         true, NOW());

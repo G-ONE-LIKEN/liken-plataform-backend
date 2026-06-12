@@ -26,7 +26,7 @@
 	</properties>
 
 	<!-- ================================================================
-	     DEPENDENCIAS DE PRODUCCIÓN
+	     DEPENDENCIAS DE PRODUCCIoN
 	     ================================================================ -->
 	<dependencies>
 		<dependency>
@@ -58,7 +58,7 @@
 
 		<!-- Flyway core + driver Postgres.
 		     Desde Flyway 10.x, flyway-core no trae soporte para Postgres por default —
-		     hay que sumar flyway-database-postgresql como dependencia explícita. -->
+		     hay que sumar flyway-database-postgresql como dependencia explicita. -->
 		<dependency>
 			<groupId>org.flywaydb</groupId>
 			<artifactId>flyway-core</artifactId>
@@ -84,7 +84,7 @@
 
 		<!-- web3j-crypto — solo crypto/keys, sin stack web3 entera.
 		     Usado por WalletLinkingService para verificar firmas EIP-191 (personal_sign)
-		     y derivar la dirección EIP-55 a partir de la firma (ecrecover). -->
+		     y derivar la direccion EIP-55 a partir de la firma (ecrecover). -->
 		<dependency>
 			<groupId>org.web3j</groupId>
 			<artifactId>crypto</artifactId>
@@ -122,7 +122,7 @@
 
 	<!-- ================================================================
 	     BUILD DEFAULT
-	     mvn test → solo tests @Tag("unit")  (rápido, sin Docker)
+	     mvn test → solo tests @Tag("unit")  (rapido, sin Docker)
 	     ================================================================ -->
 	<build>
 		<finalName>app</finalName>
@@ -142,7 +142,7 @@
 
 			<!--
 				Surefire default: perfil "test" (H2, sin Docker).
-				Excluye el grupo "integration" para que mvn test sea siempre rápido.
+				Excluye el grupo "integration" para que mvn test sea siempre rapido.
 			-->
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
@@ -158,15 +158,15 @@
 	</build>
 
 	<!--
-	    mvn test               → unit        (H2, rápido, sin Docker)
-	    mvn test -Pintegration → integration (Postgres vía docker-compose)
+	    mvn test               → unit        (H2, rapido, sin Docker)
+	    mvn test -Pintegration → integration (Postgres via docker-compose)
 
 	    Para correr ambos en secuencia:
 	        docker compose up -d && mvn test && mvn test -Pintegration
 
 	    NOTA: un perfil "all" que corra unit + integration en una sola pasada
 	    requiere dos ejecuciones de Surefire con distintos spring.profiles.active,
-	    lo cual complica significativamente el pom. Se dejó como deuda técnica.
+	    lo cual complica significativamente el pom. Se dejo como deuda técnica.
 	-->
 	<profiles>
 

@@ -24,7 +24,7 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Gestión de documentos de proyectos sobre Google Cloud Storage (ver DD014).
+ * Gestion de documentos de proyectos sobre Google Cloud Storage (ver DD014).
  *
  * Para upload usa V4 signed URLs: el cliente sube el archivo directamente a GCS,
  * sin pasar por el servicio. Esto evita usar ancho de banda del backend para

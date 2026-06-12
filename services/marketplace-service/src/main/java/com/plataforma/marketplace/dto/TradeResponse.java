@@ -7,7 +7,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * Projección de una transacción completada del marketplace.
+ * Projeccion de una transaccion completada del marketplace.
  */
 @Getter
 @Setter

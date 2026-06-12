@@ -8,13 +8,13 @@ import java.math.BigDecimal;
 
 /**
  * @deprecated Reemplazado por {@link DividendsClaimedEvent} bajo el modelo PULL
- * de dividendos on-chain (DividendDistributor). El payload viejo asumía un push
- * desde {@code invest-dividend-service} (la plataforma distribuía a cada usuario);
- * en la integración Web3 el holder retira individualmente con MetaMask y el
+ * de dividendos on-chain (DividendDistributor). El payload viejo asumia un push
+ * desde {@code invest-dividend-service} (la plataforma distribuia a cada usuario);
+ * en la integracion Web3 el holder retira individualmente con MetaMask y el
  * Blockchain Service publica el evento contable.
  *
- * <p>Se mantiene la clase para que código viejo que la referencie (legacy event
- * stub no usado por ningún consumer activo) siga compilando. NO la consumen los
+ * <p>Se mantiene la clase para que codigo viejo que la referencie (legacy event
+ * stub no usado por ningun consumer activo) siga compilando. NO la consumen los
  * consumers actuales — ver {@code DividendsClaimedConsumer}.
  */
 @Deprecated(forRemoval = true)

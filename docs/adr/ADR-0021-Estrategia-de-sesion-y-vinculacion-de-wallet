@@ -1,52 +1,52 @@
-# ADR-0021: Estrategia de sesión (access + refresh rotativo) y vinculación de wallet por firma
+# ADR-0021: Estrategia de sesion (access + refresh rotativo) y vinculacion de wallet por firma
 
 - **Estado:** Aceptado
 - **Fecha:** 2026-06-06
-- **Contexto:** Manejo de sesiones y prueba de posesión de wallet (posterior a ADR-0006/0008)
+- **Contexto:** Manejo de sesiones y prueba de posesion de wallet (posterior a ADR-0006/0008)
 
 ---
 
 ## Contexto
 
-[ADR-0006](ADR-0006-JWT-contiene-solo-userId) y [ADR-0008](ADR-0008-auth-service-como-microservicio-independiente) definieron el JWT mínimo y el auth-service stateless, pero no la **estrategia de sesión** completa (cómo se renueva, cómo se revoca, dónde vive el refresh token) ni cómo un usuario prueba que **posee** la wallet que vincula (requisito de [ADR-0020](ADR-0020-Reconciliacion-de-actividad-on-chain-huerfana)). Ambas cosas se diseñaron al implementar el flujo real de auth.
+[ADR-0006](ADR-0006-JWT-contiene-solo-userId) y [ADR-0008](ADR-0008-auth-service-como-microservicio-independiente) definieron el JWT minimo y el auth-service stateless, pero no la **estrategia de sesion** completa (como se renueva, como se revoca, donde vive el refresh token) ni como un usuario prueba que **posee** la wallet que vincula (requisito de [ADR-0020](ADR-0020-Reconciliacion-de-actividad-on-chain-huerfana)). Ambas cosas se diseñaron al implementar el flujo real de auth.
 
-## Decisión
+## Decision
 
-### Sesión: access token corto + refresh token opaco rotativo
+### Sesion: access token corto + refresh token opaco rotativo
 
 - **Access token:** JWT de vida corta (15 min), enviado en el body del login y usado como `Authorization: Bearer`.
-- **Refresh token:** **opaco** (UUID, no JWT), de 7 días, en **cookie HttpOnly** (`SameSite=Lax`, `Path=/api/auth`). Vive en **Redis**, no en el JWT.
-- **Rotación:** cada `/refresh` revoca el token usado y emite uno nuevo (detección de reuse).
-- **Revocación:** doble índice en Redis (`refresh:token:{uuid}→userId` para lookup, `refresh:user:{userId}→set` para logout de todos los dispositivos).
-- **Provisión de identidad:** login local (BCrypt), **Google OAuth** (validación del `idToken`) y **registro con verificación de email** (código con TTL/cooldown/intentos en Redis).
+- **Refresh token:** **opaco** (UUID, no JWT), de 7 dias, en **cookie HttpOnly** (`SameSite=Lax`, `Path=/api/auth`). Vive en **Redis**, no en el JWT.
+- **Rotacion:** cada `/refresh` revoca el token usado y emite uno nuevo (deteccion de reuse).
+- **Revocacion:** doble indice en Redis (`refresh:token:{uuid}→userId` para lookup, `refresh:user:{userId}→set` para logout de todos los dispositivos).
+- **Provision de identidad:** login local (BCrypt), **Google OAuth** (validacion del `idToken`) y **registro con verificacion de email** (codigo con TTL/cooldown/intentos en Redis).
 
-### Vinculación de wallet: challenge + firma
+### Vinculacion de wallet: challenge + firma
 
-- `POST /api/users/me/wallet/nonce` genera un nonce; el usuario lo **firma** con su wallet; `POST /api/users/me/wallet` verifica la firma y recién ahí vincula la wallet y emite `user.wallet_linked`.
+- `POST /api/users/me/wallet/nonce` genera un nonce; el usuario lo **firma** con su wallet; `POST /api/users/me/wallet` verifica la firma y recién ahi vincula la wallet y emite `user.wallet_linked`.
 
 ## Alternativas consideradas
 
 | Alternativa | Motivo de descarte |
 |---|---|
 | Refresh token como JWT firmado | No revocable sin lista negra; el token opaco en Redis se revoca borrando la clave. |
-| Solo access token de larga duración, sin refresh | No revocable y mala UX (re-login frecuente o token eterno). |
-| Vincular wallet declarando la address sin firma | No prueba posesión: cualquiera reclamaría la actividad on-chain de otra wallet ([ADR-0020](ADR-0020-Reconciliacion-de-actividad-on-chain-huerfana)). |
+| Solo access token de larga duracion, sin refresh | No revocable y mala UX (re-login frecuente o token eterno). |
+| Vincular wallet declarando la address sin firma | No prueba posesion: cualquiera reclamaria la actividad on-chain de otra wallet ([ADR-0020](ADR-0020-Reconciliacion-de-actividad-on-chain-huerfana)). |
 
 ## Consecuencias
 
 ### Positivas
-- Revocación real e inmediata (logout, logout-all, rotación con detección de reuse).
-- El refresh token nunca es legible por JS (HttpOnly); la firma del nonce garantiza posesión de la wallet.
+- Revocacion real e inmediata (logout, logout-all, rotacion con deteccion de reuse).
+- El refresh token nunca es legible por JS (HttpOnly); la firma del nonce garantiza posesion de la wallet.
 - auth-service sigue sin DB relacional: el estado vive en Redis.
 
 ### Negativas / Advertencias
-- 🟡 **El access token se guarda en `localStorage` en el frontend** → expuesto a XSS (`implementar.md` #9). Mitigación sugerida: mantenerlo solo en memoria.
+- 🟡 **El access token se guarda en `localStorage` en el frontend** → expuesto a XSS (`implementar.md` #9). Mitigacion sugerida: mantenerlo solo en memoria.
 - Sin TLS (`implementar.md` #12), la cookie de refresh viaja en claro; debe marcarse `Secure` con HTTPS.
-- Redis es ahora dependencia dura de la sesión (su caída corta refresh/verificación).
+- Redis es ahora dependencia dura de la sesion (su caida corta refresh/verificacion).
 
 ### No aplica a
-- La validación del access token en requests posteriores, que la hace el gateway ([ADR-0004](ADR-0004-Validacion-JWT-centralizada-en-el-gateway)).
+- La validacion del access token en requests posteriores, que la hace el gateway ([ADR-0004](ADR-0004-Validacion-JWT-centralizada-en-el-gateway)).
 
-## Estado de implementación (2026-06-08)
+## Estado de implementacion (2026-06-08)
 
-✅ Implementado: `AuthController` (login/google/register/email-verification/refresh/logout/change-password), `RefreshTokenService` y `EmailVerificationService` sobre Redis; vínculo de wallet por nonce+firma en `user-service` (`WalletLinkingService`) que emite `user.wallet_linked`.
+✅ Implementado: `AuthController` (login/google/register/email-verification/refresh/logout/change-password), `RefreshTokenService` y `EmailVerificationService` sobre Redis; vinculo de wallet por nonce+firma en `user-service` (`WalletLinkingService`) que emite `user.wallet_linked`.

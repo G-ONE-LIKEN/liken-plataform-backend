@@ -51,7 +51,7 @@ public class AccessControlService {
             throw new UnauthorizedAccessException(
                     "Solo un Super Admin puede asignar el rol de Super Admin.");
 
-        // SUPER_ADMIN no puede auto-demotear si es el último
+        // SUPER_ADMIN no puede auto-demotear si es el ultimo
         boolean isSelfDemotion = actor.getId() != null
                 && actor.getId().equals(target.getId())
                 && targetIsSuperAdmin
@@ -60,7 +60,7 @@ public class AccessControlService {
             long superAdminCount = userRepository.countByRole_Name(RoleConstants.SUPER_ADMIN);
             if (superAdminCount <= 1)
                 throw new UnauthorizedAccessException(
-                        "No podés quitarte el rol de Super Admin si sos el único. Asigná otro Super Admin primero.");
+                        "No podés quitarte el rol de Super Admin si sos el unico. Asigna otro Super Admin primero.");
         }
     }
 }

@@ -33,7 +33,7 @@ class JwtAuthFilterTest {
         filter = new JwtAuthFilter(jwtUtils, userContextService, new ObjectMapper());
     }
 
-    // --- rutas públicas ---
+    // --- rutas publicas ---
 
     @Test
     void loginPath_noToken_passesThrough() {

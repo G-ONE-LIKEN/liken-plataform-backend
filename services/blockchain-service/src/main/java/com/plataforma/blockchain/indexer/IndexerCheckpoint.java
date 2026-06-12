@@ -10,8 +10,8 @@ import java.time.LocalDateTime;
 
 /**
  * Estado del indexer por contrato. Permite reanudar tras un restart sin
- * re-procesar eventos. La clave es la dirección del contrato (un único proyecto
- * por OfferingContract; un único global para LinkenToken/Registry/Distributor).
+ * re-procesar eventos. La clave es la direccion del contrato (un unico proyecto
+ * por OfferingContract; un unico global para LinkenToken/Registry/Distributor).
  */
 @Entity
 @Table(name = "indexer_checkpoint")

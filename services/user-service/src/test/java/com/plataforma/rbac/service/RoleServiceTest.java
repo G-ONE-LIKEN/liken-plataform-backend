@@ -85,7 +85,7 @@ class RoleServiceTest {
 
     @Test
     void shouldUpdateRoleNameAndDescriptionSuccessfully() {
-        Role existing = Role.builder().id(1L).name("BASIC").description("Rol básico").build();
+        Role existing = Role.builder().id(1L).name("BASIC").description("Rol basico").build();
         when(roleRepository.findById(1L)).thenReturn(Optional.of(existing));
         when(roleRepository.findByName("INVESTOR")).thenReturn(Optional.empty());
         when(roleRepository.save(any(Role.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -98,11 +98,11 @@ class RoleServiceTest {
 
     @Test
     void shouldNotCheckDuplicateWhenNameIsUnchanged() {
-        Role existing = Role.builder().id(1L).name("ADMIN").description("descripción vieja").build();
+        Role existing = Role.builder().id(1L).name("ADMIN").description("descripcion vieja").build();
         when(roleRepository.findById(1L)).thenReturn(Optional.of(existing));
         when(roleRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        assertDoesNotThrow(() -> roleService.updateRole(1L, "ADMIN", "descripción nueva"));
+        assertDoesNotThrow(() -> roleService.updateRole(1L, "ADMIN", "descripcion nueva"));
         verify(roleRepository, never()).findByName(any());
         verify(roleRepository, times(1)).save(existing);
     }
@@ -115,7 +115,7 @@ class RoleServiceTest {
         when(roleRepository.findByName("ADMIN")).thenReturn(Optional.of(admin));
 
         assertThrows(DuplicateRoleException.class,
-                () -> roleService.updateRole(1L, "ADMIN", "cualquier descripción"));
+                () -> roleService.updateRole(1L, "ADMIN", "cualquier descripcion"));
         verify(roleRepository, never()).save(any());
     }
 }

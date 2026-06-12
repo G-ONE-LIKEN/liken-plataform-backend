@@ -18,9 +18,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /**
  * Tests de seguridad: GatewayHeaderAuthFilter + @PreAuthorize.
  *
- * La autenticación se simula inyectando los headers X-User-Id / X-User-Role /
- * X-User-Permissions directamente, tal como lo hace el API Gateway en producción (DD002).
- * No hay validación de JWT en este servicio.
+ * La autenticacion se simula inyectando los headers X-User-Id / X-User-Role /
+ * X-User-Permissions directamente, tal como lo hace el API Gateway en produccion (DD002).
+ * No hay validacion de JWT en este servicio.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -48,7 +48,7 @@ class SecurityUnitTest {
         };
     }
 
-    // ── 401 sin autenticación ─────────────────────────────────────────────────
+    // ── 401 sin autenticacion ─────────────────────────────────────────────────
 
     @Test
     void debeDevolver401_sinHeadersDeGateway() throws Exception {
@@ -64,7 +64,7 @@ class SecurityUnitTest {
             .andExpect(status().isUnauthorized());
     }
 
-    // ── Autorización por permiso ──────────────────────────────────────────────
+    // ── Autorizacion por permiso ──────────────────────────────────────────────
 
     @Test
     void debeDevolver403_sinPermisoProjectDelete() throws Exception {

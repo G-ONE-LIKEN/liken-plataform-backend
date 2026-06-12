@@ -1,6 +1,6 @@
--- Soporte para aprobación de proyectos por administrador.
+-- Soporte para aprobacion de proyectos por administrador.
 -- Los proyectos creados por developers quedan en estado PENDING_APPROVAL
--- hasta que un admin los aprueba (transición a DRAFT) o rechaza (CANCELLED).
+-- hasta que un admin los aprueba (transicion a DRAFT) o rechaza (CANCELLED).
 
 ALTER TABLE projects
     ADD COLUMN approved_by       BIGINT,

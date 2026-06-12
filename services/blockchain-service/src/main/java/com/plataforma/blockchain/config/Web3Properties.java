@@ -5,8 +5,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * Parámetros del indexer: rango de bloques por petición, intervalo de polling,
- * confirmaciones mínimas.
+ * Parametros del indexer: rango de bloques por peticion, intervalo de polling,
+ * confirmaciones minimas.
  */
 @Data
 @Configuration

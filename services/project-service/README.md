@@ -1,24 +1,24 @@
 # project-service
 
-Microservicio de la plataforma LIKEN responsable de la gestión de proyectos de inversión en energía renovable.
+Microservicio de la plataforma LIKEN responsable de la gestion de proyectos de inversion en energia renovable.
 
 ## Responsabilidades
 
 - CRUD de proyectos con ciclo de vida controlado (estados de negocio + estado on-chain).
-- **Workflow de aprobación**: un developer crea el proyecto (queda en `PENDING_APPROVAL`); un ADMIN lo aprueba o rechaza.
-- **Publicación on-chain**: al publicar un proyecto aprobado, delega en `blockchain-service` el deploy del `OfferingContract` y procesa los callbacks de éxito/fallo (`OnChainStatus`).
-- Upload y gestión de documentos en Google Cloud Storage (ver ADR-0016).
+- **Workflow de aprobacion**: un developer crea el proyecto (queda en `PENDING_APPROVAL`); un ADMIN lo aprueba o rechaza.
+- **Publicacion on-chain**: al publicar un proyecto aprobado, delega en `blockchain-service` el deploy del `OfferingContract` y procesa los callbacks de éxito/fallo (`OnChainStatus`).
+- Upload y gestion de documentos en Google Cloud Storage (ver ADR-0016).
 - Registro de métricas de rendimiento.
-- Mantiene los **holdings** por proyecto a partir de eventos de compra/venta y transiciona el estado del proyecto según eventos on-chain.
-- Publicación de eventos a Kafka para notification e invest-dividend-service.
+- Mantiene los **holdings** por proyecto a partir de eventos de compra/venta y transiciona el estado del proyecto segun eventos on-chain.
+- Publicacion de eventos a Kafka para notification e invest-dividend-service.
 
 ## Stack
 
-| Capa | Tecnología |
+| Capa | Tecnologia |
 |------|------------|
 | Framework | Spring Boot 3.2.4 / Java 21 |
 | Persistencia | Spring Data JPA + PostgreSQL + Flyway |
-| Mensajería | Apache Kafka |
+| Mensajeria | Apache Kafka |
 | Almacenamiento | Google Cloud Storage (fake-gcs-server en local) |
 | Seguridad | Spring Security + `GatewayHeaderAuthFilter` (ADR-0004) |
 | Tests | JUnit 5 + Mockito / Testcontainers |
@@ -40,22 +40,22 @@ com.plataforma.projects/
 
 ## Endpoints
 
-### Públicos (vía gateway)
+### Publicos (via gateway)
 
-| Método | Path | Permiso | Descripción |
+| Método | Path | Permiso | Descripcion |
 |--------|------|---------|-------------|
-| GET | `/api/projects` | Público | Listar proyectos (filtros, paginación) |
-| GET | `/api/projects/{id}` | Público | Detalle de un proyecto |
+| GET | `/api/projects` | Publico | Listar proyectos (filtros, paginacion) |
+| GET | `/api/projects/{id}` | Publico | Detalle de un proyecto |
 | POST | `/api/projects` | `project:create` | Crear proyecto (inicia en `PENDING_APPROVAL`) |
 | GET | `/api/projects/mine` | `project:create` | Proyectos del developer autenticado |
-| GET | `/api/projects/pending-approval` | `ADMIN` | Proyectos a la espera de aprobación |
+| GET | `/api/projects/pending-approval` | `ADMIN` | Proyectos a la espera de aprobacion |
 | POST | `/api/projects/{id}/approve` | `ADMIN` | Aprobar (pasa a `DRAFT`) |
 | POST | `/api/projects/{id}/reject` | `ADMIN` | Rechazar (con motivo) |
 | PUT | `/api/projects/{id}` | `project:update` + owner | Editar metadata |
 | DELETE | `/api/projects/{id}` | `project:delete` + owner | Soft delete |
 | PUT | `/api/projects/{id}/state` | `project:update` + owner | Cambiar estado (incl. publicar → deploy on-chain) |
 | GET | `/api/projects/{id}/holders` | `project:read` | Listar holders |
-| GET | `/api/projects/{id}/metrics` | Público | Historial de métricas |
+| GET | `/api/projects/{id}/metrics` | Publico | Historial de métricas |
 | POST | `/api/projects/{id}/metrics` | `project:update` + owner | Registrar métrica |
 | GET | `/api/projects/{id}/documents` | `project:read` | Listar documentos |
 | POST | `/api/projects/{id}/documents` | `project:update` + owner | Upload → V4 signed URL de GCS |
@@ -63,7 +63,7 @@ com.plataforma.projects/
 
 ### Internos (red privada, sin JWT)
 
-| Método | Path | Usado por | Descripción |
+| Método | Path | Usado por | Descripcion |
 |--------|------|-----------|-------------|
 | GET | `/internal/projects/offering-contracts` | blockchain-service | Lista de Offerings a indexar (`offeringContractAddress != null`) |
 | POST | `/internal/projects/publication-success` | blockchain-service | Callback de deploy exitoso (registryProjectId, address, tx) |
@@ -79,23 +79,23 @@ PENDING_APPROVAL → DRAFT → PRE_OPEN → OPEN → CLOSED
         └──→ CANCELLED  ←──────┘
 ```
 
-| Transición | Quién la dispara |
+| Transicion | Quién la dispara |
 |---|---|
 | `PENDING_APPROVAL → DRAFT` | ADMIN aprueba la propuesta. |
-| `DRAFT → PRE_OPEN` | owner/admin publica → deploya el `OfferingContract` (vía blockchain-service). |
-| `PRE_OPEN → OPEN` | **automática on-chain**: evento `RoundFinalized` (soft cap alcanzado). |
-| `PRE_OPEN → CANCELLED` | **automática on-chain**: evento `RoundFailed`. |
+| `DRAFT → PRE_OPEN` | owner/admin publica → deploya el `OfferingContract` (via blockchain-service). |
+| `PRE_OPEN → OPEN` | **automatica on-chain**: evento `RoundFinalized` (soft cap alcanzado). |
+| `PRE_OPEN → CANCELLED` | **automatica on-chain**: evento `RoundFailed`. |
 | `OPEN → CLOSED` | owner/admin da de baja el proyecto. |
 | `* (no final) → CANCELLED` | manual; desde `OPEN` solo ADMIN. |
 
 - `PENDING_APPROVAL` y `DRAFT` son pre-chain (no visibles al inversor).
 - `PRE_OPEN` ↔ Registry `FUNDING` (precio earlyBird); `OPEN` ↔ Registry `ACTIVE` (precio standard + dividendos); `CLOSED` ↔ Registry `PAUSED`.
 - `CLOSED` y `CANCELLED` son estados finales.
-- `OnChainStatus`: `NOT_DEPLOYED → DEPLOYING → DEPLOYED` / `FAILED` (lo actualizan los callbacks de publicación).
+- `OnChainStatus`: `NOT_DEPLOYED → DEPLOYING → DEPLOYED` / `FAILED` (lo actualizan los callbacks de publicacion).
 
-## Autorización por rol
+## Autorizacion por rol
 
-| Operación | ADMIN | DEVELOPER (owner) | DEVELOPER | INVESTOR |
+| Operacion | ADMIN | DEVELOPER (owner) | DEVELOPER | INVESTOR |
 |-----------|-------|-------------------|-----------|----------|
 | Ver proyectos / métricas / documentos | ✅ | ✅ | ✅ | ✅ |
 | Crear proyecto | ✅ | ✅ | ✅ | ❌ |
@@ -107,10 +107,10 @@ PENDING_APPROVAL → DRAFT → PRE_OPEN → OPEN → CLOSED
 
 **Publica:**
 
-| Tópico | Cuándo |
+| Topico | Cuando |
 |--------|--------|
 | `projects.created` | Al crear un proyecto |
-| `projects.pending_approval` | Al quedar a la espera de aprobación (notifica a admins) |
+| `projects.pending_approval` | Al quedar a la espera de aprobacion (notifica a admins) |
 | `projects.approved` | Al aprobar un proyecto |
 | `projects.rejected` | Al rechazar un proyecto |
 | `projects.state_changed` | Al cambiar de estado |
@@ -118,9 +118,9 @@ PENDING_APPROVAL → DRAFT → PRE_OPEN → OPEN → CLOSED
 
 **Consume:**
 
-| Tópico | Publicado por | Para qué |
+| Topico | Publicado por | Para qué |
 |--------|--------------|---------|
-| `investment.token_purchased` | blockchain-service | Actualizar holdings y recaudación |
+| `investment.token_purchased` | blockchain-service | Actualizar holdings y recaudacion |
 | `projects.round_finalized` | blockchain-service | `PRE_OPEN → OPEN` (ronda exitosa) |
 | `projects.round_failed` | blockchain-service | `PRE_OPEN → CANCELLED` (ronda fallida) |
 | `user.wallet_linked` | user-service | Reconciliar holders por wallet |
@@ -128,7 +128,7 @@ PENDING_APPROVAL → DRAFT → PRE_OPEN → OPEN → CLOSED
 
 ## Variables de entorno
 
-| Variable | Default | Descripción |
+| Variable | Default | Descripcion |
 |----------|---------|-------------|
 | `PORT` | `8082` | Puerto del servidor |
 | `DB_URL` | `jdbc:postgresql://localhost:5432/project_db` | URL de PostgreSQL |
@@ -137,13 +137,13 @@ PENDING_APPROVAL → DRAFT → PRE_OPEN → OPEN → CLOSED
 | `KAFKA_BOOTSTRAP_SERVERS` | `localhost:9092` | Brokers de Kafka |
 | `GCP_PROJECT_ID` | `liken-dev` | ID del proyecto en GCP |
 | `GCS_BUCKET_NAME` | `liken-documents` | Bucket de GCS para documentos |
-| `GCS_EMULATOR_HOST` | `http://localhost:4443` | Endpoint de fake-gcs-server (vacío en GKE → Workload Identity) |
+| `GCS_EMULATOR_HOST` | `http://localhost:4443` | Endpoint de fake-gcs-server (vacio en GKE → Workload Identity) |
 | `FRONTEND_URL` | `http://localhost:5173` | Origen CORS |
 
 ## Levantar en local
 
 ```bash
-# Desde la raíz del repo — levanta toda la plataforma
+# Desde la raiz del repo — levanta toda la plataforma
 docker compose up --build
 
 # Solo infraestructura + este servicio

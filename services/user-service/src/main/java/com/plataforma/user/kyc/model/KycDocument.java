@@ -7,10 +7,10 @@ import java.time.LocalDateTime;
 
 /**
  * Documento KYC subido por un usuario.
- * El archivo físico vive en GCS bajo el object name guardado en {@code s3Key}
- * (el field mantiene el nombre legacy por compat — semánticamente es un object
+ * El archivo fisico vive en GCS bajo el object name guardado en {@code s3Key}
+ * (el field mantiene el nombre legacy por compat — semanticamente es un object
  * name de Google Cloud Storage). Esta tabla guarda solo la metadata y el estado
- * de revisión (ver DD013 + DD014).
+ * de revision (ver DD013 + DD014).
  */
 @Entity
 @Table(name = "kyc_documents")

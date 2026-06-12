@@ -19,7 +19,7 @@ public class UserHoldingEventConsumer {
     private final ProjectRepository projectRepository;
 
     /**
-     * Consume {@code investment.token_purchased}: una wallet compró LKN de un proyecto.
+     * Consume {@code investment.token_purchased}: una wallet compro LKN de un proyecto.
      *
      * <p>Payload (publicado por el Blockchain Service desde el evento on-chain
      * {@code OfferingContract.TokensPurchased}):
@@ -64,7 +64,7 @@ public class UserHoldingEventConsumer {
     }
 
     /**
-     * Consume marketplace.order_matched: se completó una venta P2P.
+     * Consume marketplace.order_matched: se completo una venta P2P.
      * Payload esperado: { eventId, sellerId, buyerId, projectId, tokenCount }
      */
     @KafkaListener(topics = "marketplace.order_matched", groupId = "service-projects")

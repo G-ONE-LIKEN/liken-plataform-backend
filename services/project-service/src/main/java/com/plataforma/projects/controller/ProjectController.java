@@ -50,7 +50,7 @@ public class ProjectController {
         ProjectResponse created = projectService.createProject(request, ownerId, isAdmin);
         String message = isAdmin
                 ? "Proyecto creado exitosamente"
-                : "Proyecto creado, a la espera de aprobación de un administrador";
+                : "Proyecto creado, a la espera de aprobacion de un administrador";
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(message, created));
     }

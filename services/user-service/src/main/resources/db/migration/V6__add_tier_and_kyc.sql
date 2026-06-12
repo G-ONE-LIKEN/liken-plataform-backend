@@ -1,13 +1,13 @@
 -- V6: Tiers de inversores + KYC (ver DD013).
 --
 -- Tiers:
---   BASIC (default), SILVER, GOLD. Upgrade automático por monto invertido,
---   publicado vía evento user.tier_changed por invest-dividend-service.
+--   BASIC (default), SILVER, GOLD. Upgrade automatico por monto invertido,
+--   publicado via evento user.tier_changed por invest-dividend-service.
 --
 -- KYC:
 --   Estados NOT_STARTED (default), PENDING, APPROVED, REJECTED.
 --   Tabla kyc_documents para guardar los archivos subidos por el usuario.
---   Los archivos físicos viven en GCS bajo prefijo "kyc/{userId}/" (ver DD014).
+--   Los archivos fisicos viven en GCS bajo prefijo "kyc/{userId}/" (ver DD014).
 
 -- ────────────────────────────────────────────────────────────────────────
 -- USERS: nuevos campos

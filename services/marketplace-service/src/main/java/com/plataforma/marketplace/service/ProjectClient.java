@@ -11,7 +11,7 @@ import java.util.Map;
 
 /**
  * Cliente HTTP contra project-service para validar estado de proyectos
- * y holdings del vendedor antes de crear órdenes o ejecutar matches.
+ * y holdings del vendedor antes de crear ordenes o ejecutar matches.
  *
  * <p>Consulta endpoints internos (red privada, sin JWT).
  */
@@ -29,10 +29,10 @@ public class ProjectClient {
     }
 
     /**
-     * Verifica si el proyecto existe y su ronda primaria finalizó exitosamente
+     * Verifica si el proyecto existe y su ronda primaria finalizo exitosamente
      * (solo entonces los tokens son "activos" y se pueden negociar en el mercado).
      *
-     * @return true si el proyecto existe y el trading es válido.
+     * @return true si el proyecto existe y el trading es valido.
      */
     public boolean isProjectTradeable(Long projectId) {
         try {
@@ -63,7 +63,7 @@ public class ProjectClient {
     }
 
     /**
-     * Consulta los holdings de un usuario en un proyecto específico.
+     * Consulta los holdings de un usuario en un proyecto especifico.
      *
      * @return cantidad de tokens que el usuario posee (0 si no tiene holdings o falla).
      */

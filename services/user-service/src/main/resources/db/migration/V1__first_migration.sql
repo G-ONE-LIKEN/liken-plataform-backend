@@ -94,7 +94,7 @@ CREATE TABLE investments (
 );
 
 -- =========================
--- ÍNDICES (mejorar consultas)
+-- iNDICES (mejorar consultas)
 -- =========================
 CREATE INDEX idx_users_email           ON users(email);
 CREATE INDEX idx_projects_owner        ON projects(owner_id);

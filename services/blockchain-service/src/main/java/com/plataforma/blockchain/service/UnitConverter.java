@@ -13,7 +13,7 @@ import java.math.RoundingMode;
  * <p>Convenciones:
  * <ul>
  *   <li>USDC: 6 decimales (oficial Circle).</li>
- *   <li>LKN: 18 decimales (ERC-20 estándar).</li>
+ *   <li>LKN: 18 decimales (ERC-20 estandar).</li>
  *   <li>Precios USDC/LKN en {@code ProjectRegistry} / {@code OfferingContract.tokenPrice}: 6 decimales.</li>
  * </ul>
  */

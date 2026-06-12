@@ -19,10 +19,10 @@ import java.util.Map;
 /**
  * API REST del marketplace P2P de tokens.
  *
- * <p>Endpoints públicos (via gateway):
+ * <p>Endpoints publicos (via gateway):
  * <ul>
- *   <li>{@code GET /api/marketplace/orders} — listar órdenes activas (público).</li>
- *   <li>{@code GET /api/marketplace/orders/me} — órdenes propias (autenticado).</li>
+ *   <li>{@code GET /api/marketplace/orders} — listar ordenes activas (publico).</li>
+ *   <li>{@code GET /api/marketplace/orders/me} — ordenes propias (autenticado).</li>
  *   <li>{@code POST /api/marketplace/orders} — crear orden de venta (autenticado).</li>
  *   <li>{@code DELETE /api/marketplace/orders/{id}} — cancelar orden propia (owner).</li>
  *   <li>{@code POST /api/marketplace/orders/{id}/buy} — comprar orden (autenticado).</li>
@@ -37,7 +37,7 @@ public class OrderController {
     private final OrderService orderService;
 
     /**
-     * Lista órdenes OPEN del marketplace. Público (visible sin autenticación).
+     * Lista ordenes OPEN del marketplace. Publico (visible sin autenticacion).
      * Opcionalmente filtrable por projectId.
      */
     @GetMapping("/orders")
@@ -51,7 +51,7 @@ public class OrderController {
 
         return ResponseEntity.ok(Map.of(
                 "success", true,
-                "message", "Órdenes activas obtenidas",
+                "message", "ordenes activas obtenidas",
                 "data", orders.getContent(),
                 "totalPages", orders.getTotalPages(),
                 "totalElements", orders.getTotalElements(),
@@ -60,7 +60,7 @@ public class OrderController {
     }
 
     /**
-     * Lista todas las órdenes del usuario autenticado (cualquier estado).
+     * Lista todas las ordenes del usuario autenticado (cualquier estado).
      */
     @GetMapping("/orders/me")
     public ResponseEntity<Map<String, Object>> listMyOrders(
@@ -74,7 +74,7 @@ public class OrderController {
 
         return ResponseEntity.ok(Map.of(
                 "success", true,
-                "message", "Tus órdenes obtenidas",
+                "message", "Tus ordenes obtenidas",
                 "data", orders.getContent(),
                 "totalPages", orders.getTotalPages(),
                 "totalElements", orders.getTotalElements(),

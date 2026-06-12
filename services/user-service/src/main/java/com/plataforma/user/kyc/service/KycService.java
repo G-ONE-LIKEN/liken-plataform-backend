@@ -28,13 +28,13 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Lógica de KYC (ver DD013).
+ * Logica de KYC (ver DD013).
  *
  * Flujo:
- *   1. Usuario sube documentos vía POST /api/users/me/kyc → estado pasa a PENDING
+ *   1. Usuario sube documentos via POST /api/users/me/kyc → estado pasa a PENDING
  *   2. ADMIN revisa con PUT /api/users/{id}/kyc → estado pasa a APPROVED o REJECTED
  *   3. invest-dividend y marketplace consultan GET /internal/users/{id}/kyc-status
- *      antes de cada operación crítica (compra de tokens, orden marketplace)
+ *      antes de cada operacion critica (compra de tokens, orden marketplace)
  */
 @Slf4j
 @Service
@@ -51,7 +51,7 @@ public class KycService {
 
     /**
      * Sube documentos KYC del usuario autenticado.
-     * Pasa el estado del usuario a PENDING (esperando revisión de ADMIN).
+     * Pasa el estado del usuario a PENDING (esperando revision de ADMIN).
      */
     @Transactional
     public KycStatusResponse uploadDocuments(Long userId, List<MultipartFile> files, List<String> types) {
@@ -68,8 +68,8 @@ public class KycService {
         for (int i = 0; i < files.size(); i++) {
             MultipartFile file = files.get(i);
             String type = types.get(i);
-            // Mantenemos el nombre de campo "s3Key" en la entidad por compat — semánticamente
-            // hoy es el object name de GCS. Si en el futuro se renombra, hacerlo en una sola migración.
+            // Mantenemos el nombre de campo "s3Key" en la entidad por compat — semanticamente
+            // hoy es el object name de GCS. Si en el futuro se renombra, hacerlo en una sola migracion.
             String objectName = "kyc/" + userId + "/" + UUID.randomUUID() + "_" + file.getOriginalFilename();
 
             try {
@@ -93,7 +93,7 @@ public class KycService {
         user.setKycStatus(KycStatus.PENDING);
         userRepository.save(user);
 
-        log.info("KYC: usuario {} subió {} documentos. Estado → PENDING", userId, files.size());
+        log.info("KYC: usuario {} subio {} documentos. Estado → PENDING", userId, files.size());
         return buildResponse(user);
     }
 
@@ -121,10 +121,10 @@ public class KycService {
     public KycStatusResponse review(Long targetUserId, KycStatus decision,
                                     String rejectionReason, Long reviewerId) {
         if (decision != KycStatus.APPROVED && decision != KycStatus.REJECTED) {
-            throw new IllegalArgumentException("La decisión debe ser APPROVED o REJECTED");
+            throw new IllegalArgumentException("La decision debe ser APPROVED o REJECTED");
         }
         if (decision == KycStatus.REJECTED && (rejectionReason == null || rejectionReason.isBlank())) {
-            throw new IllegalArgumentException("Si rechazás, debes incluir rejectionReason");
+            throw new IllegalArgumentException("Si rechazas, debes incluir rejectionReason");
         }
 
         User user = userRepository.findById(targetUserId)
@@ -138,7 +138,7 @@ public class KycService {
         user.setKycStatus(decision);
         userRepository.save(user);
 
-        // Marcar todos los documentos PENDING del usuario con la misma decisión
+        // Marcar todos los documentos PENDING del usuario con la misma decision
         KycDocumentStatus newDocStatus = (decision == KycStatus.APPROVED)
                 ? KycDocumentStatus.APPROVED
                 : KycDocumentStatus.REJECTED;

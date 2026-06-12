@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "RBAC SpringBoot - SIP 2026",
-    "description": "Colección completa para probar el módulo de administración de usuarios RBAC.\n\n**Usuario admin local (definido por variables de entorno):**\n- email: APP_SEED_ADMIN_EMAIL_1\n- password: APP_SEED_ADMIN_PASSWORD_1\n\n**Flujo sugerido:**\n1. Login (admin) → guarda token automáticamente\n2. Probar endpoints de usuarios / roles / permisos\n3. Crear un usuario BASIC y ver que NO puede borrar roles (403)",
+    "description": "Coleccion completa para probar el modulo de administracion de usuarios RBAC.\n\n**Usuario admin local (definido por variables de entorno):**\n- email: APP_SEED_ADMIN_EMAIL_1\n- password: APP_SEED_ADMIN_PASSWORD_1\n\n**Flujo sugerido:**\n1. Login (admin) → guarda token automaticamente\n2. Probar endpoints de usuarios / roles / permisos\n3. Crear un usuario BASIC y ver que NO puede borrar roles (403)",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -115,7 +115,7 @@
               "mode": "raw",
               "raw": "{\n  \"roleId\": 3\n}"
             },
-            "description": "roleId: 1=BASIC, 2=INVESTOR, 3=DEVELOPER, 4=ADMIN (según orden de creación en DataSeeder)"
+            "description": "roleId: 1=BASIC, 2=INVESTOR, 3=DEVELOPER, 4=ADMIN (segun orden de creacion en DataSeeder)"
           }
         },
         {
@@ -173,7 +173,7 @@
             "url": "{{baseUrl}}/api/roles/5",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"MODERADOR\",\n  \"description\": \"Descripción actualizada\"\n}"
+              "raw": "{\n  \"name\": \"MODERADOR\",\n  \"description\": \"Descripcion actualizada\"\n}"
             }
           }
         },
@@ -255,7 +255,7 @@
       ]
     },
     {
-      "name": "Autorización (casos de error)",
+      "name": "Autorizacion (casos de error)",
       "item": [
         {
           "name": "401 - Sin token",
@@ -265,7 +265,7 @@
           }
         },
         {
-          "name": "401 - Token inválido",
+          "name": "401 - Token invalido",
           "request": {
             "method": "GET",
             "header": [{ "key": "Authorization", "value": "Bearer token-falso" }],
@@ -274,7 +274,7 @@
         },
         {
           "name": "403 - Usuario BASIC intenta eliminar rol",
-          "description": "Primero logueate como el usuario juan@mail.com (BASIC) y pegá su token acá",
+          "description": "Primero logueate como el usuario juan@mail.com (BASIC) y pega su token aca",
           "request": {
             "method": "DELETE",
             "header": [{ "key": "Authorization", "value": "Bearer <token-de-juan>" }],
@@ -285,7 +285,7 @@
     },
     {
       "name": "Intento de demote (Admin a Admin) - Error esperado",
-      "description": "Si el usuario ID 1 es el otro Admin, el backend debería retornar 403 Forbidden o 400 Bad Request según tu manejo de excepciones.",
+      "description": "Si el usuario ID 1 es el otro Admin, el backend deberia retornar 403 Forbidden o 400 Bad Request segun tu manejo de excepciones.",
       "request": {
         "method": "PUT",
         "header": [

@@ -1,13 +1,13 @@
 -- =============================================================================
 -- V1: Estado del indexer y trazabilidad de eventos publicados
 -- -----------------------------------------------------------------------------
--- El indexer hace polling de bloques con `eth_getLogs` y va guardando el último
--- bloque ya procesado por dirección de contrato. Tras un restart, reanuda desde
+-- El indexer hace polling de bloques con `eth_getLogs` y va guardando el ultimo
+-- bloque ya procesado por direccion de contrato. Tras un restart, reanuda desde
 -- ese punto (no re-procesa eventos antiguos).
 --
--- El identificador único de un evento on-chain es `txHash:logIndex` — usamos eso
--- como `event_id` Kafka, y lo guardamos también acá para evitar reenvíos en caso
--- de doble publicación si crash entre eth_getLogs y commit del checkpoint.
+-- El identificador unico de un evento on-chain es `txHash:logIndex` — usamos eso
+-- como `event_id` Kafka, y lo guardamos también aca para evitar reenvios en caso
+-- de doble publicacion si crash entre eth_getLogs y commit del checkpoint.
 -- =============================================================================
 
 CREATE TABLE indexer_checkpoint (

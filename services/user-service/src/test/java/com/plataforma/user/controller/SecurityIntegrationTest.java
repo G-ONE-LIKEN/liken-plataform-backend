@@ -24,8 +24,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /**
  * Tests de seguridad contra Postgres real.
  *
- * La autenticación se simula con headers de gateway (DD002).
- * No se genera ni valida ningún JWT en este servicio.
+ * La autenticacion se simula con headers de gateway (DD002).
+ * No se genera ni valida ningun JWT en este servicio.
  */
 @Tag("integration")
 class SecurityIntegrationTest extends AbstractIntegrationTest {
@@ -61,7 +61,7 @@ class SecurityIntegrationTest extends AbstractIntegrationTest {
         };
     }
 
-    // ── 401 sin autenticación ─────────────────────────────────────────────────
+    // ── 401 sin autenticacion ─────────────────────────────────────────────────
 
     @Test
     void debeDevolver401_sinHeadersDeGateway() throws Exception {
@@ -77,7 +77,7 @@ class SecurityIntegrationTest extends AbstractIntegrationTest {
             .andExpect(status().isUnauthorized());
     }
 
-    // ── Autorización por permiso ──────────────────────────────────────────────
+    // ── Autorizacion por permiso ──────────────────────────────────────────────
 
     @Test
     void debeDevolver403_developerSinPermisoProjectDelete() throws Exception {

@@ -14,7 +14,7 @@ import java.util.Map;
  * Consume {@code investment.token_purchased} (publicado por el Blockchain Service al
  * indexar {@code OfferingContract.TokensPurchased}).
  *
- * <p>Registra el reflejo contable de la compra primaria. El USDC ya viajó
+ * <p>Registra el reflejo contable de la compra primaria. El USDC ya viajo
  * on-chain desde la wallet del inversor al treasury de la plataforma; este
  * movimiento {@link MovementType#TOKEN_PURCHASE} mantiene la trazabilidad off-chain.
  *

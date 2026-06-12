@@ -46,7 +46,7 @@ public class TokensPurchasedConsumer {
             Long blockNumber = toLong(payload.get("blockNumber"));
 
             // ProjectId desde el evento puede ser null si el Blockchain Service
-            // todavía no resuelve offeringContractAddress → projectId. Si está
+            // todavia no resuelve offeringContractAddress → projectId. Si esta
             // null, descartamos (re-procesable cuando se complete el mapeo).
             if (projectId == null && offering != null && !offering.isBlank()) {
                 projectId = projectClient.resolveProjectIdByOffering(offering);

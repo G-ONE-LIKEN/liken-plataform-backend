@@ -8,7 +8,7 @@ import org.springframework.kafka.config.TopicBuilder;
 @Configuration
 public class KafkaConfig {
 
-    // Tópicos que publica este servicio
+    // Topicos que publica este servicio
     @Bean
     public NewTopic topicProjectsCreated() {
         return TopicBuilder.name("projects.created").partitions(3).replicas(1).build();

@@ -8,7 +8,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * Projección pública de una orden del marketplace.
+ * Projeccion publica de una orden del marketplace.
  */
 @Getter
 @Setter

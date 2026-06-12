@@ -34,7 +34,7 @@ public class EmailService {
 
     public void send(String to, String subject, String templateName, Map<String, Object> variables) {
         if (to == null || to.isBlank()) {
-            log.warn("Email destinatario vacío, no se envía. template={}", templateName);
+            log.warn("Email destinatario vacio, no se envia. template={}", templateName);
             return;
         }
         try {
@@ -55,8 +55,8 @@ public class EmailService {
         } catch (MessagingException | UnsupportedEncodingException ex) {
             log.error("Error enviando email a {} con template {}: {}", to, templateName, ex.getMessage());
         } catch (Exception ex) {
-            // No fallar el flujo de notificación in-app si el SMTP no anda
-            log.error("Fallo enviando email (no crítico): {}", ex.getMessage());
+            // No fallar el flujo de notificacion in-app si el SMTP no anda
+            log.error("Fallo enviando email (no critico): {}", ex.getMessage());
         }
     }
 }

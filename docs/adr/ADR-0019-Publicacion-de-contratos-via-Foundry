@@ -1,51 +1,51 @@
-# ADR-0019: Publicación de contratos vía Foundry (`forge`) orquestada por el backend
+# ADR-0019: Publicacion de contratos via Foundry (`forge`) orquestada por el backend
 
-- **Estado:** Aceptado (con desviación operativa)
+- **Estado:** Aceptado (con desviacion operativa)
 - **Fecha:** 2026-06-06
-- **Contexto:** Cómo se despliega el OfferingContract de cada proyecto aprobado
+- **Contexto:** Como se despliega el OfferingContract de cada proyecto aprobado
 
 ---
 
 ## Contexto
 
-Cuando un ADMIN aprueba un proyecto, hay que desplegar on-chain su `OfferingContract` (con precios, caps, deadline y el owner como parámetros) y registrarlo en el `ProjectRegistry`. Ese deploy es la única escritura on-chain que hace el backend ([ADR-0017](ADR-0017-Modelo-de-integracion-on-chain-Web2-Web3)). Hay que decidir cómo lo ejecuta.
+Cuando un ADMIN aprueba un proyecto, hay que desplegar on-chain su `OfferingContract` (con precios, caps, deadline y el owner como parametros) y registrarlo en el `ProjectRegistry`. Ese deploy es la unica escritura on-chain que hace el backend ([ADR-0017](ADR-0017-Modelo-de-integracion-on-chain-Web2-Web3)). Hay que decidir como lo ejecuta.
 
-## Decisión
+## Decision
 
-El `blockchain-service` despliega el Offering **ejecutando el script de Foundry (`forge script`) como subproceso**, orquestado desde un endpoint interno y de forma asíncrona:
+El `blockchain-service` despliega el Offering **ejecutando el script de Foundry (`forge script`) como subproceso**, orquestado desde un endpoint interno y de forma asincrona:
 
 1. `project-service` aprueba → llama a `POST /internal/publications/projects` (`BlockchainPublicationClient`) y marca `OnChainStatus = DEPLOYING`.
 2. `blockchain-service` resuelve la wallet del owner, arma las variables de entorno (precios a 6 dec, LKN a 18 dec, deadline epoch) y ejecuta `forge script <DeployProjectOffering> --rpc-url … --broadcast` en el workspace de contratos.
-3. Parsea de la **salida estándar** de `forge` el `REGISTRY_PROJECT_ID` y el `OFFERING_ADDRESS` (regex).
+3. Parsea de la **salida estandar** de `forge` el `REGISTRY_PROJECT_ID` y el `OFFERING_ADDRESS` (regex).
 4. Reporta el resultado de vuelta: `POST /internal/projects/publication-success|failure`.
-5. `project-service` aplica la transición de estado (`OnChainStatus → DEPLOYED/FAILED`; el indexador luego mueve el `ProjectState` según los eventos on-chain).
+5. `project-service` aplica la transicion de estado (`OnChainStatus → DEPLOYED/FAILED`; el indexador luego mueve el `ProjectState` segun los eventos on-chain).
 
-Máquina de estado on-chain: `NOT_DEPLOYED → DEPLOYING → DEPLOYED | FAILED`.
+Maquina de estado on-chain: `NOT_DEPLOYED → DEPLOYING → DEPLOYED | FAILED`.
 
 ## Alternativas consideradas
 
 | Alternativa | Motivo de descarte |
 |---|---|
-| Deploy con web3j (bytecode + ABI desde Java) | Requiere generar wrappers y mantener bytecode sincronizado; los scripts de Foundry ya encapsulan la lógica de deploy + registro + escrow. |
-| Deploy manual con scripts fuera del backend | No integrable con el flujo de aprobación; requiere intervención humana por proyecto. |
+| Deploy con web3j (bytecode + ABI desde Java) | Requiere generar wrappers y mantener bytecode sincronizado; los scripts de Foundry ya encapsulan la logica de deploy + registro + escrow. |
+| Deploy manual con scripts fuera del backend | No integrable con el flujo de aprobacion; requiere intervencion humana por proyecto. |
 | Servicio de deploy separado | Sobredimensionado; el blockchain-service ya es el dueño de la frontera on-chain. |
 
 ## Consecuencias
 
 ### Positivas
 - Reusa los mismos scripts de Foundry que se usan en desarrollo/manual: una sola fuente de verdad del deploy.
-- Asíncrono: la aprobación responde rápido (`202 Accepted`) y el deploy corre en background con callbacks.
+- Asincrono: la aprobacion responde rapido (`202 Accepted`) y el deploy corre en background con callbacks.
 
 ### Negativas / Advertencias
-- **Acoplamiento al binario `forge` y al workspace de contratos:** ambos deben existir dentro del contenedor. 🔴 Hoy el Dockerfile instala Foundry pero **no empaqueta** `contracts/`, y el Deployment de GKE no lo monta → el deploy falla en producción (`implementar.md` #2).
-- **Parseo de stdout con regex** es frágil: si cambia el formato de salida del script, la extracción de addresses se rompe.
-- **Clave privada del firmante** se pasa como variable de entorno al subproceso (`implementar.md` #8): debería ir en KMS/Secret Manager.
-- Ejecutar un subproceso por publicación tiene costo y requiere timeouts/cleanup.
+- **Acoplamiento al binario `forge` y al workspace de contratos:** ambos deben existir dentro del contenedor. 🔴 Hoy el Dockerfile instala Foundry pero **no empaqueta** `contracts/`, y el Deployment de GKE no lo monta → el deploy falla en produccion (`implementar.md` #2).
+- **Parseo de stdout con regex** es fragil: si cambia el formato de salida del script, la extraccion de addresses se rompe.
+- **Clave privada del firmante** se pasa como variable de entorno al subproceso (`implementar.md` #8): deberia ir en KMS/Secret Manager.
+- Ejecutar un subproceso por publicacion tiene costo y requiere timeouts/cleanup.
 
 ### No aplica a
 - Las transacciones de usuario (compras, claims), que las firma el propio usuario, no el backend.
 
-## Estado de implementación (2026-06-08)
+## Estado de implementacion (2026-06-08)
 
 ✅ Implementado en `ProjectPublicationService` (`@Async`) + `ProjectPublicationController` + callbacks en `project-service`. Funciona en local (compose monta `./contracts:/contracts`).
 

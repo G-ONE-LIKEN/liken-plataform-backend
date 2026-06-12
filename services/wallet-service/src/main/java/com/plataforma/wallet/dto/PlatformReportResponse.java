@@ -12,7 +12,7 @@ import java.util.List;
  *
  * El revenue de la plataforma proviene exclusivamente de comisiones (fees)
  * cobradas sobre las transacciones que opera:
- *   - Inversión primaria (TOKEN_PURCHASE): fee = volumen × primaryFeeRate
+ *   - Inversion primaria (TOKEN_PURCHASE): fee = volumen × primaryFeeRate
  *   - Mercado secundario P2P (P2P_PURCHASE): fee = volumen × p2pFeeRate
  *
  * Dividendos, compras/ventas de tokens y movimientos de billetera NO son
@@ -27,9 +27,9 @@ public class PlatformReportResponse {
     private LocalDate to;
 
     // ── Fees configurados ───────────────────────────────────────────────
-    /** Comisión aplicada sobre inversión primaria. Entre 0 y 1. */
+    /** Comision aplicada sobre inversion primaria. Entre 0 y 1. */
     private BigDecimal primaryFeeRate;
-    /** Comisión aplicada sobre mercado P2P. Entre 0 y 1. */
+    /** Comision aplicada sobre mercado P2P. Entre 0 y 1. */
     private BigDecimal p2pFeeRate;
 
     // ── Revenue (lo que efectivamente gana la plataforma) ───────────────
@@ -37,7 +37,7 @@ public class PlatformReportResponse {
     private BigDecimal p2pFees;
     private BigDecimal totalRevenue;
 
-    // ── Volúmenes que generaron ese revenue ─────────────────────────────
+    // ── Volumenes que generaron ese revenue ─────────────────────────────
     private BigDecimal primaryVolume;
     private long       primaryOperations;
     private BigDecimal p2pVolume;
@@ -47,7 +47,7 @@ public class PlatformReportResponse {
     private BigDecimal totalDeposits;
     private BigDecimal totalWithdrawals;
 
-    /** Serie temporal mensual para gráficos. */
+    /** Serie temporal mensual para graficos. */
     private List<MonthlyPoint> monthly;
 
     @Data

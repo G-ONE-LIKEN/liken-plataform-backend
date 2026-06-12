@@ -6,7 +6,7 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 /**
- * Tabla de idempotencia. Los consumers chequean si {@code eventId} ya está acá
+ * Tabla de idempotencia. Los consumers chequean si {@code eventId} ya esta aca
  * antes de procesar. Kafka es at-least-once.
  */
 @Entity

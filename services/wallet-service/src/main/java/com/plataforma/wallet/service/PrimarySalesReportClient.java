@@ -36,7 +36,7 @@ public class PrimarySalesReportClient {
                     from,
                     to);
         } catch (Exception ex) {
-            log.warn("invest-dividend-service /internal/reports/primary-sales falló: {}", ex.getMessage());
+            log.warn("invest-dividend-service /internal/reports/primary-sales fallo: {}", ex.getMessage());
             return null;
         }
     }

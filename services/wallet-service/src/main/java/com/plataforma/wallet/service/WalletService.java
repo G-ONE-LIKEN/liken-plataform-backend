@@ -72,7 +72,7 @@ public class WalletService {
                 .build());
 
         eventPublisher.publishFunded(userId, amount, after);
-        log.info("Depósito de {} para usuario {} - nuevo saldo: {}", amount, userId, after);
+        log.info("Deposito de {} para usuario {} - nuevo saldo: {}", amount, userId, after);
         return movement;
     }
 
@@ -214,7 +214,7 @@ public class WalletService {
         walletRepository.findByWalletAddress(walletAddress)
                 .filter(existing -> !existing.getUserId().equals(userId))
                 .ifPresent(existing -> {
-                    throw new IllegalStateException("La wallet " + walletAddress + " ya está asociada al usuario " + existing.getUserId());
+                    throw new IllegalStateException("La wallet " + walletAddress + " ya esta asociada al usuario " + existing.getUserId());
                 });
 
         Wallet wallet = walletRepository.findByUserId(userId)
@@ -258,7 +258,7 @@ public class WalletService {
         walletRepository.save(wallet);
         pendingRepository.deleteAll(pending);
 
-        log.info("Reconciliación completada: userId={} nuevoBalance={}", userId, currentBalance);
+        log.info("Reconciliacion completada: userId={} nuevoBalance={}", userId, currentBalance);
     }
 
     private BigDecimal applyMovementToBalance(BigDecimal balance, MovementType type, BigDecimal amount) {

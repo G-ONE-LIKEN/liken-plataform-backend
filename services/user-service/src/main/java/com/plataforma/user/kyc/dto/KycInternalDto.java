@@ -7,7 +7,7 @@ import lombok.Getter;
 
 /**
  * Payload del endpoint interno GET /internal/users/{id}/kyc-status.
- * Consumido por invest-dividend y marketplace antes de cada operación crítica.
+ * Consumido por invest-dividend y marketplace antes de cada operacion critica.
  */
 @Getter
 @Builder

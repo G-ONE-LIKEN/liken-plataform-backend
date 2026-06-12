@@ -46,7 +46,7 @@ spring:
       routes:
 
         # ── auth-service (8081) ──────────────────────────────────────────────
-        # Rate limit estricto por IP — protección contra fuerza bruta en login.
+        # Rate limit estricto por IP — proteccion contra fuerza bruta en login.
         # replenishRate: 2, burstCapacity: 10, requestedTokens: 5
         # → burst inicial de 2 requests, luego ~0.4 req/s (24/min) por IP.
         - id: auth
@@ -155,8 +155,8 @@ spring:
                 key-resolver: "#{@userKeyResolver}"
 
         # ── notification-service (8087) — SSE: sin rate limiter ──────────────
-        # El stream es una conexión HTTP de larga duración. Si el limiter cuenta
-        # cada request individual la conexión queda sin tokens. Por eso la ruta
+        # El stream es una conexion HTTP de larga duracion. Si el limiter cuenta
+        # cada request individual la conexion queda sin tokens. Por eso la ruta
         # del stream NO tiene RequestRateLimiter aplicado.
         - id: notifications-stream
           uri: ${app.services.notification-url}

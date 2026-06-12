@@ -47,7 +47,7 @@ public class DividendController {
      * ({@code DividendDistributor.pendingDividends}). El frontend lo usa para
      * mostrar "USD X.XX disponibles para reclamar" en el wallet card.
      *
-     * <p>El parámetro es la wallet on-chain (no el userId): así el frontend
+     * <p>El parametro es la wallet on-chain (no el userId): asi el frontend
      * puede pedir info de cualquier wallet que conozca, sin necesidad de
      * vincularla a un usuario.
      */

@@ -32,7 +32,7 @@ cast send \
   --rpc-url $WEB3_RPC_URL
 ```
 
-### Verificar instalación:
+### Verificar instalacion:
 
 ```bash
 forge --version
@@ -67,7 +67,7 @@ cast wallet address \
   --private-key $PRIVATE_KEY
 ```
 
-Debería devolver:
+Deberia devolver:
 
 ```bash
 0x....
@@ -79,7 +79,7 @@ cast balance \
 
 ### Consultar balance USDC
 
-Usando la dirección configurada:
+Usando la direccion configurada:
 
 ```bash
 USDC_ADDRESS= 0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238
@@ -90,7 +90,7 @@ cast call \
   --rpc-url $RPC_URL
 ```
 
-Verificar que apuntás a Sepolia
+Verificar que apuntas a Sepolia
 
 ```bash
 cast chain-id \

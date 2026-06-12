@@ -39,7 +39,7 @@ public class BroadcastController {
                     req.getTitle(),
                     req.getBody(),
                     Map.of("audience", req.getAudience().name()),
-                    null, // broadcast no es idempotente — el admin lo dispara explícitamente
+                    null, // broadcast no es idempotente — el admin lo dispara explicitamente
                     req.isSendEmail(),
                     "notification",
                     req.getTitle(),

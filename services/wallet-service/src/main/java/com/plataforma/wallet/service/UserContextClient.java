@@ -31,7 +31,7 @@ public class UserContextClient {
                     UserContext.class,
                     userId);
         } catch (Exception ex) {
-            log.warn("user-service /internal/users/{}/context falló: {}", userId, ex.getMessage());
+            log.warn("user-service /internal/users/{}/context fallo: {}", userId, ex.getMessage());
             return null;
         }
     }

@@ -3,21 +3,21 @@ pragma solidity ^0.8.24;
 
 /**
  * @title Linken (LKN)
- * @notice ERC-20 de participación fraccionada en infraestructura de generación
- *         de energía renovable (parque solar / eólico).
+ * @notice ERC-20 de participacion fraccionada en infraestructura de generacion
+ *         de energia renovable (parque solar / eolico).
  *
  * Modelo TGE (Token Generation Event):
  * - El supply se define en el constructor y se emite UNA SOLA VEZ al emisor.
- * - No existe función mint() — cero inflación post-TGE.
+ * - No existe funcion mint() — cero inflacion post-TGE.
  * - Ejemplo: parque 5MW → 200.000 LKN emitidos al SPE dueño del parque.
  *
  * Decisiones de diseño:
- * - OpenZeppelin v5: última versión estable, compatibilidad nativa con 0.8.24.
+ * - OpenZeppelin v5: ultima version estable, compatibilidad nativa con 0.8.24.
  * - ReentrancyGuard: protege burn contra ataques de reentrada.
  * - Sin Pausable: pausar transferencias destruye la confianza del inversor (ver ADR-0015).
- * - AccessControl: roles separados para administración.
- * - Patrón CEI: validaciones → efectos → interacciones externas.
- * - Sin loops ni envío de ETH.
+ * - AccessControl: roles separados para administracion.
+ * - Patron CEI: validaciones → efectos → interacciones externas.
+ * - Sin loops ni envio de ETH.
  */
 
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
@@ -54,15 +54,15 @@ contract LinkenToken is ERC20, ERC20Burnable, AccessControl, ReentrancyGuard {
 
         _grantRole(DEFAULT_ADMIN_ROLE, platformAdmin);
 
-        // TGE — emisión única al SPE dueño del parque
+        // TGE — emision unica al SPE dueño del parque
         _mint(tgeRecipient, tgeSupply);
     }
 
-    // ── Burn público (cualquier holder puede quemar sus tokens) ──
+    // ── Burn publico (cualquier holder puede quemar sus tokens) ──
 
     /**
      * @notice Quema `amount` tokens propios.
-     * @dev Sink de la economía del token — reduce supply circulante.
+     * @dev Sink de la economia del token — reduce supply circulante.
      */
     function burn(uint256 amount) public override nonReentrant {
         require(amount > 0, "LKN: amount must be > 0");
@@ -87,7 +87,7 @@ contract LinkenToken is ERC20, ERC20Burnable, AccessControl, ReentrancyGuard {
         emit DistributorSet(newDistributor);
     }
 
-    // ── Override requerido por herencia múltiple ──────────────
+    // ── Override requerido por herencia multiple ──────────────
 
     function _update(address from, address to, uint256 value) internal virtual override(ERC20) {
         super._update(from, to, value);

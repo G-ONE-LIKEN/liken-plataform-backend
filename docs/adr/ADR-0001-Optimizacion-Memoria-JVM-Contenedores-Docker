@@ -1,4 +1,4 @@
-# ADR-0001: Optimización de memoria JVM en contenedores Docker
+# ADR-0001: Optimizacion de memoria JVM en contenedores Docker
 
 - **Estado:** Aceptado
 - **Fecha:** 2026-06-06
@@ -8,15 +8,15 @@
 
 ## Contexto
 
-La plataforma corre 6 microservicios Spring Boot (Java 21) en Docker sobre una máquina de desarrollo con recursos limitados compartidos con otras aplicaciones (navegador, frontend Next.js, herramientas del sistema).
+La plataforma corre 6 microservicios Spring Boot (Java 21) en Docker sobre una maquina de desarrollo con recursos limitados compartidos con otras aplicaciones (navegador, frontend Next.js, herramientas del sistema).
 
-El comportamiento por defecto de la JVM ignora los límites de memoria del contenedor y toma como referencia la RAM total del host. En un host con 8GB, cada instancia podía reservar hasta ~2GB de heap, lo que hacía inviable correr todos los servicios en paralelo.
+El comportamiento por defecto de la JVM ignora los limites de memoria del contenedor y toma como referencia la RAM total del host. En un host con 8GB, cada instancia podia reservar hasta ~2GB de heap, lo que hacia inviable correr todos los servicios en paralelo.
 
-Adicionalmente, el Garbage Collector por defecto (G1GC) y el compilador JIT completo (TieredCompilation) consumen CPU y RAM de metaspace innecesarios para cargas de desarrollo local con poco tráfico.
+Adicionalmente, el Garbage Collector por defecto (G1GC) y el compilador JIT completo (TieredCompilation) consumen CPU y RAM de metaspace innecesarios para cargas de desarrollo local con poco trafico.
 
 ---
 
-## Decisión
+## Decision
 
 Se actualizaron los `ENTRYPOINT` de todos los Dockerfiles de servicios Spring Boot para incluir los siguientes flags JVM:
 
@@ -30,34 +30,34 @@ ENTRYPOINT ["java",
   "-jar", "app.jar"]
 ```
 
-Se eliminó `JAVA_TOOL_OPTIONS` del `docker-compose.yml` ya que los flags en el Dockerfile son suficientes y evitan duplicación.
+Se elimino `JAVA_TOOL_OPTIONS` del `docker-compose.yml` ya que los flags en el Dockerfile son suficientes y evitan duplicacion.
 
 ### Detalle de cada flag
 
 | Flag | Motivo |
 |---|---|
-| `-XX:+UseContainerSupport` | Fuerza a la JVM a leer los límites de cgroups del contenedor en lugar de la RAM del host. Activo por defecto en JDK 11+ pero se explicita para claridad. |
-| `-XX:MaxRAMPercentage=70.0` | El heap máximo se calcula como 70% del límite del contenedor. Con un límite de 350MB resulta en ~245MB de heap. Se prefiere sobre `-Xmx` fijo porque se adapta automáticamente si se cambia el límite del contenedor. |
+| `-XX:+UseContainerSupport` | Fuerza a la JVM a leer los limites de cgroups del contenedor en lugar de la RAM del host. Activo por defecto en JDK 11+ pero se explicita para claridad. |
+| `-XX:MaxRAMPercentage=70.0` | El heap maximo se calcula como 70% del limite del contenedor. Con un limite de 350MB resulta en ~245MB de heap. Se prefiere sobre `-Xmx` fijo porque se adapta automaticamente si se cambia el limite del contenedor. |
 | `-XX:+UseSerialGC` | Reemplaza G1GC por el GC de un solo thread. Reduce consumo de RAM de metaspace y overhead de threads GC. Adecuado para servicios con bajo throughput en desarrollo. |
-| `-XX:TieredStopAtLevel=1` | Limita la compilación JIT al nivel 1 (compilación mínima). Reduce consumo de RAM de code cache y acelera el arranque. Penaliza throughput sostenido bajo carga alta. |
-| `-Djava.security.egd=file:/dev/./urandom` | Evita bloqueos por falta de entropía en Alpine Linux al inicializar `SecureRandom`. Reduce tiempo de arranque en contenedores. |
+| `-XX:TieredStopAtLevel=1` | Limita la compilacion JIT al nivel 1 (compilacion minima). Reduce consumo de RAM de code cache y acelera el arranque. Penaliza throughput sostenido bajo carga alta. |
+| `-Djava.security.egd=file:/dev/./urandom` | Evita bloqueos por falta de entropia en Alpine Linux al inicializar `SecureRandom`. Reduce tiempo de arranque en contenedores. |
 
 ---
 
 ## Consecuencias
 
 ### Positivas
-- Consumo de heap acotado y predecible por contenedor (~170–285MB observado en producción local)
-- Arranque más rápido por menor compilación JIT
-- Configuración centralizada en el Dockerfile, no dispersa entre Dockerfile y compose
+- Consumo de heap acotado y predecible por contenedor (~170–285MB observado en produccion local)
+- Arranque mas rapido por menor compilacion JIT
+- Configuracion centralizada en el Dockerfile, no dispersa entre Dockerfile y compose
 
 ### Negativas / Advertencias
-- **`TieredStopAtLevel=1`** reduce el throughput bajo carga sostenida. Si se detectan requests lentas bajo tráfico real, este flag debe removerse primero.
-- **`UseSerialGC`** no es adecuado para producción con múltiples cores disponibles. En el pipeline de CI/CD o en el entorno productivo se debe usar G1GC o ZGC.
-- El `notification-service` opera al ~81% de su límite (285MB/350MB). Si se producen `OOMKilled` (exit code 137), elevar su límite a `450M`.
+- **`TieredStopAtLevel=1`** reduce el throughput bajo carga sostenida. Si se detectan requests lentas bajo trafico real, este flag debe removerse primero.
+- **`UseSerialGC`** no es adecuado para produccion con multiples cores disponibles. En el pipeline de CI/CD o en el entorno productivo se debe usar G1GC o ZGC.
+- El `notification-service` opera al ~81% de su limite (285MB/350MB). Si se producen `OOMKilled` (exit code 137), elevar su limite a `450M`.
 
 ### No aplica a
-- Zookeeper y Kafka: usan `KAFKA_HEAP_OPTS` propio de las imágenes Confluent
+- Zookeeper y Kafka: usan `KAFKA_HEAP_OPTS` propio de las imagenes Confluent
 - PostgreSQL, Redis, fake-gcs: no son JVM
 
 ---
@@ -67,5 +67,5 @@ Se eliminó `JAVA_TOOL_OPTIONS` del `docker-compose.yml` ya que los flags en el 
 | Alternativa | Motivo de descarte |
 |---|---|
 | Mantener defaults JVM | Consumo inviable en desarrollo local (hasta 2GB por servicio) |
-| `-Xmx256m -Xms128m` fijos vía `JAVA_TOOL_OPTIONS` en compose | Valores hardcodeados que no se adaptan a cambios de límite del contenedor; configuración dispersa |
-| GraalVM native image | Compilación nativa requiere cambios en el código y el pipeline de build; complejidad desproporcionada para el objetivo |
+| `-Xmx256m -Xms128m` fijos via `JAVA_TOOL_OPTIONS` en compose | Valores hardcodeados que no se adaptan a cambios de limite del contenedor; configuracion dispersa |
+| GraalVM native image | Compilacion nativa requiere cambios en el codigo y el pipeline de build; complejidad desproporcionada para el objetivo |

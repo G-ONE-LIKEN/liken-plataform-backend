@@ -1,10 +1,10 @@
-# Linken (LKN) — Plataforma de Tokenización de Proyectos Energéticos
+# Linken (LKN) — Plataforma de Tokenizacion de Proyectos Energéticos
 
 Monorepo con smart contracts en Solidity (Foundry) + frontend web para interactuar con la plataforma desde el navegador.
 
 ---
 
-## Índice
+## indice
 
 1. [Arquitectura general](#arquitectura-general)
 2. [Estructura del monorepo](#estructura-del-monorepo)
@@ -13,7 +13,7 @@ Monorepo con smart contracts en Solidity (Foundry) + frontend web para interactu
 5. [Prerrequisitos](#prerrequisitos)
 6. [Setup — Contratos](#setup--contratos)
 7. [Tests y coverage](#tests-y-coverage)
-8. [Análisis estático con Slither](#análisis-estático-con-slither)
+8. [Analisis estatico con Slither](#analisis-estatico-con-slither)
 9. [Setup — Frontend](#setup--frontend)
 10. [Variables de entorno](#variables-de-entorno)
 11. [Deploy](#deploy)
@@ -25,7 +25,7 @@ Monorepo con smart contracts en Solidity (Foundry) + frontend web para interactu
 
 ## Arquitectura general
 
-Linken es una plataforma de tokenización de proyectos de generación de energía renovable. Permite a inversores adquirir participaciones fraccionadas en parques solares, eólicos y similares mediante tokens ERC-20, y recibir dividendos proporcionales a los ingresos generados por cada proyecto.
+Linken es una plataforma de tokenizacion de proyectos de generacion de energia renovable. Permite a inversores adquirir participaciones fraccionadas en parques solares, eolicos y similares mediante tokens ERC-20, y recibir dividendos proporcionales a los ingresos generados por cada proyecto.
 
 ### Contratos productivos
 
@@ -34,13 +34,13 @@ Linken es una plataforma de tokenización de proyectos de generación de energí
 | `LinkenToken.sol` | Token ERC-20 global LKN. Supply fijo emitido en el TGE, sin mint posterior. |
 | `ProjectRegistry.sol` | Registro de proyectos con ciclo de vida (FUNDING → ACTIVE → PAUSED) y precios por etapa. |
 | `OfferingContract.sol` | Venta primaria de LKN con precio fijo, soft cap, hard cap y refund. Activa el proyecto en el Registry al finalizar. |
-| `DividendDistributor.sol` | Recibe USDC y los distribuye proporcionalmente entre holders de LKN usando el patrón pull payment. |
+| `DividendDistributor.sol` | Recibe USDC y los distribuye proporcionalmente entre holders de LKN usando el patron pull payment. |
 
 ### Contratos deprecados (en `src/legacy/`)
 
 | Contrato | Motivo |
 |---|---|
-| `LinkenToken.sol` (v1) | Reemplazado — tenía mint ilimitado y supply infinito. |
+| `LinkenToken.sol` (v1) | Reemplazado — tenia mint ilimitado y supply infinito. |
 | `ProjectToken.sol` | Reemplazado — el modelo de subtokens por proyecto fue simplificado a token global LKN. |
 | `ProjectFactory.sol` | Reemplazado por `ProjectRegistry.sol`. |
 | `LKNSale.sol` | Reemplazado por `OfferingContract.sol`. |
@@ -107,9 +107,9 @@ linken/
 
 Token ERC-20 global de la plataforma.
 
-- **TGE (Token Generation Event)**: el supply se define en el constructor y se emite una única vez al emisor (SPE dueño del parque). No hay mint posterior.
+- **TGE (Token Generation Event)**: el supply se define en el constructor y se emite una unica vez al emisor (SPE dueño del parque). No hay mint posterior.
 - **Burn libre**: cualquier holder puede quemar sus tokens, reduciendo el supply circulante.
-- **AccessControl**: roles separados para administración (`DEFAULT_ADMIN_ROLE`) y pausa (`PAUSER_ROLE`).
+- **AccessControl**: roles separados para administracion (`DEFAULT_ADMIN_ROLE`) y pausa (`PAUSER_ROLE`).
 - **ReentrancyGuard**: protege burn contra ataques de reentrada.
 - **DividendDistributor hook**: notifica al distributor en cada transferencia entre holders para mantener las correcciones de dividendos actualizadas.
 
@@ -126,7 +126,7 @@ Registro central de proyectos energéticos.
 - **Ciclo de vida**: `FUNDING → ACTIVE → PAUSED`
 - **Precios por etapa**: `earlyBirdPrice` (FUNDING) y `standardPrice` (ACTIVE), ambos en USDC/LKN con 6 decimales.
 - **CREATOR_ROLE**: solo desarrolladores aprobados pueden registrar proyectos.
-- **OFFERING_ROLE**: solo `OfferingContract` autorizados pueden activar proyectos automáticamente.
+- **OFFERING_ROLE**: solo `OfferingContract` autorizados pueden activar proyectos automaticamente.
 
 ```
 earlyBirdPrice < standardPrice  (validado en el contrato)
@@ -136,12 +136,12 @@ earlyBirdPrice < standardPrice  (validado en el contrato)
 
 ### OfferingContract.sol
 
-Venta primaria de LKN a precio fijo con garantías para el inversor.
+Venta primaria de LKN a precio fijo con garantias para el inversor.
 
 - **Escrow de LKN**: el emisor deposita los tokens antes de abrir la ronda.
 - **Soft cap**: si no se alcanza antes del deadline, los inversores pueden pedir refund.
-- **Hard cap**: al alcanzarse, la ronda cierra automáticamente.
-- **Activación automática**: al finalizar exitosamente, activa el proyecto en el `ProjectRegistry` (FUNDING → ACTIVE).
+- **Hard cap**: al alcanzarse, la ronda cierra automaticamente.
+- **Activacion automatica**: al finalizar exitosamente, activa el proyecto en el `ProjectRegistry` (FUNDING → ACTIVE).
 - **Refund (pull payment)**: si la ronda falla, cada inversor retira su USDC individualmente.
 
 ```
@@ -154,14 +154,14 @@ lknAmount = (usdcAmount * 1e18) / tokenPrice
 
 Distribuye USDC entre holders de LKN usando el algoritmo *dividends per share*.
 
-- **Patrón pull**: la plataforma deposita USDC una vez; cada holder retira cuando quiere.
+- **Patron pull**: la plataforma deposita USDC una vez; cada holder retira cuando quiere.
 - **Sin loops**: no itera sobre holders — escala a cualquier cantidad de inversores.
-- **Corrección por transferencia**: cuando un holder transfiere tokens, sus derechos adquiridos se preservan.
+- **Correccion por transferencia**: cuando un holder transfiere tokens, sus derechos adquiridos se preservan.
 - **DEPOSITOR_ROLE**: solo la plataforma puede depositar dividendos.
 
 ```
 magnifiedDPShare += (depositado * 2^128) / totalSupply
-pendiente(user)   = (balance(user) * magnifiedDPShare + corrección(user)) / 2^128
+pendiente(user)   = (balance(user) * magnifiedDPShare + correccion(user)) / 2^128
 ```
 
 ---
@@ -186,12 +186,12 @@ RONDA ABIERTA (stage=FUNDING — precio early bird)
   → LKN van al inversor
 
 CIERRE EXITOSO (soft cap alcanzado)
-  Por hard cap: cierre automático en buy()
+  Por hard cap: cierre automatico en buy()
   Por finalize(): emisor cierra manualmente
   → LKN no vendidos devueltos al emisor
-  → ProjectRegistry actualiza stage=ACTIVE automáticamente
+  → ProjectRegistry actualiza stage=ACTIVE automaticamente
 
-POST-APERTURA (stage=ACTIVE — precio estándar)
+POST-APERTURA (stage=ACTIVE — precio estandar)
   Frontend muestra el nuevo precio
   La plataforma conecta DividendDistributor al token
 
@@ -237,7 +237,7 @@ forge --version
 cast --version
 ```
 
-### Slither (análisis estático, opcional)
+### Slither (analisis estatico, opcional)
 
 ```bash
 pip install slither-analyzer --break-system-packages
@@ -270,7 +270,7 @@ forge test -vv
 # Todos los tests
 forge test -vv
 
-# Test específico
+# Test especifico
 forge test --match-contract LinkenTokenTest -vv
 
 # Solo fuzz
@@ -299,7 +299,7 @@ genhtml lcov.info --output-dir coverage-report
 
 ---
 
-## Análisis estático con Slither
+## Analisis estatico con Slither
 
 ```bash
 cd contracts
@@ -376,7 +376,7 @@ NEXT_PUBLIC_FACTORY_ADDRESS=
 NEXT_PUBLIC_USDC_ADDRESS=
 ```
 
-> Los archivos `.env` y `.env.local` están en `.gitignore`.
+> Los archivos `.env` y `.env.local` estan en `.gitignore`.
 > Verificar con `git status` antes de cada push.
 
 ---
@@ -393,7 +393,7 @@ NEXT_PUBLIC_USDC_ADDRESS=
 - [ ] Slither corrido y hallazgos revisados
 - [ ] `.env` completo
 - [ ] Wallet con SepoliaETH para gas
-- [ ] Revisión en grupo del código final
+- [ ] Revision en grupo del codigo final
 
 ### Deploy en Sepolia
 
@@ -416,13 +416,13 @@ forge verify-contract $LINKEN_ADDRESS src/LinkenToken.sol:LinkenToken \
 
 ## Seguridad
 
-| Item | Implementación |
+| Item | Implementacion |
 |---|---|
 | Reentrancy | `ReentrancyGuard` en todas las funciones de escritura |
-| Patrón CEI | Checks → Effects → Interactions en todos los contratos |
-| Overflow | Solidity 0.8.24 — revert automático, sin `unchecked` injustificado |
-| Access control | `AccessControl` con roles explícitos |
-| Sin loops | No hay iteración sobre arrays de holders |
+| Patron CEI | Checks → Effects → Interactions en todos los contratos |
+| Overflow | Solidity 0.8.24 — revert automatico, sin `unchecked` injustificado |
+| Access control | `AccessControl` con roles explicitos |
+| Sin loops | No hay iteracion sobre arrays de holders |
 | Sin ETH | Los contratos solo manejan USDC y LKN |
 | Supply fijo | No hay `mint()` post-TGE |
 | Soft cap | Inversores recuperan USDC si la ronda falla |
@@ -433,9 +433,9 @@ forge verify-contract $LINKEN_ADDRESS src/LinkenToken.sol:LinkenToken \
 
 ## Decisiones de arquitectura (ADRs)
 
-Las decisiones de diseño están documentadas en [`docs/`](./docs/).
+Las decisiones de diseño estan documentadas en [`docs/`](./docs/).
 
-| ADR | Título | Estado |
+| ADR | Titulo | Estado |
 |---|---|---|
 | [0001](./docs/0001-monorepo.md) | Monorepo | Vigente |
 | [0002](./docs/0002-openzeppelin-v5.md) | OpenZeppelin v5 | Vigente |
@@ -446,34 +446,34 @@ Las decisiones de diseño están documentadas en [`docs/`](./docs/).
 | [0007](./docs/0007-factory-pattern-project-tokens.md) | Factory pattern para ProjectTokens | [Deprecado — ver ADR-0011](./docs/0011-simplificacion-token-global-lkn.md) |
 | [0008](./docs/0008-pull-payment-dividends.md) | Pull payment para dividendos | Vigente |
 | [0009](./docs/0009-linken-deprecado.md) | Linken.sol (v1) deprecado | Vigente |
-| [0010](./docs/0010-refactor-ProjectFactory-createProject.md) | Simplificación token global | [Deprecado — ver ADR-0011](./docs/0011-simplificacion-token-global-lkn.md) |
+| [0010](./docs/0010-refactor-ProjectFactory-createProject.md) | Simplificacion token global | [Deprecado — ver ADR-0011](./docs/0011-simplificacion-token-global-lkn.md) |
 | [0011](./docs/0011-simplificacion-token-global-lkn.md) | Token global LKN con TGE fijo | Vigente |
 | [0012](./docs/0012-offering-contract-tge-flow.md) | OfferingContract: flujo TGE | Vigente |
 | [0013](./docs/0013-lknsale-deprecado.md) | LKNSale deprecado | Vigente |
-| [0014](./docs/0014-offering-registry-integration.md) | Integración OfferingContract ↔ ProjectRegistry | Vigente |
-| [0015](./docs/0015-sin-pausable.md) | Eliminación de Pausable en todos los contratos | Vigente |
+| [0014](./docs/0014-offering-registry-integration.md) | Integracion OfferingContract ↔ ProjectRegistry | Vigente |
+| [0015](./docs/0015-sin-pausable.md) | Eliminacion de Pausable en todos los contratos | Vigente |
 
 ---
 
 ## Roadmap
 
-- Límite máximo de compra por wallet en `OfferingContract` (anti-monopolio)
-- Diagrama de interacción Web2 ↔ Web3
-- Integración frontend completa con los nuevos contratos
-- Oráculo de producción para kWh → dividendos automáticos
+- Limite maximo de compra por wallet en `OfferingContract` (anti-monopolio)
+- Diagrama de interaccion Web2 ↔ Web3
+- Integracion frontend completa con los nuevos contratos
+- Oraculo de produccion para kWh → dividendos automaticos
 - Mercado secundario P2P de tokens
-- Soporte multi-parque con múltiples instancias de `OfferingContract`
-- Auditoría externa
+- Soporte multi-parque con multiples instancias de `OfferingContract`
+- Auditoria externa
 - Deploy productivo en mainnet
 
 ---
 
 ## Changelog
 
-| Versión | Fecha | Cambio |
+| Version | Fecha | Cambio |
 |---|---|---|
 | 0.3.1 | 2025-05 | Pausable quitado de los contratos |
-| 0.3.0 | 2025-05 | OfferingContract + integración con ProjectRegistry |
+| 0.3.0 | 2025-05 | OfferingContract + integracion con ProjectRegistry |
 | 0.2.0 | 2025-05 | Token global LKN con TGE fijo, sin mint |
 | 0.1.0 | 2025-05 | Setup inicial: Linken ERC-20 + tests + frontend |
 
@@ -502,7 +502,7 @@ MIT
 [EXT: MetaMask] ----(2)----> [BC: ProjectRegistry]
 [BC: ProjectRegistry] ----(3)----> [UI: Frontend]
 
-1) [off-chain] Admin completa formulario: nombre, descripción, earlyBirdPrice, standardPrice, owner
+1) [off-chain] Admin completa formulario: nombre, descripcion, earlyBirdPrice, standardPrice, owner
 2) [on-chain]  call: registerProject(name, description, owner, earlyBirdPrice, standardPrice)
 3) [event]     emit ProjectRegistered(projectId, owner, name, earlyBirdPrice, standardPrice)
 
@@ -552,7 +552,7 @@ MIT
 8)  [on-chain]  call: safeTransfer(investor, lknAmount)  [lknAmount = usdcAmount * 1e18 / tokenPrice]
 9)  [event]     emit TokensPurchased(buyer, usdcAmount, lknAmount)
 
-=== FLUJO 4: Cierre exitoso por hard cap (automático) ===
+=== FLUJO 4: Cierre exitoso por hard cap (automatico) ===
 
 [BC: OfferingContract] ----(1)----> [BC: ProjectRegistry]
 [BC: OfferingContract] ----(2)----> [UI: Frontend]
@@ -574,7 +574,7 @@ MIT
 1)  [off-chain] Emisor llama finalize() — puede hacerlo cuando totalRaised >= softCap
 2)  [on-chain]  call: finalize()
 3)  [on-chain]  call: safeTransfer(emisor, unsoldLKN)
-4)  [on-chain]  call: activateProject(projectId) → stage = ACTIVE  [automático dentro de finalize()]
+4)  [on-chain]  call: activateProject(projectId) → stage = ACTIVE  [automatico dentro de finalize()]
 5)  [event]     emit RoundFinalized(totalRaised, lknSold)
                 emit StageChanged(projectId, ACTIVE)
                 emit UnsoldLKNReturned(emisor, amount)  [si hay LKN no vendidos]
@@ -594,12 +594,12 @@ MIT
 [BC: OfferingContract] ----(3)----> [BC: USDC]
 [BC: OfferingContract] ----(4)----> [UI: Frontend]
 
-1)  [off-chain] Deadline pasó sin alcanzar softCap — inversor llama refund
+1)  [off-chain] Deadline paso sin alcanzar softCap — inversor llama refund
 2)  [on-chain]  call: refund()
 3)  [on-chain]  call: safeTransferFrom(treasury, investor, usdcAmount)  [treasury devuelve USDC]
 4)  [event]     emit Refunded(investor, usdcAmount)
 
-=== FLUJO 8: Distribución de dividendos (Plataforma) ===
+=== FLUJO 8: Distribucion de dividendos (Plataforma) ===
 
 [UI: Frontend] ----(1)----> [EXT: MetaMask]
 [EXT: MetaMask] ----(2)----> [BC: USDC]
@@ -610,7 +610,7 @@ MIT
 
 1)  [off-chain] Plataforma aprueba USDC al DividendDistributor
 2)  [on-chain]  call: approve(distributorAddress, amount)
-3)  [off-chain] Plataforma deposita dividendos del período
+3)  [off-chain] Plataforma deposita dividendos del periodo
 4)  [on-chain]  call: depositDividends(usdcAmount)
 5)  [on-chain]  call: safeTransferFrom(platform, distributor, usdcAmount)
 6)  [event]     emit DividendsDeposited(depositor, amount)
@@ -645,35 +645,35 @@ MIT
                 [magnifiedDividendCorrections[from] += delta]
                 [magnifiedDividendCorrections[to]   -= delta]
                 [preserva derechos adquiridos antes de la transferencia]
-4)  [event]     emit Transfer(from, to, amount)  [estándar ERC-20]
+4)  [event]     emit Transfer(from, to, amount)  [estandar ERC-20]
 ```
 
 # Estrategias para prevenir monopolio
 
-## KYC + límites por identidad (Web2)
+## KYC + limites por identidad (Web2)
 
-Estándar en plataformas reguladas (Securitize, Tokeny, Republic). Un backend verifica identidad (DNI/pasaporte) y asigna un cupo máximo de inversión por persona real, no por wallet. Una persona puede tener mil wallets pero una sola identidad verificada.
+Estandar en plataformas reguladas (Securitize, Tokeny, Republic). Un backend verifica identidad (DNI/pasaporte) y asigna un cupo maximo de inversion por persona real, no por wallet. Una persona puede tener mil wallets pero una sola identidad verificada.
 
-## Whitelist con cupos (Web2 + Web3 híbrido)
+## Whitelist con cupos (Web2 + Web3 hibrido)
 
-El admin aprueba wallets y opcionalmente les asigna un límite individual. Esto se implementa en el contrato como un mapping(address => uint256) public maxAllocation que el admin configura off-chain después del KYC. Es el modelo de Reg D / Reg S en securities tokenizadas de EE.UU.
+El admin aprueba wallets y opcionalmente les asigna un limite individual. Esto se implementa en el contrato como un mapping(address => uint256) public maxAllocation que el admin configura off-chain después del KYC. Es el modelo de Reg D / Reg S en securities tokenizadas de EE.UU.
 
-## Rondas con tiempo mínimo entre compras (Web3)
+## Rondas con tiempo minimo entre compras (Web3)
 
-Cada wallet puede comprar máximo X USDC cada Y horas. Dificulta la acumulación rápida sin eliminar la posibilidad de invertir mucho a lo largo del tiempo.
+Cada wallet puede comprar maximo X USDC cada Y horas. Dificulta la acumulacion rapida sin eliminar la posibilidad de invertir mucho a lo largo del tiempo.
 
-## Precio dinámico por volumen (Web3 — bonding curve)
+## Precio dinamico por volumen (Web3 — bonding curve)
 
-Cuanto más compra un inversor en una sola ronda, más caro le sale cada token. Desincentiva la acumulación masiva naturalmente. Uniswap y Balancer usan variantes de esto.
+Cuanto mas compra un inversor en una sola ronda, mas caro le sale cada token. Desincentiva la acumulacion masiva naturalmente. Uniswap y Balancer usan variantes de esto.
 
 ## Oversubscription + prorrateo (Web2)
 
 Si la demanda supera el hard cap, se acepta todo y al cierre se prorratean los tokens proporcionalmente. Nadie puede "acaparar" porque todos reciben menos si hay mucha demanda. Es el modelo de las IPOs tradicionales y de plataformas como CoinList.
 
 
-# La recomendacion: híbrido KYC + whitelist:
+# La recomendacion: hibrido KYC + whitelist:
 
 1. **Off-chain**: la plataforma verifica identidad y aprueba la wallet
 2. **On-chain**: el `OfferingContract` tiene un `mapping(address => bool) public whitelisted` y solo wallets aprobadas pueden llamar `buy()`.
 
-**Opcional**: `mapping(address => uint256) public maxAllocation` para límites individualizados
+**Opcional**: `mapping(address => uint256) public maxAllocation` para limites individualizados

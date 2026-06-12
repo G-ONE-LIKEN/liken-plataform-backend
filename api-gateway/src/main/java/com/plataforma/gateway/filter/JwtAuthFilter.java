@@ -75,7 +75,7 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
             return rejectUnauthorized(finalExchange, "Token ausente");
         }
         if (!jwtUtils.validateToken(token)) {
-            return rejectUnauthorized(finalExchange, "Token inválido o expirado");
+            return rejectUnauthorized(finalExchange, "Token invalido o expirado");
         }
 
         Long userId = jwtUtils.getUserId(token);

@@ -38,7 +38,7 @@ contract LinkenTokenTest is Test {
     }
 
     function test_NoMintAfterTGE() public view {
-        // No existe función mint() — verificamos que el supply no creció
+        // No existe funcion mint() — verificamos que el supply no crecio
         assertEq(token.totalSupply(), TGE_SUPPLY);
     }
 

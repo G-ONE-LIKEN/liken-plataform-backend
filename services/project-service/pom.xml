@@ -57,7 +57,7 @@
 			<scope>runtime</scope>
 		</dependency>
 
-		<!-- Flyway core + driver Postgres (DD: Flyway 10.x modularizó los drivers). -->
+		<!-- Flyway core + driver Postgres (DD: Flyway 10.x modularizo los drivers). -->
 		<dependency>
 			<groupId>org.flywaydb</groupId>
 			<artifactId>flyway-core</artifactId>

@@ -1,54 +1,54 @@
-# ADR-0016: Cloud provider GCP — storage en GCS, lo demás como pods en GKE
+# ADR-0016: Cloud provider GCP — storage en GCS, lo demas como pods en GKE
 
 - **Estado:** Aceptado
 - **Fecha:** 2026-05-28
 - **DD original:** DD014
-- **Contexto:** Elección de proveedor de nube y qué piezas usan productos administrados
+- **Contexto:** Eleccion de proveedor de nube y qué piezas usan productos administrados
 
 ---
 
 ## Contexto
 
-El código asumía AWS S3 para storage de archivos (KYC, documentos de proyectos) y MinIO como emulador local. El destino productivo es **GCP** (por su free tier). Hay que decidir qué piezas usan productos administrados de GCP y cuáles corren como pods en GKE.
+El codigo asumia AWS S3 para storage de archivos (KYC, documentos de proyectos) y MinIO como emulador local. El destino productivo es **GCP** (por su free tier). Hay que decidir qué piezas usan productos administrados de GCP y cuales corren como pods en GKE.
 
-## Decisión
+## Decision
 
 **El proveedor es GCP. Solo el storage de archivos usa un producto administrado (Google Cloud Storage). Postgres, Kafka y Redis corren como pods dentro de GKE.**
 
-| Pieza | Producto | Razón |
+| Pieza | Producto | Razon |
 |-------|----------|-------|
 | Storage de archivos | **Google Cloud Storage** | 5 GB gratis permanentes; reemplaza MinIO. |
 | Base de datos | **Postgres como pod en GKE** | Cloud SQL no tiene free tier indefinido. |
-| Mensajería | **Kafka como pods en GKE** | Pub/Sub implicaría cambiar el código de los consumers. |
+| Mensajeria | **Kafka como pods en GKE** | Pub/Sub implicaria cambiar el codigo de los consumers. |
 | Cache | **Redis como pod en GKE** | Memorystore no tiene free tier. |
 
-Auth con GCS: **Workload Identity** en producción (el SDK detecta las credenciales del Service Account del pod, sin config manual); `fake-gcs-server` en local sin credenciales.
+Auth con GCS: **Workload Identity** en produccion (el SDK detecta las credenciales del Service Account del pod, sin config manual); `fake-gcs-server` en local sin credenciales.
 
 ## Alternativas consideradas
 
 | Alternativa | Motivo de descarte |
 |---|---|
-| Mantener MinIO en pods | Perdés el free tier de GCS y administrás tu propio storage (PVs, backups). |
+| Mantener MinIO en pods | Perdés el free tier de GCS y administras tu propio storage (PVs, backups). |
 | Todo en productos administrados (Cloud SQL, Pub/Sub, Memorystore) | Caro fuera del crédito inicial y cambia el modelo de eventos. |
 | SDK de AWS contra la API S3-compatible de GCS | Soporte parcial y peor performance que el SDK nativo. |
-| Multi-cloud desde el día 1 | Sobrediseño: la decisión de proveedor ya está tomada. |
+| Multi-cloud desde el dia 1 | Sobrediseño: la decision de proveedor ya esta tomada. |
 
 ## Consecuencias
 
 ### Positivas
-- Cambio de código acotado (solo storage): `aws-java-sdk-s3` → `google-cloud-storage`, `S3Config` → `GcsConfig`, env vars `S3_*`/`AWS_*` → `GCS_*`/`GCP_*`.
-- Workload Identity elimina la gestión de claves de SA en código/ConfigMaps.
-- Postgres/Kafka/Redis siguen siendo portables a otra nube (solo cambiaría el storage).
+- Cambio de codigo acotado (solo storage): `aws-java-sdk-s3` → `google-cloud-storage`, `S3Config` → `GcsConfig`, env vars `S3_*`/`AWS_*` → `GCS_*`/`GCP_*`.
+- Workload Identity elimina la gestion de claves de SA en codigo/ConfigMaps.
+- Postgres/Kafka/Redis siguen siendo portables a otra nube (solo cambiaria el storage).
 
 ### Negativas / Advertencias
 - Las 3 piezas como pods necesitan `PersistentVolumeClaims` bien configurados; son SPOF con una sola réplica.
-- El bucket y los Service Accounts (rol `storage.objectAdmin` acotado al bucket) se crean vía Terraform.
+- El bucket y los Service Accounts (rol `storage.objectAdmin` acotado al bucket) se crean via Terraform.
 
 ### No aplica a
 - Desarrollo local, que no requiere cuenta de GCP (emulador).
 
-## Estado de implementación (2026-06-08)
+## Estado de implementacion (2026-06-08)
 
-✅ Implementado. En producción: GCS real con Workload Identity (`user-service` y `project-service` acceden vía el GSA `liken-storage-access`), bucket `liken-documents-gonza-2026`. En local: `fake-gcs-server`. Terraform aprovisiona bucket, GSA, binding de Workload Identity, Artifact Registry y el cluster.
+✅ Implementado. En produccion: GCS real con Workload Identity (`user-service` y `project-service` acceden via el GSA `liken-storage-access`), bucket `liken-documents-gonza-2026`. En local: `fake-gcs-server`. Terraform aprovisiona bucket, GSA, binding de Workload Identity, Artifact Registry y el cluster.
 
 ⚠️ Pendientes recomendados (ver `implementar.md`): migrar Postgres a **Cloud SQL**, Kafka a un servicio gestionado/operador y Redis a **Memorystore** para HA y backups; agregar TLS con dominio + ManagedCertificate.

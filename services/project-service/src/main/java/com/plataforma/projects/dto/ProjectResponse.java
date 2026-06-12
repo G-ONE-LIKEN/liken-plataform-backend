@@ -32,7 +32,7 @@ public class ProjectResponse {
     private BigDecimal earlyBirdPrice;
     /** Precio etapa ACTIVE. */
     private BigDecimal standardPrice;
-    /** Precio vigente según el estado actual ({@link Project#currentPrice()}). */
+    /** Precio vigente segun el estado actual ({@link Project#currentPrice()}). */
     private BigDecimal currentPrice;
 
     private BigDecimal minimumInvestment;

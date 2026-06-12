@@ -23,10 +23,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 /**
- * Tests de integración RBAC contra Postgres real.
+ * Tests de integracion RBAC contra Postgres real.
  *
- * La autenticación se simula con headers de gateway (DD002).
- * No se genera ni valida ningún JWT en este servicio.
+ * La autenticacion se simula con headers de gateway (DD002).
+ * No se genera ni valida ningun JWT en este servicio.
  */
 @Tag("integration")
 public class RbacIntegrationTest extends AbstractIntegrationTest {
@@ -119,7 +119,7 @@ public class RbacIntegrationTest extends AbstractIntegrationTest {
 
     @Test
     void adminAuthIsValid() {
-        // Verifica que la creación de auth de gateway no lanza excepciones
+        // Verifica que la creacion de auth de gateway no lanza excepciones
         RequestPostProcessor auth = authForRole(RoleConstants.ADMIN);
         Assertions.assertNotNull(auth);
     }
@@ -237,7 +237,7 @@ public class RbacIntegrationTest extends AbstractIntegrationTest {
             .andExpect(status().isCreated());
     }
 
-    // --- GRUPO 5: AUTORIZACIÓN (CASOS DE ERROR) ---
+    // --- GRUPO 5: AUTORIZACIoN (CASOS DE ERROR) ---
 
     @Test
     @DisplayName("Error: 401 Sin headers de gateway")

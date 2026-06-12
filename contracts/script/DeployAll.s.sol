@@ -46,13 +46,13 @@ import {DividendDistributor} from "../src/DividendDistributor.sol";
  *       --account dev --broadcast --verify
  *
  * Notas:
- * - Si los roles `platformAdmin`/`emisor` están en diferentes claves, este script asume que
- *   `tx.origin == platformAdmin == emisor` (un solo broadcaster). Para producción real,
+ * - Si los roles `platformAdmin`/`emisor` estan en diferentes claves, este script asume que
+ *   `tx.origin == platformAdmin == emisor` (un solo broadcaster). Para produccion real,
  *   separar en varios scripts: deploy + setup + open.
  * - El script imprime todas las addresses al final para copiar al `.env` / al backend.
  */
 contract DeployAll is Script {
-    // ── Parámetros del proyecto piloto (override por env) ──
+    // ── Parametros del proyecto piloto (override por env) ──
     uint256 constant DEFAULT_TGE_SUPPLY = 200_000 * 1e18;       // parque ~5MW
     uint256 constant DEFAULT_EARLY_BIRD_PRICE = 8_000_000;      // $8 / LKN (6 dec)
     uint256 constant DEFAULT_STANDARD_PRICE = 10_000_000;       // $10 / LKN (6 dec)
@@ -97,7 +97,7 @@ contract DeployAll is Script {
 
         vm.startBroadcast();
 
-        // ── 0. USDC (mock si no se pasó address) ──
+        // ── 0. USDC (mock si no se paso address) ──
         if (usdcAddr == address(0)) {
             MockUSDC mock = new MockUSDC();
             // Mintear un poco al emisor/treasury para tests locales

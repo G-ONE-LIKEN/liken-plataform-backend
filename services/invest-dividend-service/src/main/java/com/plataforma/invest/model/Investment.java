@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
  * Compra primaria de LKN registrada desde el evento on-chain
  * {@code OfferingContract.TokensPurchased}.
  *
- * <p>Los montos están normalizados:
+ * <p>Los montos estan normalizados:
  * <ul>
  *   <li>{@code usdcAmount}: USDC con escala 6 (matchea el on-chain).</li>
  *   <li>{@code lknAmount}: LKN con escala 8 (de 18 dec on-chain → escala 8 BigDecimal).</li>

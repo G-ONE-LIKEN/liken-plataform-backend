@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * Este controlador es SOLO para tests.
  * Sirve para probar que las anotaciones de seguridad funcionan
- * sin ensuciarnos con lógica de negocio o repositorios de proyectos.
+ * sin ensuciarnos con logica de negocio o repositorios de proyectos.
  */
 @RestController
 @RequestMapping("/api/test-security")

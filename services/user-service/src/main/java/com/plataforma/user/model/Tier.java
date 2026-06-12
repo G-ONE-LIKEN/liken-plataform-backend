@@ -3,8 +3,8 @@ package com.plataforma.user.model;
 import java.math.BigDecimal;
 
 /**
- * Nivel del usuario en función del monto invertido acumulado (ver DD013).
- * El tier se actualiza automáticamente mediante el evento user.tier_changed
+ * Nivel del usuario en funcion del monto invertido acumulado (ver DD013).
+ * El tier se actualiza automaticamente mediante el evento user.tier_changed
  * publicado por invest-dividend-service.
  *
  * Umbrales:

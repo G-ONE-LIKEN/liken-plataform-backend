@@ -17,10 +17,10 @@ import java.time.LocalDateTime;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Tests de auditoría JPA (@PrePersist / @PreUpdate).
+ * Tests de auditoria JPA (@PrePersist / @PreUpdate).
  *
- * Usa @DataJpaTest: contexto JPA mínimo con H2, sin capa web, sin servicios.
- * NO depende de data.sql ni de ningún seed externo — cada test crea
+ * Usa @DataJpaTest: contexto JPA minimo con H2, sin capa web, sin servicios.
+ * NO depende de data.sql ni de ningun seed externo — cada test crea
  * sus propios datos con em.persist() para ser completamente autosuficiente.
  */
 @DataJpaTest
@@ -41,7 +41,7 @@ class UserAuditTest
 		);
 		assertNull(
 			entity.getUpdatedAt(),
-			"updatedAt debe ser null en creación"
+			"updatedAt debe ser null en creacion"
 		);
 	}
 

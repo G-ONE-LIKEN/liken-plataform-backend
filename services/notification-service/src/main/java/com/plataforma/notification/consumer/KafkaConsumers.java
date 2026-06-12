@@ -48,8 +48,8 @@ public class KafkaConsumers {
             notificationService.notify(
                     adminId,
                     NotificationType.ADMIN_PROJECT_PENDING,
-                    "Nuevo proyecto pendiente de aprobación",
-                    String.format("\"%s\" fue enviado por un developer y espera tu revisión.", name),
+                    "Nuevo proyecto pendiente de aprobacion",
+                    String.format("\"%s\" fue enviado por un developer y espera tu revision.", name),
                     Map.of("projectId", projectId, "projectName", name, "ownerId", ownerId,
                             "url", "/dashboard/admin/projects/" + projectId),
                     "project-pending-" + projectId,
@@ -70,7 +70,7 @@ public class KafkaConsumers {
                 ownerId,
                 NotificationType.PROJECT_APPROVED,
                 "Tu proyecto fue aprobado",
-                "Un administrador aprobó tu propuesta. Ya podés avanzar a la etapa de captación.",
+                "Un administrador aprobo tu propuesta. Ya podés avanzar a la etapa de captacion.",
                 Map.of("projectId", projectId, "url", "/projects/" + projectId),
                 "project-approved-" + projectId,
                 true,
@@ -93,7 +93,7 @@ public class KafkaConsumers {
                 NotificationType.PROJECT_REJECTED,
                 "Tu proyecto fue rechazado",
                 reason.isBlank()
-                        ? "Un administrador rechazó tu propuesta. Revisá los criterios e intentá de nuevo."
+                        ? "Un administrador rechazo tu propuesta. Revisa los criterios e intenta de nuevo."
                         : "Motivo: " + reason,
                 Map.of("projectId", projectId, "reason", reason),
                 "project-rejected-" + projectId,
@@ -123,7 +123,7 @@ public class KafkaConsumers {
         String body = "Tu cuenta fue creada con éxito. Ya podés explorar proyectos, invertir y seguir el rendimiento de tu portafolio desde tu dashboard.";
 
         // In-app notification (sin email — lo mandamos abajo con el email del payload
-        // para evitar la race condition con la transacción del registro).
+        // para evitar la race condition con la transaccion del registro).
         notificationService.notify(
                 userId,
                 NotificationType.USER_WELCOME,
@@ -135,7 +135,7 @@ public class KafkaConsumers {
         );
 
         // Email directo: usamos el email del payload del evento, no hace falta
-        // consultar user-service (que aún puede no haber commiteado la tx).
+        // consultar user-service (que aun puede no haber commiteado la tx).
         if (email != null && !email.isBlank() && !"null".equals(email)) {
             Map<String, Object> vars = new HashMap<>();
             vars.put("firstName", firstName);
@@ -143,7 +143,7 @@ public class KafkaConsumers {
             vars.put("body", body);
             emailService.send(email, title, "welcome", vars);
         } else {
-            log.warn("user.registered sin email en el payload userId={}, no se envía bienvenida", userId);
+            log.warn("user.registered sin email en el payload userId={}, no se envia bienvenida", userId);
         }
     }
 
@@ -158,8 +158,8 @@ public class KafkaConsumers {
             notificationService.notify(
                     adminId,
                     NotificationType.ADMIN_DEVELOPER_PENDING,
-                    "Nuevo developer esperando verificación",
-                    String.format("%s solicitó ser desarrollador. Revisá su perfil.", email),
+                    "Nuevo developer esperando verificacion",
+                    String.format("%s solicito ser desarrollador. Revisa su perfil.", email),
                     Map.of("userId", userId, "email", email, "url", "/dashboard/admin/developers"),
                     "dev-registered-" + userId,
                     false, null, null, null
@@ -178,7 +178,7 @@ public class KafkaConsumers {
         String title = approved ? "Tu cuenta de developer fue aprobada" : "Tu cuenta de developer fue rechazada";
         String body  = approved
                 ? "Ya podés publicar proyectos en la plataforma."
-                : "Revisá los criterios y volvé a aplicar.";
+                : "Revisa los criterios y volvé a aplicar.";
 
         notificationService.notify(
                 userId,
@@ -216,7 +216,7 @@ public class KafkaConsumers {
                 userId,
                 NotificationType.INVESTMENT_CONFIRMED,
                 "Compra de tokens confirmada",
-                String.format("Tu inversión de %s USDC en el proyecto #%s fue confirmada.", amount != null ? amount : "0", projectId != null ? projectId : "?"),
+                String.format("Tu inversion de %s USDC en el proyecto #%s fue confirmada.", amount != null ? amount : "0", projectId != null ? projectId : "?"),
                 Map.of("projectId", projectId != null ? projectId : 0L, "amount", amount != null ? amount : 0, "tokens", tokens != null ? tokens : 0,
                         "url", projectId != null ? "/projects/" + projectId : "/dashboard"),
                 String.valueOf(payload.getOrDefault("eventId", "tx-" + userId + "-" + projectId + "-" + amount)),
@@ -260,7 +260,7 @@ public class KafkaConsumers {
         notificationService.notify(
                 userId,
                 NotificationType.WALLET_FUNDED,
-                "Depósito recibido",
+                "Deposito recibido",
                 String.format("Tu billetera fue acreditada con %s.", amount),
                 Map.of("amount", amount, "url", "/dashboard/wallet"),
                 String.valueOf(payload.getOrDefault("eventId", "fund-" + userId + "-" + amount + "-" + System.nanoTime())),

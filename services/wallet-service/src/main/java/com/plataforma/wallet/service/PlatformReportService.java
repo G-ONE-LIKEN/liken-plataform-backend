@@ -23,9 +23,9 @@ import java.util.TreeMap;
 /**
  * Genera el reporte de ingresos de la plataforma.
  *
- * Definición de ingresos: comisiones cobradas en las dos operaciones que la
- * plataforma intermedia — inversión primaria y mercado P2P. El resto de los
- * movimientos (dividendos, depósitos, retiros) son flujos entre el usuario y
+ * Definicion de ingresos: comisiones cobradas en las dos operaciones que la
+ * plataforma intermedia — inversion primaria y mercado P2P. El resto de los
+ * movimientos (dividendos, depositos, retiros) son flujos entre el usuario y
  * proyectos / cuentas externas y no constituyen revenue de la plataforma.
  */
 @Service
@@ -36,11 +36,11 @@ public class PlatformReportService {
     private final PendingWalletMovementRepository pendingRepository;
     private final PrimarySalesReportClient primarySalesReportClient;
 
-    /** Comisión sobre inversión primaria. Default 2%. */
+    /** Comision sobre inversion primaria. Default 2%. */
     @Value("${platform.primary-fee-rate:0.02}")
     private BigDecimal primaryFeeRate;
 
-    /** Comisión sobre mercado P2P. Default 1%. */
+    /** Comision sobre mercado P2P. Default 1%. */
     @Value("${platform.p2p-fee-rate:0.01}")
     private BigDecimal p2pFeeRate;
 
@@ -79,7 +79,7 @@ public class PlatformReportService {
         mergeMonthlyRows(byMonth, movementRepository.monthlyAmountByType(fromDt, toDt));
         mergeMonthlyRows(byMonth, pendingRepository.monthlyAmountByType(fromDt, toDt));
 
-        // Rellenar meses vacíos para que el gráfico no tenga huecos
+        // Rellenar meses vacios para que el grafico no tenga huecos
         YearMonth cursor = YearMonth.from(from);
         YearMonth end    = YearMonth.from(to.minusDays(1));
         while (!cursor.isAfter(end)) {

@@ -9,7 +9,7 @@ import reactor.core.publisher.Mono;
 @Configuration
 public class RateLimiterConfig {
 
-    // Rutas públicas (auth/login) — clave por IP
+    // Rutas publicas (auth/login) — clave por IP
     @Bean
     @Primary
     public KeyResolver ipKeyResolver() {
@@ -20,7 +20,7 @@ public class RateLimiterConfig {
     }
 
     // Rutas autenticadas — clave por X-User-Id inyectado por JwtAuthFilter.
-    // Fallback a IP para los endpoints públicos dentro de la misma ruta
+    // Fallback a IP para los endpoints publicos dentro de la misma ruta
     // (ej. POST /api/users que es registro sin token).
     @Bean("userKeyResolver")
     public KeyResolver userKeyResolver() {

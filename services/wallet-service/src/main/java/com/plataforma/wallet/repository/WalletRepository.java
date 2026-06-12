@@ -17,7 +17,7 @@ public interface WalletRepository extends JpaRepository<Wallet, Long> {
     Optional<Wallet> findByWalletAddress(@Param("walletAddress") String walletAddress);
 
     // Lock pesimista para operaciones que modifican el saldo — evita race conditions
-    // en entornos con múltiples réplicas del servicio.
+    // en entornos con multiples réplicas del servicio.
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT w FROM Wallet w WHERE w.userId = :userId")
     Optional<Wallet> findByUserIdForUpdate(@Param("userId") Long userId);

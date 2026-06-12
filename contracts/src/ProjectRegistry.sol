@@ -8,11 +8,11 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 
 /**
  * @title ProjectRegistry
- * @notice Registra proyectos energeticos con su etapa y precio de conversión LKN/USDC.
+ * @notice Registra proyectos energeticos con su etapa y precio de conversion LKN/USDC.
  *
  * Etapas:
- *   FUNDING → precio early bird (más LKN por USDC).
- *   ACTIVE  → precio estándar.
+ *   FUNDING → precio early bird (mas LKN por USDC).
+ *   ACTIVE  → precio estandar.
  *   PAUSED  → no acepta nuevas inversiones.
  */
 contract ProjectRegistry is AccessControl, ReentrancyGuard {
@@ -90,7 +90,7 @@ contract ProjectRegistry is AccessControl, ReentrancyGuard {
     }
 
     /**
-     * @notice Activa el proyecto automáticamente al finalizar una ronda exitosa.
+     * @notice Activa el proyecto automaticamente al finalizar una ronda exitosa.
      * @dev Solo puede ser llamado por un OfferingContract autorizado (OFFERING_ROLE).
      */
     function activateProject(uint256 projectId) external onlyRole(OFFERING_ROLE) {

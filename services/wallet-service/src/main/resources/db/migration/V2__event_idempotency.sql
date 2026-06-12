@@ -4,7 +4,7 @@
 -- eventos duplicados (at-least-once delivery de Kafka — ver DD010).
 --
 -- El UNIQUE INDEX es parcial: solo aplica cuando `external_event_id` no es NULL.
--- Los movimientos de deposit/withdraw del endpoint público no tienen eventId
+-- Los movimientos de deposit/withdraw del endpoint publico no tienen eventId
 -- (no son originados por Kafka), por eso la columna admite NULL.
 
 ALTER TABLE wallet_movements ADD COLUMN external_event_id VARCHAR(64);

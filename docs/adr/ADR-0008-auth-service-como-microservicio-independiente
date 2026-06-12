@@ -3,15 +3,15 @@
 - **Estado:** Aceptado
 - **Fecha:** 2026-05-27
 - **DD original:** DD006
-- **Contexto:** Separación de la autenticación respecto del CRUD de usuarios
+- **Contexto:** Separacion de la autenticacion respecto del CRUD de usuarios
 
 ---
 
 ## Contexto
 
-La lógica de autenticación (login, cambio de contraseña, emisión de JWT) vivía como sub-paquete dentro de `user-service`. Mezclaba dos responsabilidades con motivos de cambio y escalas distintas: el CRUD de usuarios/roles, y la verificación de identidad y emisión de credenciales (que recibe toda la carga de logins y evoluciona aparte: MFA, OAuth2, etc.).
+La logica de autenticacion (login, cambio de contraseña, emision de JWT) vivia como sub-paquete dentro de `user-service`. Mezclaba dos responsabilidades con motivos de cambio y escalas distintas: el CRUD de usuarios/roles, y la verificacion de identidad y emision de credenciales (que recibe toda la carga de logins y evoluciona aparte: MFA, OAuth2, etc.).
 
-## Decisión
+## Decision
 
 **`auth-service` es un microservicio independiente y stateless.** Se comunica con `user-service` por HTTP interno para leer credenciales y actualizar contraseñas. No tiene base de datos relacional propia (single source of truth de los usuarios = `user-service`).
 
@@ -20,21 +20,21 @@ La lógica de autenticación (login, cambio de contraseña, emisión de JWT) viv
 | Alternativa | Motivo de descarte |
 |---|---|
 | auth como sub-paquete de user-service | Mezcla responsabilidades; escalar auth implica escalar el CRUD; logs de auth mezclados. |
-| auth con DB propia (copia de `users`) | Viola ownership único: una copia desactualizada podría seguir emitiendo tokens de un usuario ya suspendido. |
+| auth con DB propia (copia de `users`) | Viola ownership unico: una copia desactualizada podria seguir emitiendo tokens de un usuario ya suspendido. |
 
 ## Consecuencias
 
 ### Positivas
-- Responsabilidad única por servicio; `auth-service` es el único que toca credenciales en texto plano (durante el login), acotando la superficie de ataque.
+- Responsabilidad unica por servicio; `auth-service` es el unico que toca credenciales en texto plano (durante el login), acotando la superficie de ataque.
 - Escala de login independiente del CRUD.
 
 ### Negativas / Advertencias
 - `user-service` debe exponer endpoints internos (`/internal/users/by-email/{email}`, `/internal/users/{id}`, `/internal/users/{id}/password`).
-- El `JWT_SECRET` debe ser idéntico entre `auth-service` (emisión) y `api-gateway` (validación).
+- El `JWT_SECRET` debe ser idéntico entre `auth-service` (emision) y `api-gateway` (validacion).
 
 ### No aplica a
-- La validación de tokens en requests posteriores, que es exclusiva del gateway ([ADR-0004](ADR-0004-Validacion-JWT-centralizada-en-el-gateway)).
+- La validacion de tokens en requests posteriores, que es exclusiva del gateway ([ADR-0004](ADR-0004-Validacion-JWT-centralizada-en-el-gateway)).
 
-## Estado de implementación (2026-06-08)
+## Estado de implementacion (2026-06-08)
 
-✅ Implementado y **ampliado** respecto del DD original. `auth-service` hoy cubre, además de login y change-password: login con **Google OAuth**, registro con **verificación de email**, **refresh tokens con rotación** y **logout**. Mantiene estado en **Redis** (refresh tokens + códigos de verificación) — sigue sin DB relacional propia. Llama a `user-service` (incl. `/internal/users/google`, `/internal/users/local`, `/internal/users/{id}/email-verified`) y a `notification-service` (`/internal/emails/transactional`) para enviar los códigos.
+✅ Implementado y **ampliado** respecto del DD original. `auth-service` hoy cubre, ademas de login y change-password: login con **Google OAuth**, registro con **verificacion de email**, **refresh tokens con rotacion** y **logout**. Mantiene estado en **Redis** (refresh tokens + codigos de verificacion) — sigue sin DB relacional propia. Llama a `user-service` (incl. `/internal/users/google`, `/internal/users/local`, `/internal/users/{id}/email-verified`) y a `notification-service` (`/internal/emails/transactional`) para enviar los codigos.

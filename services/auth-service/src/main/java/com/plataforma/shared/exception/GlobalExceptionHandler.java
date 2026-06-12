@@ -54,6 +54,6 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleGeneral(Exception ex) {
         log.error("Error inesperado en auth-service", ex);
-        return response("Ocurrió un error interno en el servidor.", HttpStatus.INTERNAL_SERVER_ERROR);
+        return response("Ocurrio un error interno en el servidor.", HttpStatus.INTERNAL_SERVER_ERROR);
     }
 }

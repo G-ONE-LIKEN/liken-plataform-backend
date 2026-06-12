@@ -14,7 +14,7 @@ import java.util.Map;
 /**
  * Publica eventos on-chain ya decodificados a Kafka, con guardia local de
  * idempotencia: si el {@code eventId} (txHash:logIndex) ya fue publicado en una
- * corrida previa, no lo reenvía.
+ * corrida previa, no lo reenvia.
  *
  * <p>Los consumers downstream también hacen idempotencia por el mismo {@code eventId}
  * → defense in depth: si crasheamos justo después de Kafka pero antes del commit
@@ -31,9 +31,9 @@ public class KafkaEventPublisher {
 
     /**
      * @param topic nombre del topic Kafka (ej. {@code investment.token_purchased}).
-     * @param eventId UUID-like único — convención {@code "<txHash>:<logIndex>"}.
-     * @param contractAddress address del contrato que emitió el log.
-     * @param blockNumber número de bloque del evento on-chain.
+     * @param eventId UUID-like unico — convencion {@code "<txHash>:<logIndex>"}.
+     * @param contractAddress address del contrato que emitio el log.
+     * @param blockNumber numero de bloque del evento on-chain.
      * @param payload mapa que se serializa a JSON y se publica.
      */
     @Transactional
@@ -62,7 +62,7 @@ public class KafkaEventPublisher {
         log.info("Publicado {} → {} (block {})", topic, eventId, blockNumber);
     }
 
-    /** Construye el eventId canónico para un log on-chain. */
+    /** Construye el eventId canonico para un log on-chain. */
     public static String eventIdOf(String txHash, long logIndex) {
         return txHash + ":" + logIndex;
     }

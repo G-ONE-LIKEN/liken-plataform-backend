@@ -125,7 +125,7 @@ public class AuthController {
 
         // Validate token and get userId before revoking
         Long userId = refreshTokenService.validate(oldRefreshToken)
-                .orElseThrow(() -> new UnauthorizedAccessException("Refresh token inválido o expirado."));
+                .orElseThrow(() -> new UnauthorizedAccessException("Refresh token invalido o expirado."));
 
         // Issue new access token (internally re-validates; safe since token still exists)
         String newAccessToken = authService.refresh(oldRefreshToken);
@@ -156,7 +156,7 @@ public class AuthController {
         // Clear cookie
         addRefreshCookie(response, "", 0);
 
-        return ResponseEntity.ok(ApiResponse.success("Sesión cerrada", null));
+        return ResponseEntity.ok(ApiResponse.success("Sesion cerrada", null));
     }
 
     // ─────────────────────────────────────────────────────────────

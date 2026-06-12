@@ -45,7 +45,7 @@ public class ChainReader {
 
     /**
      * @return dividendos pendientes de retirar para esa wallet, en USDC (escala 6).
-     *         Si la dirección del distributor no está configurada o el RPC falla,
+     *         Si la direccion del distributor no esta configurada o el RPC falla,
      *         devuelve cero (no se trata como error fatal: el front muestra $0).
      */
     public BigDecimal pendingDividends(String walletAddress) {
@@ -68,7 +68,7 @@ public class ChainReader {
             BigInteger raw = ((Uint256) decoded.get(0)).getValue();
             return new BigDecimal(raw).divide(new BigDecimal(USDC_DECIMALS_FACTOR), 6, RoundingMode.HALF_UP);
         } catch (Exception ex) {
-            log.warn("ethCall pendingDividends({}) falló: {}", walletAddress, ex.getMessage());
+            log.warn("ethCall pendingDividends({}) fallo: {}", walletAddress, ex.getMessage());
             return BigDecimal.ZERO;
         }
     }

@@ -15,7 +15,7 @@ public interface UserInvestmentTotalRepository extends JpaRepository<UserInvestm
 
     /**
      * Bloqueo pesimista para sumar montos sin race conditions cuando llegan
-     * varios eventos del mismo usuario casi simultáneamente.
+     * varios eventos del mismo usuario casi simultaneamente.
      */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT u FROM UserInvestmentTotal u WHERE u.userId = :userId")

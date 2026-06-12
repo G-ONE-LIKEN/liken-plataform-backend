@@ -30,6 +30,6 @@ public class BroadcastRequest {
     /** Solo requerido cuando audience = USER */
     private Long userId;
 
-    /** Si true, además del in-app envía email. */
+    /** Si true, ademas del in-app envia email. */
     private boolean sendEmail;
 }

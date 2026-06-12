@@ -4,24 +4,24 @@
 
 Después del TGE, el emisor (SPE dueño del parque) tiene el supply completo
 de LKN en su wallet. Necesita un mecanismo para vender esos tokens a inversores
-a precio fijo, con garantías mínimas para ambas partes:
-- El inversor no debería perder su USDC si el proyecto no llega al mínimo de
+a precio fijo, con garantias minimas para ambas partes:
+- El inversor no deberia perder su USDC si el proyecto no llega al minimo de
   financiamiento necesario para arrancar.
-- El emisor no debería poder retirar fondos si no se alcanzó el mínimo.
+- El emisor no deberia poder retirar fondos si no se alcanzo el minimo.
 
-## Decisión
+## Decision
 
-Implementar un `OfferingContract` con tres parámetros de ronda y patrón
+Implementar un `OfferingContract` con tres parametros de ronda y patron
 escrow + pull payment para refunds.
 
-### Parámetros de ronda
+### Parametros de ronda
 
-| Parámetro | Descripción | Ejemplo (parque 5MW) |
+| Parametro | Descripcion | Ejemplo (parque 5MW) |
 |---|---|---|
 | `tokenPrice` | USDC por LKN (6 decimales) | 10_000_000 = USD 10/LKN |
-| `softCap` | Mínimo USDC a recaudar para que el proyecto arranque | 500_000 * 1e6 = USD 500k |
-| `hardCap` | Máximo USDC a recaudar — cierra la ronda automáticamente | 2_000_000 * 1e6 = USD 2M |
-| `deadline` | Timestamp límite para alcanzar el soft cap | block.timestamp + 30 días |
+| `softCap` | Minimo USDC a recaudar para que el proyecto arranque | 500_000 * 1e6 = USD 500k |
+| `hardCap` | Maximo USDC a recaudar — cierra la ronda automaticamente | 2_000_000 * 1e6 = USD 2M |
+| `deadline` | Timestamp limite para alcanzar el soft cap | block.timestamp + 30 dias |
 
 ### Flujo completo
 
@@ -38,34 +38,34 @@ escrow + pull payment para refunds.
 2. Inversor llama buy(usdcAmount)
 3. Contrato transfiere USDC del inversor al treasury
 4. Contrato transfiere LKN del escrow al inversor
-5. Si totalRaised >= hardCap → ronda cierra automáticamente
+5. Si totalRaised >= hardCap → ronda cierra automaticamente
 
 #### CIERRE EXITOSO (totalRaised >= softCap)
 
 1. Emisor llama finalize() → marca la ronda como exitosa
 2. USDC disponibles para el treasury (ya fueron transferidos en cada compra)
 
-#### CIERRE FALLIDO (deadline pasó y totalRaised < softCap)
+#### CIERRE FALLIDO (deadline paso y totalRaised < softCap)
 1. Cualquier inversor puede llamar refund()
 2. Contrato devuelve los LKN al emisor (o los quema)
 3. Cada inversor recupera su USDC proporcional
 
 ### Por qué el emisor deposita LKN en el contrato (escrow)
 
-Sin esto, el emisor podría vender LKN a inversores y luego transferirlos
+Sin esto, el emisor podria vender LKN a inversores y luego transferirlos
 a otra wallet antes de que todos compren, dejando al contrato sin tokens
-para entregar. El depósito previo garantiza que los LKN están bloqueados
+para entregar. El deposito previo garantiza que los LKN estan bloqueados
 y disponibles para los compradores.
 
 ### Por qué el USDC va directo al treasury (no queda en escrow)
 
-Para el soft cap, el contrato registra cuánto pagó cada inversor en `contributions[address]`. Si la ronda falla, el inversor llama `refund()` y el treasury devuelve su USDC. Esto requiere que el treasury sea un contrato o una wallet controlada que pueda devolver fondos — en el PoC el treasury es la wallet del emisor.
+Para el soft cap, el contrato registra cuanto pago cada inversor en `contributions[address]`. Si la ronda falla, el inversor llama `refund()` y el treasury devuelve su USDC. Esto requiere que el treasury sea un contrato o una wallet controlada que pueda devolver fondos — en el PoC el treasury es la wallet del emisor.
 
-Alternativa descartada: guardar el USDC en el contrato hasta el cierre. Se descartó porque agrega complejidad y surface de ataque (el contrato tendría que manejar fondos de USDC además de LKN).
+Alternativa descartada: guardar el USDC en el contrato hasta el cierre. Se descarto porque agrega complejidad y surface de ataque (el contrato tendria que manejar fondos de USDC ademas de LKN).
 
-### Patrón pull payment para refunds
+### Patron pull payment para refunds
 
-Si la ronda falla, el contrato NO itera sobre todos los inversores para devolver el USDC (eso costaría una fortuna en gas con muchos inversores y podría exceder el gas limit). En cambio, cada inversor llama `refund()` individualmente y recupera su parte — el mismo patrón pull que usa DividendDistributor para los dividendos.
+Si la ronda falla, el contrato NO itera sobre todos los inversores para devolver el USDC (eso costaria una fortuna en gas con muchos inversores y podria exceder el gas limit). En cambio, cada inversor llama `refund()` individualmente y recupera su parte — el mismo patron pull que usa DividendDistributor para los dividendos.
 
 ## Consecuencias
 
@@ -74,6 +74,6 @@ Si la ronda falla, el contrato NO itera sobre todos los inversores para devolver
 - Si el soft cap no se alcanza antes del deadline, los inversores pueden
   recuperar su USDC llamando refund(). El treasury debe tener fondos
   suficientes para honrar los refunds.
-- El hard cap protege al emisor de sobre-suscripción — no puede vender
-  más tokens de los que depositó ni recaudar más de lo planificado.
-- En el PoC, el oráculo de kWh no está conectado al OfferingContract — la ronda es manual. En producción, el cierre exitoso podría disparar automáticamente la configuración del DividendDistributor.
+- El hard cap protege al emisor de sobre-suscripcion — no puede vender
+  mas tokens de los que deposito ni recaudar mas de lo planificado.
+- En el PoC, el oraculo de kWh no esta conectado al OfferingContract — la ronda es manual. En produccion, el cierre exitoso podria disparar automaticamente la configuracion del DividendDistributor.

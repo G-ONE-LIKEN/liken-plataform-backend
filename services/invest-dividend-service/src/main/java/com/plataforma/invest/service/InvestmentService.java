@@ -19,7 +19,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * Lógica central de inversiones:
+ * Logica central de inversiones:
  * <ul>
  *   <li>{@link #recordPurchase} se invoca desde el consumer de {@code investment.token_purchased}
  *       cuando el Blockchain Service publica una compra. Es idempotente.</li>
@@ -56,7 +56,7 @@ public class InvestmentService {
         }
         if (userId == null) {
             log.warn("recordPurchase: userId null para wallet={} txHash={}. " +
-                    "Registrando compra por wallet para reconciliación posterior.", walletAddress, txHash);
+                    "Registrando compra por wallet para reconciliacion posterior.", walletAddress, txHash);
         }
 
         // 1. Guardar la compra.
@@ -94,7 +94,7 @@ public class InvestmentService {
             log.info("Compra registrada: userId={} projectId={} usdc={} lkn={} total={} tier={}",
                     userId, projectId, usdcAmount, lknAmount, newTotal, newTier);
 
-            // 3. Publicar cambio de tier si cruzó umbral.
+            // 3. Publicar cambio de tier si cruzo umbral.
             if (!oldTier.equals(newTier)) {
                 tierPublisher.publish(userId, oldTier, newTier);
             }

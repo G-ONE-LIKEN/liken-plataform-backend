@@ -26,10 +26,10 @@ import java.util.List;
  * Motor central del marketplace P2P.
  *
  * <p>Implementa un matching FIFO con price-time priority, sin matching parcial
- * (una orden se ejecuta completa o queda OPEN). Decisión documentada en
+ * (una orden se ejecuta completa o queda OPEN). Decision documentada en
  * <a href="../../docs/adr/ADR-0014-Matching-engine-de-marketplace-service">ADR-0014</a>.
  *
- * <p>Flujo de una transacción:
+ * <p>Flujo de una transaccion:
  * <ol>
  *   <li>El vendedor crea una orden de venta (valida holdings contra project-service).</li>
  *   <li>Un comprador ejecuta la orden (lock pesimista → match completo).</li>
@@ -56,7 +56,7 @@ public class OrderService {
     // ─────────────────────── QUERIES ──────────────────────
 
     /**
-     * Lista las órdenes OPEN, opcionalmente filtradas por proyecto.
+     * Lista las ordenes OPEN, opcionalmente filtradas por proyecto.
      */
     @Transactional(readOnly = true)
     public Page<Order> listOpenOrders(Long projectId, int page, int size) {
@@ -69,7 +69,7 @@ public class OrderService {
     }
 
     /**
-     * Lista todas las órdenes del vendedor (cualquier estado).
+     * Lista todas las ordenes del vendedor (cualquier estado).
      */
     @Transactional(readOnly = true)
     public Page<Order> listMyOrders(Long userId, int page, int size) {
@@ -78,7 +78,7 @@ public class OrderService {
     }
 
     /**
-     * Historial de transacciones donde el usuario participó como comprador o vendedor.
+     * Historial de transacciones donde el usuario participo como comprador o vendedor.
      */
     @Transactional(readOnly = true)
     public Page<Trade> listMyTrades(Long userId, int page, int size) {
@@ -102,7 +102,7 @@ public class OrderService {
         // 1. Validar que el proyecto permite trading.
         if (!projectClient.isProjectTradeable(projectId)) {
             throw new IllegalStateException(
-                    "El proyecto " + projectId + " no está disponible para trading. " +
+                    "El proyecto " + projectId + " no esta disponible para trading. " +
                     "Solo se pueden negociar tokens de proyectos con ronda finalizada exitosamente.");
         }
 
@@ -111,7 +111,7 @@ public class OrderService {
         if (currentHoldings.compareTo(request.getTokensAmount()) < 0) {
             throw new IllegalStateException(
                     "Holdings insuficientes: tenés " + currentHoldings +
-                    " tokens pero intentás vender " + request.getTokensAmount());
+                    " tokens pero intentas vender " + request.getTokensAmount());
         }
 
         // 3. Crear la orden.
@@ -136,7 +136,7 @@ public class OrderService {
     /**
      * Ejecuta una compra contra una orden OPEN.
      *
-     * <p>Matching síncrono con {@code SELECT FOR UPDATE} (lock pesimista) para
+     * <p>Matching sincrono con {@code SELECT FOR UPDATE} (lock pesimista) para
      * garantizar que la orden no se ejecute dos veces. Sin matching parcial.
      */
     @Transactional
@@ -144,14 +144,14 @@ public class OrderService {
         // 1. Lock pesimista: obtener la orden OPEN o fallar.
         Order order = orderRepository.findByIdAndStatusForUpdate(orderId, OrderStatus.OPEN)
                 .orElseThrow(() -> new IllegalStateException(
-                        "La orden " + orderId + " no existe o ya no está disponible."));
+                        "La orden " + orderId + " no existe o ya no esta disponible."));
 
         // 2. No puede comprar sus propios tokens.
         if (order.getSellerId().equals(buyerId)) {
             throw new IllegalStateException("No podés comprar tu propia orden.");
         }
 
-        // 3. Re-validar holdings del vendedor (ventana de carrera mínima, ADR-0014).
+        // 3. Re-validar holdings del vendedor (ventana de carrera minima, ADR-0014).
         BigDecimal sellerHoldings = projectClient.getUserHoldings(order.getSellerId(), order.getProjectId());
         if (sellerHoldings.compareTo(order.getTokensAmount()) < 0) {
             log.warn("Holdings insuficientes del vendedor al momento del match: " +
@@ -215,7 +215,7 @@ public class OrderService {
         }
         if (order.getStatus() != OrderStatus.OPEN) {
             throw new IllegalStateException(
-                    "Solo se pueden cancelar órdenes OPEN. Estado actual: " + order.getStatus());
+                    "Solo se pueden cancelar ordenes OPEN. Estado actual: " + order.getStatus());
         }
 
         order.setStatus(OrderStatus.CANCELLED);
@@ -226,7 +226,7 @@ public class OrderService {
     }
 
     /**
-     * Cancela todas las órdenes OPEN de un proyecto (por cambio de estado).
+     * Cancela todas las ordenes OPEN de un proyecto (por cambio de estado).
      * Invocado desde el consumer de {@code projects.state_changed}.
      */
     @Transactional
@@ -241,7 +241,7 @@ public class OrderService {
         orderRepository.saveAll(openOrders);
 
         if (!openOrders.isEmpty()) {
-            log.info("Canceladas {} órdenes del proyecto {} por: {}",
+            log.info("Canceladas {} ordenes del proyecto {} por: {}",
                     openOrders.size(), projectId, reason);
         }
         return openOrders.size();
@@ -250,7 +250,7 @@ public class OrderService {
     // ─────────────────────── SCHEDULED ──────────────────────
 
     /**
-     * Marca como EXPIRED las órdenes OPEN cuyo TTL venció.
+     * Marca como EXPIRED las ordenes OPEN cuyo TTL vencio.
      * Se ejecuta cada hora.
      */
     @Scheduled(fixedRate = 3600_000) // 1 hora
@@ -266,7 +266,7 @@ public class OrderService {
         orderRepository.saveAll(expired);
 
         if (!expired.isEmpty()) {
-            log.info("Expiradas {} órdenes vencidas", expired.size());
+            log.info("Expiradas {} ordenes vencidas", expired.size());
         }
     }
 }

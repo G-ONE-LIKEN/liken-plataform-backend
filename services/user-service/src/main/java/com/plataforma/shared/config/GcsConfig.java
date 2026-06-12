@@ -14,8 +14,8 @@ import java.io.IOException;
  * Cliente Google Cloud Storage para subida de documentos KYC (ver DD013, DD014).
  *
  * Auth (orden de preferencia):
- *   1. Producción en GKE: Application Default Credentials (Workload Identity).
- *      El SDK detecta automáticamente las credenciales del Service Account asociado al pod.
+ *   1. Produccion en GKE: Application Default Credentials (Workload Identity).
+ *      El SDK detecta automaticamente las credenciales del Service Account asociado al pod.
  *   2. Desarrollo local apuntando a GCS real: archivo JSON de Service Account en
  *      la env var {@code GOOGLE_APPLICATION_CREDENTIALS}.
  *   3. Desarrollo local con emulador (fake-gcs-server): {@code gcp.storage.emulator-host}
@@ -29,7 +29,7 @@ public class GcsConfig {
 
     /**
      * Host del emulador para desarrollo local (ej. {@code http://localhost:4443}).
-     * Si está vacío, el cliente usa GCS real con credenciales por default.
+     * Si esta vacio, el cliente usa GCS real con credenciales por default.
      */
     @Value("${gcp.storage.emulator-host:}")
     private String emulatorHost;

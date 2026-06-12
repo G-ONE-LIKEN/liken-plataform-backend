@@ -17,14 +17,14 @@ import java.util.Optional;
 @Repository
 public interface OrderRepository extends JpaRepository<Order, Long> {
 
-    /** Órdenes activas de todos los proyectos, más recientes primero. */
+    /** ordenes activas de todos los proyectos, mas recientes primero. */
     Page<Order> findByStatusOrderByCreatedAtDesc(OrderStatus status, Pageable pageable);
 
-    /** Órdenes activas de un proyecto, ordenadas por precio (más barato primero). */
+    /** ordenes activas de un proyecto, ordenadas por precio (mas barato primero). */
     Page<Order> findByStatusAndProjectIdOrderByPricePerTokenAsc(
             OrderStatus status, Long projectId, Pageable pageable);
 
-    /** Todas las órdenes del vendedor (cualquier estado). */
+    /** Todas las ordenes del vendedor (cualquier estado). */
     Page<Order> findBySellerIdOrderByCreatedAtDesc(Long sellerId, Pageable pageable);
 
     /**
@@ -35,9 +35,9 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     @Query("SELECT o FROM Order o WHERE o.id = :id AND o.status = :status")
     Optional<Order> findByIdAndStatusForUpdate(Long id, OrderStatus status);
 
-    /** Órdenes OPEN que ya vencieron — para el job de expiración. */
+    /** ordenes OPEN que ya vencieron — para el job de expiracion. */
     List<Order> findByStatusAndExpiresAtBefore(OrderStatus status, LocalDateTime now);
 
-    /** Órdenes OPEN de un proyecto — para cancelar masivamente al cambiar estado. */
+    /** ordenes OPEN de un proyecto — para cancelar masivamente al cambiar estado. */
     List<Order> findByStatusAndProjectId(OrderStatus status, Long projectId);
 }

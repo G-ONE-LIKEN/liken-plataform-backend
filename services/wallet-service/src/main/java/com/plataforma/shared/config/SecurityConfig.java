@@ -27,7 +27,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 // Actuator para healthcheck de docker-compose
                 .requestMatchers("/actuator/**").permitAll()
-                // Todos los endpoints de wallet requieren autenticación
+                // Todos los endpoints de wallet requieren autenticacion
                 .anyRequest().authenticated()
             )
             .addFilterBefore(gatewayHeaderAuthFilter, UsernamePasswordAuthenticationFilter.class);

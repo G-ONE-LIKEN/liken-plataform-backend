@@ -51,7 +51,7 @@ public class GatewayHeaderAuthFilter extends OncePerRequestFilter {
                 List<SimpleGrantedAuthority> authorities = new ArrayList<>();
                 if (role != null && !role.isBlank()) {
                     authorities.add(new SimpleGrantedAuthority("ROLE_" + role));
-                    // SUPER_ADMIN hereda implícitamente todos los privilegios de ADMIN
+                    // SUPER_ADMIN hereda implicitamente todos los privilegios de ADMIN
                     if ("SUPER_ADMIN".equals(role)) {
                         authorities.add(new SimpleGrantedAuthority("ROLE_ADMIN"));
                     }
@@ -72,7 +72,7 @@ public class GatewayHeaderAuthFilter extends OncePerRequestFilter {
                 request.setAttribute(HEADER_KYC_STATUS, request.getHeader(HEADER_KYC_STATUS));
 
             } catch (NumberFormatException e) {
-                // Header malformado — no se autentica, Spring Security rechazará la request
+                // Header malformado — no se autentica, Spring Security rechazara la request
             }
         }
 

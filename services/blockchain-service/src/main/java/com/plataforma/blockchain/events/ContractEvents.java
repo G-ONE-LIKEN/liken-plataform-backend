@@ -15,13 +15,13 @@ import java.util.List;
  *
  * <p>Hay un evento por cada contrato productivo:
  * <ul>
- *   <li>{@code LinkenToken}: {@code Transfer(address,address,uint256)} ERC-20 estándar.</li>
+ *   <li>{@code LinkenToken}: {@code Transfer(address,address,uint256)} ERC-20 estandar.</li>
  *   <li>{@code ProjectRegistry}: {@code StageChanged(uint256,uint8)}.</li>
  *   <li>{@code OfferingContract}: {@code TokensPurchased / RoundFinalized / RoundFailed / Refunded}.</li>
  *   <li>{@code DividendDistributor}: {@code DividendsDeposited / DividendsWithdrawn}.</li>
  * </ul>
  *
- * <p>Para cada evento se cachea el "topic[0]" (keccak256 de la firma) — así el
+ * <p>Para cada evento se cachea el "topic[0]" (keccak256 de la firma) — asi el
  * indexer mapea logs → handler con un {@code Map.get}.
  */
 public final class ContractEvents {

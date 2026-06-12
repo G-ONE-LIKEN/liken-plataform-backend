@@ -64,7 +64,7 @@ public class UserController {
         return ResponseEntity.ok(ApiResponse.success("Perfil actualizado", toContextDto(updated)));
     }
 
-    // ── Vínculo wallet on-chain (custodia híbrida) ─────────────────────────
+    // ── Vinculo wallet on-chain (custodia hibrida) ─────────────────────────
 
     /**
      * Devuelve un nonce + el mensaje exacto que el usuario debe firmar con MetaMask.
@@ -76,7 +76,7 @@ public class UserController {
         String nonce = walletLinkingService.generateNonce(userId);
         String message = walletLinkingService.buildMessage(nonce);
         return ResponseEntity.ok(ApiResponse.success(
-                "Nonce generado. Firmá el mensaje con tu wallet.",
+                "Nonce generado. Firma el mensaje con tu wallet.",
                 Map.of("nonce", nonce, "message", message)));
     }
 

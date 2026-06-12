@@ -17,14 +17,14 @@ public interface WalletMovementRepository extends JpaRepository<WalletMovement, 
     Page<WalletMovement> findByWalletOrderByCreatedAtDesc(Wallet wallet, Pageable pageable);
 
     /**
-     * Chequea si ya se procesó un evento Kafka con este eventId.
+     * Chequea si ya se proceso un evento Kafka con este eventId.
      * Base de la idempotencia de los consumers (ver DD010).
      */
     boolean existsByExternalEventId(String externalEventId);
 
     /**
      * Suma total agregada por tipo de movimiento dentro de un rango de fechas.
-     * Devuelve [type, totalAmount, count]. Útil para reportes administrativos.
+     * Devuelve [type, totalAmount, count]. util para reportes administrativos.
      */
     @Query("""
         SELECT m.type, COALESCE(SUM(m.amount), 0), COUNT(m)
@@ -37,7 +37,7 @@ public interface WalletMovementRepository extends JpaRepository<WalletMovement, 
 
     /**
      * Serie temporal mensual agregada por tipo: [year, month, type, totalAmount].
-     * Permite construir gráficos de evolución por categoría.
+     * Permite construir graficos de evolucion por categoria.
      */
     @Query("""
         SELECT EXTRACT(YEAR FROM m.createdAt), EXTRACT(MONTH FROM m.createdAt), m.type, COALESCE(SUM(m.amount), 0)

@@ -71,7 +71,7 @@ public class GatewayHeaderAuthFilter extends OncePerRequestFilter {
                 request.setAttribute(HEADER_KYC_STATUS, request.getHeader(HEADER_KYC_STATUS));
 
             } catch (NumberFormatException e) {
-                // Header malformado — no se autentica, Spring Security rechazará la request
+                // Header malformado — no se autentica, Spring Security rechazara la request
             }
         }
 

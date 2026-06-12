@@ -25,24 +25,24 @@ import java.util.HexFormat;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Vínculo de wallet on-chain a un usuario por firma de nonce (custodia híbrida).
+ * Vinculo de wallet on-chain a un usuario por firma de nonce (custodia hibrida).
  *
  * <p>Flujo:
  * <ol>
  *   <li>Usuario pide un nonce ({@link #generateNonce(Long)}).</li>
  *   <li>Frontend muestra al usuario el mensaje {@code "Linken wallet binding: <nonce>"}
  *       y pide a MetaMask que lo firme con {@code personal_sign}.</li>
- *   <li>Frontend envía {@code walletAddress} + {@code signature} a
+ *   <li>Frontend envia {@code walletAddress} + {@code signature} a
  *       {@link #linkWallet(Long, String, String)}.</li>
- *   <li>Este servicio reconstruye la dirección con {@code ecrecover} y la compara con
- *       la declarada. Si coinciden, persiste la dirección en formato EIP-55.</li>
+ *   <li>Este servicio reconstruye la direccion con {@code ecrecover} y la compara con
+ *       la declarada. Si coinciden, persiste la direccion en formato EIP-55.</li>
  * </ol>
  *
  * <p>El backend NUNCA toca la clave privada. La firma demuestra propiedad sin revelarla.
  *
- * <p>El nonce vive en memoria con TTL corto ({@link #NONCE_TTL}). Para producción con
- * múltiples réplicas, mover a Redis. Por ahora es suficiente porque el flujo es
- * sincrónico (mismo proceso atiende /nonce y /wallet en pocos segundos).
+ * <p>El nonce vive en memoria con TTL corto ({@link #NONCE_TTL}). Para produccion con
+ * multiples réplicas, mover a Redis. Por ahora es suficiente porque el flujo es
+ * sincronico (mismo proceso atiende /nonce y /wallet en pocos segundos).
  */
 @Slf4j
 @Service
@@ -57,11 +57,11 @@ public class WalletLinkingService {
     private final ConcurrentHashMap<Long, NonceEntry> nonces = new ConcurrentHashMap<>();
     private final SecureRandom random = new SecureRandom();
 
-    // ── API pública ────────────────────────────────────────────────────────
+    // ── API publica ────────────────────────────────────────────────────────
 
     /**
      * Genera un nonce nuevo para {@code userId} y lo guarda con TTL.
-     * Si ya había uno vigente, se reemplaza (igual que "Re-send code").
+     * Si ya habia uno vigente, se reemplaza (igual que "Re-send code").
      *
      * @return nonce hex (32 chars). El mensaje a firmar es {@code MESSAGE_PREFIX + nonce}.
      */
@@ -85,23 +85,23 @@ public class WalletLinkingService {
     /**
      * Verifica la firma y persiste {@code walletAddress} si todo encaja.
      *
-     * @throws IllegalArgumentException si la wallet está mal formateada, ya pertenece a
+     * @throws IllegalArgumentException si la wallet esta mal formateada, ya pertenece a
      *         otro usuario, o la firma no corresponde.
-     * @throws IllegalStateException si el nonce expiró o no existe.
+     * @throws IllegalStateException si el nonce expiro o no existe.
      */
     @Transactional
     public User linkWallet(Long userId, String walletAddress, String signature) {
         NonceEntry entry = nonces.get(userId);
         if (entry == null || entry.expiresAt.isBefore(Instant.now())) {
             nonces.remove(userId);
-            throw new IllegalStateException("Nonce expirado o no encontrado. Solicitá uno nuevo.");
+            throw new IllegalStateException("Nonce expirado o no encontrado. Solicita uno nuevo.");
         }
 
         if (walletAddress == null || !walletAddress.matches("^0x[a-fA-F0-9]{40}$")) {
-            throw new IllegalArgumentException("Formato de wallet inválido (esperado 0x + 40 hex).");
+            throw new IllegalArgumentException("Formato de wallet invalido (esperado 0x + 40 hex).");
         }
         if (signature == null || !signature.matches("^0x[a-fA-F0-9]{130}$")) {
-            throw new IllegalArgumentException("Formato de firma inválido (esperado 0x + 130 hex).");
+            throw new IllegalArgumentException("Formato de firma invalido (esperado 0x + 130 hex).");
         }
 
         String message = buildMessage(entry.nonce);
@@ -109,7 +109,7 @@ public class WalletLinkingService {
         try {
             recovered = recoverSigner(message, signature);
         } catch (Exception ex) {
-            log.warn("ecrecover falló para userId={} wallet={}: {}", userId, walletAddress, ex.getMessage());
+            log.warn("ecrecover fallo para userId={} wallet={}: {}", userId, walletAddress, ex.getMessage());
             throw new IllegalArgumentException("No se pudo verificar la firma: " + ex.getMessage());
         }
         if (!recovered.equalsIgnoreCase(walletAddress)) {
@@ -120,7 +120,7 @@ public class WalletLinkingService {
         userRepository.findByWalletAddress(checksum)
                 .filter(u -> !u.getId().equals(userId))
                 .ifPresent(u -> {
-                    throw new IllegalArgumentException("Esa wallet ya está vinculada a otro usuario.");
+                    throw new IllegalArgumentException("Esa wallet ya esta vinculada a otro usuario.");
                 });
 
         User user = userRepository.findById(userId)
@@ -156,7 +156,7 @@ public class WalletLinkingService {
         byte[] r = Arrays.copyOfRange(sigBytes, 0, 32);
         byte[] s = Arrays.copyOfRange(sigBytes, 32, 64);
         byte v = sigBytes[64];
-        // MetaMask envía v en 27/28, web3j lo acepta así; algunos wallets envían 0/1 — normalizamos.
+        // MetaMask envia v en 27/28, web3j lo acepta asi; algunos wallets envian 0/1 — normalizamos.
         if (v < 27) {
             v += 27;
         }

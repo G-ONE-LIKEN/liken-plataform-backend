@@ -31,16 +31,16 @@ spring:
 server:
   port: ${SERVER_PORT:8085}
 
-# ── Configuración Web3 ──────────────────────────────────────────────────────
+# ── Configuracion Web3 ──────────────────────────────────────────────────────
 web3:
   # JSON-RPC HTTP endpoint. En local con Anvil: http://anvil:8545 (dentro de docker)
   # o http://127.0.0.1:8545 (desde el host). En Sepolia: el URL de tu proveedor.
   rpc-url: ${WEB3_RPC_URL:http://127.0.0.1:8545}
   chain-id: ${WEB3_CHAIN_ID:31337}
-  # Polling del indexer: cada cuántos segundos escanear bloques nuevos.
+  # Polling del indexer: cada cuantos segundos escanear bloques nuevos.
   poll-interval-seconds: ${WEB3_POLL_SECONDS:6}
-  # Tamaño máximo del rango por petición eth_getLogs. Sepolia public RPCs limitan
-  # alrededor de 1000-5000; Anvil sin límite. Conservador por default.
+  # Tamaño maximo del rango por peticion eth_getLogs. Sepolia public RPCs limitan
+  # alrededor de 1000-5000; Anvil sin limite. Conservador por default.
   max-block-range: ${WEB3_MAX_BLOCK_RANGE:500}
   # Confirmaciones requeridas antes de considerar un evento "firme".
   confirmations: ${WEB3_CONFIRMATIONS:1}

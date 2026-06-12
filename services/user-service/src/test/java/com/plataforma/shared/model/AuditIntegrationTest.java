@@ -41,10 +41,10 @@ class AuditIntegrationTest extends AbstractIntegrationTest
 		User saved = userRepository.save(user);
 
 		assertNotNull(
-			saved.getCreatedAt(), "createdAt debería setearse automáticamente"
+			saved.getCreatedAt(), "createdAt deberia setearse automaticamente"
 		);
 		assertNull(
-			saved.getUpdatedAt(), "updatedAt debería ser null en creación"
+			saved.getUpdatedAt(), "updatedAt deberia ser null en creacion"
 		);
 	}
 
@@ -71,11 +71,11 @@ class AuditIntegrationTest extends AbstractIntegrationTest
 		User updated = userRepository.saveAndFlush(user);
 
 		assertNotNull(
-			updated.getUpdatedAt(), "updatedAt debería setearse en update"
+			updated.getUpdatedAt(), "updatedAt deberia setearse en update"
 		);
 		assertTrue(
 			updated.getUpdatedAt().isAfter(createdAt),
-			"updatedAt debería ser posterior a createdAt"
+			"updatedAt deberia ser posterior a createdAt"
 		);
 	}
 
@@ -95,7 +95,7 @@ class AuditIntegrationTest extends AbstractIntegrationTest
 		assertEquals(
 			updatedBefore,
 			user.getUpdatedAt(),
-			"No debería actualizar updatedAt si no hubo cambios"
+			"No deberia actualizar updatedAt si no hubo cambios"
 		);
 	}
 
@@ -127,7 +127,7 @@ class AuditIntegrationTest extends AbstractIntegrationTest
 				.build()
 		);
 
-		assertNotNull(role.getCreatedAt(), "Role debería tener auditoría");
+		assertNotNull(role.getCreatedAt(), "Role deberia tener auditoria");
 
 		User user = userRepository.save(
 			User.builder()
@@ -137,6 +137,6 @@ class AuditIntegrationTest extends AbstractIntegrationTest
 				.build()
 		);
 
-		assertNotNull(user.getCreatedAt(), "User debería heredar auditoría");
+		assertNotNull(user.getCreatedAt(), "User deberia heredar auditoria");
 	}
 }

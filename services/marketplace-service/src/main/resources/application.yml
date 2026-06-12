@@ -36,7 +36,7 @@ spring:
 server:
   port: ${SERVER_PORT:8086}
 
-# Configuración del marketplace
+# Configuracion del marketplace
 marketplace:
   fee-percent: ${MARKETPLACE_FEE_PERCENT:1.0}
   order-ttl-days: ${ORDER_TTL_DAYS:30}

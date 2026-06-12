@@ -11,9 +11,9 @@ import org.springframework.stereotype.Component;
 /**
  * Consume {@code dividends.claimed} (modelo PULL on-chain).
  *
- * <p>El holder retiró sus dividendos llamando {@code DividendDistributor.claimDividends()}
- * con su MetaMask. El Blockchain Service indexó el evento on-chain
- * {@code DividendsWithdrawn(holder, amount)} y publicó este evento.
+ * <p>El holder retiro sus dividendos llamando {@code DividendDistributor.claimDividends()}
+ * con su MetaMask. El Blockchain Service indexo el evento on-chain
+ * {@code DividendsWithdrawn(holder, amount)} y publico este evento.
  *
  * <p>Si el evento llega sin {@code userId} pero con {@code walletAddress},
  * intenta buscar la Wallet por walletAddress. Si existe, crea el movement normal;

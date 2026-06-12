@@ -52,9 +52,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class ProjectControllerTest {
 
     /**
-     * Seguridad mínima para el slice: permite todo a nivel URL, habilita
-     * method security para que @PreAuthorize se evalúe con la auth inyectada,
-     * y tiene @Order(1) para tomar precedencia sobre la cadena de producción.
+     * Seguridad minima para el slice: permite todo a nivel URL, habilita
+     * method security para que @PreAuthorize se evalue con la auth inyectada,
+     * y tiene @Order(1) para tomar precedencia sobre la cadena de produccion.
      */
     @Configuration
     @EnableWebSecurity
@@ -74,8 +74,8 @@ class ProjectControllerTest {
     @MockBean ProjectService projectService;
     @MockBean UserHoldingService userHoldingService;
     @MockBean ProjectMetricService projectMetricService;
-    // SecurityConfig (producción) requiere GatewayHeaderAuthFilter vía @RequiredArgsConstructor;
-    // @WebMvcTest no lo escanea como @Component, así que hay que mockearlo.
+    // SecurityConfig (produccion) requiere GatewayHeaderAuthFilter via @RequiredArgsConstructor;
+    // @WebMvcTest no lo escanea como @Component, asi que hay que mockearlo.
     @MockBean GatewayHeaderAuthFilter gatewayHeaderAuthFilter;
 
     private final ObjectMapper objectMapper = new ObjectMapper()

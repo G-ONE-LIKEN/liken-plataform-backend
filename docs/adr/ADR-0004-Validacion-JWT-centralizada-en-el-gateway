@@ -1,44 +1,44 @@
-# ADR-0004: Validación de JWT centralizada en el API Gateway
+# ADR-0004: Validacion de JWT centralizada en el API Gateway
 
 - **Estado:** Aceptado
 - **Fecha:** 2026-05-27
 - **DD original:** DD002
-- **Contexto:** Seguridad y autenticación entre el gateway y los servicios internos
+- **Contexto:** Seguridad y autenticacion entre el gateway y los servicios internos
 
 ---
 
 ## Contexto
 
-En la implementación original, tanto el gateway como cada servicio backend validaban el JWT de forma independiente. Esto generaba duplicación de lógica de seguridad, latencia extra (validación múltiple por request), dificultad de mantenimiento, y un bug crítico: `user-service` generaba una clave aleatoria en cada arranque, invalidando tokens previos y usando una clave distinta a la del gateway.
+En la implementacion original, tanto el gateway como cada servicio backend validaban el JWT de forma independiente. Esto generaba duplicacion de logica de seguridad, latencia extra (validacion multiple por request), dificultad de mantenimiento, y un bug critico: `user-service` generaba una clave aleatoria en cada arranque, invalidando tokens previos y usando una clave distinta a la del gateway.
 
-## Decisión
+## Decision
 
-**La validación del JWT ocurre únicamente en el API Gateway.** Los servicios internos no validan el token: reciben la identidad como headers HTTP inyectados por el gateway (`X-User-Id`, `X-User-Role`, `X-User-Permissions`, ver [ADR-0009](ADR-0009-Headers-de-identidad-inyectados-por-el-gateway)) y los toman como confiables. Esto solo es seguro si los servicios son inalcanzables desde afuera ([ADR-0005](ADR-0005-Aislamiento-de-red-servicios-internos-ClusterIP)).
+**La validacion del JWT ocurre unicamente en el API Gateway.** Los servicios internos no validan el token: reciben la identidad como headers HTTP inyectados por el gateway (`X-User-Id`, `X-User-Role`, `X-User-Permissions`, ver [ADR-0009](ADR-0009-Headers-de-identidad-inyectados-por-el-gateway)) y los toman como confiables. Esto solo es seguro si los servicios son inalcanzables desde afuera ([ADR-0005](ADR-0005-Aislamiento-de-red-servicios-internos-ClusterIP)).
 
 ## Alternativas consideradas
 
 | Alternativa | Motivo de descarte |
 |---|---|
-| Validación en cada servicio (modelo original) | Duplicación costosa de mantener; latencia; el bug de clave aleatoria. |
-| Service Mesh (Istio/Linkerd) con mTLS | Validación de identidad a nivel de red, pero complejidad operacional no justificada aún. |
-| Pasar el JWT crudo como header interno | Los servicios tendrían que re-validarlo, contradiciendo la decisión. |
+| Validacion en cada servicio (modelo original) | Duplicacion costosa de mantener; latencia; el bug de clave aleatoria. |
+| Service Mesh (Istio/Linkerd) con mTLS | Validacion de identidad a nivel de red, pero complejidad operacional no justificada aun. |
+| Pasar el JWT crudo como header interno | Los servicios tendrian que re-validarlo, contradiciendo la decision. |
 
 ## Consecuencias
 
 ### Positivas
-- Lógica de seguridad centralizada: más simple, más rápida, fácil de evolucionar (migrar a OAuth2 = cambiar solo el gateway).
+- Logica de seguridad centralizada: mas simple, mas rapida, facil de evolucionar (migrar a OAuth2 = cambiar solo el gateway).
 - Los servicios eliminan su `JwtAuthenticationFilter`/`JwtUtils` y usan un `GatewayHeaderAuthFilter` liviano + `@PreAuthorize` normal.
 
 ### Negativas / Advertencias
 - **Prerrequisito duro:** los servicios internos deben ser inaccesibles desde fuera del cluster (ClusterIP).
 - La frontera de confianza es el gateway: si el gateway no sanitiza la entrada, la confianza ciega de los servicios se vuelve un vector.
-- Comunicación service-to-service interna no lleva JWT: usa endpoints `/internal/**` protegidos por red.
+- Comunicacion service-to-service interna no lleva JWT: usa endpoints `/internal/**` protegidos por red.
 
 ### No aplica a
 - `auth-service`, que **emite** JWT en el login (mantiene `JwtUtils` para firmar); lo que no hace es validarlos en requests posteriores.
 
-## Estado de implementación (2026-06-08)
+## Estado de implementacion (2026-06-08)
 
 ✅ Adoptado en todos los servicios (`user`, `project`, `wallet`, `invest-dividend`, `notification`): cada uno tiene `GatewayHeaderAuthFilter` y no valida JWT. El gateway valida en `JwtAuthFilter`.
 
-🔴 **Desviación crítica detectada (ver `implementar.md` #1):** el gateway **no elimina** los headers `X-User-*` entrantes en las rutas públicas (`GET /api/projects`, `/api/projects/{id}`, `/metrics`, y las `PUBLIC_PATHS`). Como los servicios confían en esos headers verbatim, un cliente puede enviar `X-User-Role: ADMIN` en una ruta pública y ser tratado como admin. **Acción requerida:** hacer *strip* incondicional de todos los headers de identidad al inicio de `JwtAuthFilter.filter`, antes de inyectar los derivados del JWT validado.
+🔴 **Desviacion critica detectada (ver `implementar.md` #1):** el gateway **no elimina** los headers `X-User-*` entrantes en las rutas publicas (`GET /api/projects`, `/api/projects/{id}`, `/metrics`, y las `PUBLIC_PATHS`). Como los servicios confian en esos headers verbatim, un cliente puede enviar `X-User-Role: ADMIN` en una ruta publica y ser tratado como admin. **Accion requerida:** hacer *strip* incondicional de todos los headers de identidad al inicio de `JwtAuthFilter.filter`, antes de inyectar los derivados del JWT validado.

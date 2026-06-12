@@ -1,4 +1,4 @@
-# ADR-0010: docker-compose único en la raíz del repo
+# ADR-0010: docker-compose unico en la raiz del repo
 
 - **Estado:** Aceptado
 - **Fecha:** 2026-05-27
@@ -9,23 +9,23 @@
 
 ## Contexto
 
-Cada servicio tenía su propio `docker-compose.yml` con una instancia de Postgres. Esto generaba múltiples contenedores con DBs aisladas, posibles colisiones de puertos y la necesidad de levantar cada servicio por separado, recordando el orden de arranque.
+Cada servicio tenia su propio `docker-compose.yml` con una instancia de Postgres. Esto generaba multiples contenedores con DBs aisladas, posibles colisiones de puertos y la necesidad de levantar cada servicio por separado, recordando el orden de arranque.
 
-## Decisión
+## Decision
 
-**Un único `docker-compose.yml` en la raíz** que levanta toda la infraestructura compartida y todos los servicios con `docker compose up --build`. Una sola instancia de Postgres con múltiples DBs (una por servicio), Kafka + Zookeeper, Redis y el emulador de storage. Orden garantizado por `depends_on` con healthchecks. Los compose individuales por servicio se eliminaron.
+**Un unico `docker-compose.yml` en la raiz** que levanta toda la infraestructura compartida y todos los servicios con `docker compose up --build`. Una sola instancia de Postgres con multiples DBs (una por servicio), Kafka + Zookeeper, Redis y el emulador de storage. Orden garantizado por `depends_on` con healthchecks. Los compose individuales por servicio se eliminaron.
 
 ## Alternativas consideradas
 
 | Alternativa | Motivo de descarte |
 |---|---|
 | Un docker-compose por servicio | N terminales y orden manual; no escala con dependencias entre servicios. |
-| Kubernetes local (Minikube/Kind) | Mayor fidelidad con prod pero complejidad innecesaria para el día a día. |
+| Kubernetes local (Minikube/Kind) | Mayor fidelidad con prod pero complejidad innecesaria para el dia a dia. |
 
 ## Consecuencias
 
 ### Positivas
-- Onboarding de un comando; orden de arranque correcto vía healthchecks.
+- Onboarding de un comando; orden de arranque correcto via healthchecks.
 - Los servicios se comunican por nombre de contenedor (`http://user-service:8080`), no `localhost`.
 
 ### Negativas / Advertencias
@@ -33,8 +33,8 @@ Cada servicio tenía su propio `docker-compose.yml` con una instancia de Postgre
 - Para desarrollo activo de un servicio: levantar solo la infra (`docker compose up postgres kafka redis fake-gcs`) y correr el servicio con `mvn spring-boot:run`.
 
 ### No aplica a
-- Producción, que usa los manifests de GKE ([ADR-0003](ADR-0003-Infraestructura-Kubernetes-en-la-nube)).
+- Produccion, que usa los manifests de GKE ([ADR-0003](ADR-0003-Infraestructura-Kubernetes-en-la-nube)).
 
-## Estado de implementación (2026-06-08)
+## Estado de implementacion (2026-06-08)
 
-✅ Vigente. El compose ya incluye los servicios sumados después del DD original: `notification-service`, `invest-dividend-service` y `blockchain-service`, además de `postgres`, `zookeeper`, `kafka`, `redis`, `fake-gcs`/`fake-gcs-init`, los servicios de negocio y el `api-gateway`. El storage local usa `fake-gcs-server` (ver [ADR-0016](ADR-0016-Cloud-provider-GCP-y-storage-en-GCS)), no MinIO. `blockchain-service` monta `./contracts:/contracts` para Foundry.
+✅ Vigente. El compose ya incluye los servicios sumados después del DD original: `notification-service`, `invest-dividend-service` y `blockchain-service`, ademas de `postgres`, `zookeeper`, `kafka`, `redis`, `fake-gcs`/`fake-gcs-init`, los servicios de negocio y el `api-gateway`. El storage local usa `fake-gcs-server` (ver [ADR-0016](ADR-0016-Cloud-provider-GCP-y-storage-en-GCS)), no MinIO. `blockchain-service` monta `./contracts:/contracts` para Foundry.

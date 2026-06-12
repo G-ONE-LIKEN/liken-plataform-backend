@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  JSON structured logging — misma configuración que el resto de los servicios.
-  Útil para:
+  JSON structured logging — misma configuracion que el resto de los servicios.
+  util para:
     tail -f logs/marketplace-service/app.log | jq '.'              # ver todo formateado
     tail -f logs/marketplace-service/app.log | jq '.message'       # solo mensajes
 -->

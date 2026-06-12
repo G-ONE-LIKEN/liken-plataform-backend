@@ -4,11 +4,11 @@ Orquestador de inversiones primarias y dividendos pull bajo el modelo on-chain. 
 
 ## Responsabilidades
 
-- **Registrar compras**: consume `investment.token_purchased` y guarda cada compra en `investment`. Idempotente vía `processed_event.eventId`.
+- **Registrar compras**: consume `investment.token_purchased` y guarda cada compra en `investment`. Idempotente via `processed_event.eventId`.
 - **Acumular tier**: mantiene `user_investment_total.total_usdc_invested` (con lock pesimista) y recalcula el tier. Publica `user.tier_changed` cuando cruza un umbral.
 - **Registrar dividendos**: consume `dividends.claimed` y guarda el reclamo en `dividend_claim`.
-- **Reconciliar actividad por wallet**: la actividad on-chain puede preceder al vínculo wallet↔usuario. Las compras/dividendos que llegan sin `userId` se guardan por `walletAddress` y se "adoptan" cuando llega `user.wallet_linked` (o de forma perezosa al consultar `/me`), recomputando el total y el tier.
-- **Preview de compra**: dado `projectId` + `usdcAmount`, devuelve cuántos LKN recibe el inversor al precio vigente del proyecto y si la ronda está abierta (consulta a `project-service`).
+- **Reconciliar actividad por wallet**: la actividad on-chain puede preceder al vinculo wallet↔usuario. Las compras/dividendos que llegan sin `userId` se guardan por `walletAddress` y se "adoptan" cuando llega `user.wallet_linked` (o de forma perezosa al consultar `/me`), recomputando el total y el tier.
+- **Preview de compra**: dado `projectId` + `usdcAmount`, devuelve cuantos LKN recibe el inversor al precio vigente del proyecto y si la ronda esta abierta (consulta a `project-service`).
 - **Pending dividends**: lee `DividendDistributor.pendingDividends(wallet)` on-chain con `web3j` read-only (`eth_call`, no firma, no gasta gas). Ante fallo de RPC devuelve `$0`, no rompe.
 - **Reporte interno de ventas primarias**: agrega las compras por rango de fechas para uso de otros servicios (no expuesto al frontend).
 
@@ -25,26 +25,26 @@ Espejo de `com.plataforma.user.model.Tier` (ambos lados deben moverse juntos):
 ## Lo que NO hace
 
 - **Ejecutar compras**: la firma de `OfferingContract.buy()` la hace el inversor con MetaMask. Este servicio solo reconcilia con el evento resultante.
-- **`depositDividends`** firmado: es una operación admin con cuenta de plataforma, fuera del alcance (gestión de claves privadas en el backend).
+- **`depositDividends`** firmado: es una operacion admin con cuenta de plataforma, fuera del alcance (gestion de claves privadas en el backend).
 
 ## Endpoints
 
-### Públicos (vía gateway)
+### Publicos (via gateway)
 
-| Método | Ruta | Permisos | Descripción |
+| Método | Ruta | Permisos | Descripcion |
 |---|---|---|---|
 | GET | `/api/investments/me` | autenticado | Lista paginada de las compras del usuario. Reconcilia por wallet si hace falta. |
 | GET | `/api/investments/me/total` | autenticado | Total invertido + tier actual. |
 | GET | `/api/investments/preview?projectId=X&usdcAmount=Y` | autenticado | LKN a recibir + flag `canInvest` + motivo. |
 | GET | `/api/dividends/me` | autenticado | Historial paginado de dividendos reclamados. |
 | GET | `/api/dividends/pending?wallet=0x...` | autenticado | Dividendos pendientes on-chain de una wallet. |
-| GET | `/health` | público | Healthcheck. |
+| GET | `/health` | publico | Healthcheck. |
 
 ### Internos (red privada, sin JWT)
 
-| Método | Ruta | Descripción |
+| Método | Ruta | Descripcion |
 |---|---|---|
-| GET | `/internal/reports/primary-sales?from=YYYY-MM-DD&to=YYYY-MM-DD` | Reporte agregado de ventas primarias por rango (ambos parámetros opcionales). |
+| GET | `/internal/reports/primary-sales?from=YYYY-MM-DD&to=YYYY-MM-DD` | Reporte agregado de ventas primarias por rango (ambos parametros opcionales). |
 
 ## Topics Kafka
 
@@ -52,14 +52,14 @@ Espejo de `com.plataforma.user.model.Tier` (ambos lados deben moverse juntos):
 |---|---|---|
 | `investment.token_purchased` | **Consume** | Publica `blockchain-service`. |
 | `dividends.claimed` | **Consume** | Publica `blockchain-service`. |
-| `user.wallet_linked` | **Consume** | Dispara la reconciliación de actividad huérfana por wallet. |
+| `user.wallet_linked` | **Consume** | Dispara la reconciliacion de actividad huérfana por wallet. |
 | `user.tier_changed` | **Publica** | Lo consume `user-service` para actualizar `users.tier`. |
 
 Idempotencia: cada evento consumido se registra en `processed_event` por `eventId` antes de aplicarse.
 
-## Configuración
+## Configuracion
 
-| Env | Default | Descripción |
+| Env | Default | Descripcion |
 |---|---|---|
 | `SERVER_PORT` | `8083` | Puerto HTTP. |
 | `DB_URL` | `jdbc:postgresql://localhost:5432/invest_db` | Postgres del servicio. |

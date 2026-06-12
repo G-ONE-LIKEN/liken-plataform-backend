@@ -2,14 +2,14 @@
 -- V1: Schema inicial del marketplace-service.
 --
 -- Modelo:
---   * `orders`          — órdenes de venta (y futuro compra) del marketplace P2P.
+--   * `orders`          — ordenes de venta (y futuro compra) del marketplace P2P.
 --   * `trades`          — transacciones completadas (un match = un trade).
 --   * `processed_event` — idempotencia de eventos Kafka consumidos.
 --
 -- Decisiones de diseño (ver ADR-0014):
 --   * Matching FIFO con price-time priority, sin matching parcial en MVP.
 --   * Fee configurable (default 1%) descontado del lado vendedor.
---   * TTL configurable (default 30 días), @Scheduled marca EXPIRED.
+--   * TTL configurable (default 30 dias), @Scheduled marca EXPIRED.
 --   * Holdings NO se bloquean al crear la orden; se validan en el momento del match.
 -- =============================================================================
 
@@ -31,7 +31,7 @@ CREATE TABLE orders (
 CREATE INDEX idx_orders_seller      ON orders(seller_id);
 CREATE INDEX idx_orders_project     ON orders(project_id);
 CREATE INDEX idx_orders_status      ON orders(status);
--- Índice compuesto para el query más frecuente: órdenes OPEN de un proyecto,
+-- indice compuesto para el query mas frecuente: ordenes OPEN de un proyecto,
 -- ordenadas por precio (price-time priority).
 CREATE INDEX idx_orders_open_project ON orders(project_id, price_per_token)
     WHERE status = 'OPEN';

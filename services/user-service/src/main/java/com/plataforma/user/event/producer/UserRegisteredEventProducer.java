@@ -13,7 +13,7 @@ import java.util.UUID;
 
 /**
  * Publica el evento de registro de un usuario nuevo para que el
- * notification-service envíe un email de bienvenida.
+ * notification-service envie un email de bienvenida.
  */
 @Slf4j
 @Component

@@ -1,4 +1,4 @@
-# ADR-0012: Modelo canónico de eventos Kafka
+# ADR-0012: Modelo canonico de eventos Kafka
 
 - **Estado:** Aceptado (parcial — ver desviaciones)
 - **Fecha:** 2026-05-28
@@ -9,43 +9,43 @@
 
 ## Contexto
 
-Los eventos Kafka se definían ad-hoc: cada DTO con sus campos y nombres, tópicos inconsistentes (`users.token_purchased` vs `investment.token_purchased`). Sin un contrato compartido, cualquier cambio rompe la integración en silencio. Además no había idempotencia: Kafka es at-least-once por default, así que los duplicados son la norma.
+Los eventos Kafka se definian ad-hoc: cada DTO con sus campos y nombres, topicos inconsistentes (`users.token_purchased` vs `investment.token_purchased`). Sin un contrato compartido, cualquier cambio rompe la integracion en silencio. Ademas no habia idempotencia: Kafka es at-least-once por default, asi que los duplicados son la norma.
 
-## Decisión
+## Decision
 
-Todo evento del sistema cumple un contrato común:
+Todo evento del sistema cumple un contrato comun:
 
 - **Naming:** `<bounded_context>.<evento_en_pasado>` en snake_case (`investment.token_purchased`, `dividends.distributed`, etc.).
 - **Campos obligatorios:** `eventId` (UUID v4, base de la idempotencia), `occurredAt` (ISO 8601 UTC), `version` (int desde 1).
 - **Retries + DLQ:** at-least-once; hasta 3 reintentos con backoff exponencial; tras fallar, el mensaje va a `<topic>.dlq`, monitoreado por notification-service.
-- **Idempotencia en el consumer:** vía `eventId` (ver [ADR-0013](ADR-0013-Bounded-context-de-invest-dividend-service)).
+- **Idempotencia en el consumer:** via `eventId` (ver [ADR-0013](ADR-0013-Bounded-context-de-invest-dividend-service)).
 
 ## Alternativas consideradas
 
 | Alternativa | Motivo de descarte |
 |---|---|
-| Schema registry (Confluent/Apicurio) | Mejor práctica pero componente extra; a evaluar cuando los eventos sean contrato externo. |
-| Avro/Protobuf | Más compacto pero rompe legibilidad en debug; JSON alcanza para esta escala. |
+| Schema registry (Confluent/Apicurio) | Mejor practica pero componente extra; a evaluar cuando los eventos sean contrato externo. |
+| Avro/Protobuf | Mas compacto pero rompe legibilidad en debug; JSON alcanza para esta escala. |
 | Exactly-once con Kafka transaccional | Costoso; at-least-once + idempotencia logra el mismo resultado de negocio. |
 
 ## Consecuencias
 
 ### Positivas
-- `eventId` habilita idempotencia simple; `occurredAt` separa hecho de publicación; `version` permite evolución sin romper consumers viejos.
+- `eventId` habilita idempotencia simple; `occurredAt` separa hecho de publicacion; `version` permite evolucion sin romper consumers viejos.
 - Naming por bounded context (DDD), estable ante renombres de servicios.
 
 ### Negativas / Advertencias
-- Sin módulo compartido, cada servicio define su `KafkaEvent` localmente → riesgo de desincronización si productor y consumidor no se mantienen alineados.
+- Sin modulo compartido, cada servicio define su `KafkaEvent` localmente → riesgo de desincronizacion si productor y consumidor no se mantienen alineados.
 
-## Estado de implementación (2026-06-08) — ⚠️ parcialmente cumplido
+## Estado de implementacion (2026-06-08) — ⚠️ parcialmente cumplido
 
-Lo bueno: la **idempotencia por `eventId`** está implementada de forma consistente (`processed_event` / `external_event_id UNIQUE`; el `blockchain-service` usa `eventId = txHash:logIndex`, determinístico).
+Lo bueno: la **idempotencia por `eventId`** esta implementada de forma consistente (`processed_event` / `external_event_id UNIQUE`; el `blockchain-service` usa `eventId = txHash:logIndex`, deterministico).
 
 Desviaciones detectadas (ver `implementar.md` #3, #4, #5, #17):
-- 🔴 **Naming divergente respecto del contrato:** el código usa `wallet.credited`/`wallet.debited` (no `wallets.funded`/`wallets.debited`) y `dividends.claimed`/`dividends.deposited` (no `dividends.distributed`).
-- 🔴 **`dividends.distributed` tiene consumidor (notification) pero ningún productor** → notificación de dividendos muerta.
-- 🟠 **Payloads sin esquema compartido:** `Map<String,Object>` sin DTO común. Ejemplo: `investment.token_purchased` publica `usdcAmount`/`lknAmount` pero notification lee `amount`/`tokens`/`projectId` → notificación con `null`.
-- 🟠 **Política de retries + DLQ NO implementada:** ningún servicio tiene `ErrorHandlingDeserializer`, `DefaultErrorHandler` ni tópicos `.dlq`. Un mensaje malformado bloquea la partición (poison-pill).
+- 🔴 **Naming divergente respecto del contrato:** el codigo usa `wallet.credited`/`wallet.debited` (no `wallets.funded`/`wallets.debited`) y `dividends.claimed`/`dividends.deposited` (no `dividends.distributed`).
+- 🔴 **`dividends.distributed` tiene consumidor (notification) pero ningun productor** → notificacion de dividendos muerta.
+- 🟠 **Payloads sin esquema compartido:** `Map<String,Object>` sin DTO comun. Ejemplo: `investment.token_purchased` publica `usdcAmount`/`lknAmount` pero notification lee `amount`/`tokens`/`projectId` → notificacion con `null`.
+- 🟠 **Politica de retries + DLQ NO implementada:** ningun servicio tiene `ErrorHandlingDeserializer`, `DefaultErrorHandler` ni topicos `.dlq`. Un mensaje malformado bloquea la particion (poison-pill).
 - Los 3 campos obligatorios (`eventId`/`occurredAt`/`version`) se publican en algunos productores pero no se validan en consumo.
 
-**Acción requerida:** alinear nombres de tópicos productor↔consumidor, introducir DTOs de evento compartidos (o un schema registry), y agregar `ErrorHandlingDeserializer` + `DeadLetterPublishingRecoverer` en todos los servicios.
+**Accion requerida:** alinear nombres de topicos productor↔consumidor, introducir DTOs de evento compartidos (o un schema registry), y agregar `ErrorHandlingDeserializer` + `DeadLetterPublishingRecoverer` en todos los servicios.

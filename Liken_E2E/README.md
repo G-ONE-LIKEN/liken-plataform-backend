@@ -27,7 +27,7 @@ Responsable de:
 
 * Registro
 * Login
-* Verificación de email
+* Verificacion de email
 * JWT
 * Roles (ADMIN / USER)
 
@@ -44,7 +44,7 @@ Responsable de:
 * CRUD de proyectos
 * Estado del proyecto
 * Precio actual
-* Dirección del OfferingContract
+* Direccion del OfferingContract
 
 Endpoints relevantes:
 
@@ -64,7 +64,7 @@ Sirve para:
 
 * movimientos
 * reportes
-* auditoría
+* auditoria
 
 No se vio nada relacionado con Metamask. Eso lo realiza el front-end, para back-end se emplea la herramienta foundry en terminal.
 
@@ -117,11 +117,11 @@ buy(usdcAmount)
 TokensPurchased
 ```
 
-La función importante es:
+La funcion importante es:
 
 ```
 buy(uint256 usdcAmount)
-Flujo real de inversión
+Flujo real de inversion
 Investor Wallet
       |
       | approve()
@@ -165,7 +165,7 @@ Body:
 }
 ```
 
-### Confirmación email
+### Confirmacion email
 
 ```
 POST /api/auth/email-verification/confirm
@@ -241,9 +241,9 @@ Authorization: Bearer JWT
 GET /api/dividends/pending?wallet=0x...
 ```
 
-## Configuración mínima de Foundry
+## Configuracion minima de Foundry
 
-### Verificar instalación:
+### Verificar instalacion:
 
 ```bash
 forge --version
@@ -278,7 +278,7 @@ cast wallet address \
   --private-key $PRIVATE_KEY
 ```
 
-Debería devolver:
+Deberia devolver:
 
 ```bash
 0x....
@@ -290,7 +290,7 @@ cast balance \
 
 ### Consultar balance USDC
 
-Usando la dirección configurada:
+Usando la direccion configurada:
 
 ```bash
 USDC_ADDRESS= 0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238
@@ -301,7 +301,7 @@ cast call \
   --rpc-url $RPC_URL
 ```
 
-Verificar que apuntás a Sepolia
+Verificar que apuntas a Sepolia
 
 ```bash
 cast chain-id \
@@ -321,7 +321,7 @@ WEB3_CHAIN_ID=11155111
 cast wallet sign --account dev "<nonce>"
 ```
 
-## Flujo tentativo de inversión
+## Flujo tentativo de inversion
 
 1. Obtener proyecto
 
@@ -356,14 +356,14 @@ cast send \
   --rpc-url $RPC_URL
 ```
 
-5. Esperar indexación. Según .env:
+5. Esperar indexacion. Segun .env:
 
 ```bash
 WEB3_POLL_SECONDS=6
 WEB3_CONFIRMATIONS=2
 ```
 
-Esperaría entre: 15 y 60 segundos.
+Esperaria entre: 15 y 60 segundos.
 
 6. Consultar resultado:
 
@@ -373,7 +373,7 @@ y
 
 > GET /api/investments/me/total
 
-Si aparecen los datos, quedó validado el flujo completo de:
+Si aparecen los datos, quedo validado el flujo completo de:
 
 ```bash
 Foundry

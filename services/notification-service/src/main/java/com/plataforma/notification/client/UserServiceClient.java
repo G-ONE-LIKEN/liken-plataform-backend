@@ -13,11 +13,11 @@ import java.util.Optional;
 
 /**
  * Cliente HTTP simple hacia user-service para resolver audiencias de broadcast
- * y datos básicos del destinatario (email/nombre para los templates).
+ * y datos basicos del destinatario (email/nombre para los templates).
  *
  * Las llamadas internas viajan sin gateway, por eso usamos la URL directa.
- * Hay endpoints en user-service que solo aceptan headers de gateway, así que
- * cuando falla el lookup simplemente devolvemos null/empty y la notificación
+ * Hay endpoints en user-service que solo aceptan headers de gateway, asi que
+ * cuando falla el lookup simplemente devolvemos null/empty y la notificacion
  * in-app igual se persiste; el email queda sin destinatario y se omite.
  */
 @Slf4j

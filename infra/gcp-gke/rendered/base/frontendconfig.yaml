@@ -4,7 +4,7 @@ metadata:
   name: liken-frontend-config
   namespace: app
 spec:
-  # Redirige todo el tráfico HTTP (80) a HTTPS (443) una vez que el
+  # Redirige todo el trafico HTTP (80) a HTTPS (443) una vez que el
   # ManagedCertificate esté ACTIVE.
   redirectToHttps:
     enabled: true

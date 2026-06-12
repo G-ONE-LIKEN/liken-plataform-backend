@@ -43,7 +43,7 @@ contract DividendDistributorTest is Test {
         // 2. Inicializar el Mock USDC
         usdc = new MockUSDC();
 
-        // 3. Desplegar el distribuidor pasando los parámetros correctos
+        // 3. Desplegar el distribuidor pasando los parametros correctos
         vm.prank(platform);
         distributor = new DividendDistributor(address(token), address(usdc), platform);
 
@@ -74,9 +74,9 @@ contract DividendDistributorTest is Test {
         distributor.depositDividends(0);
     }
 
-    // Se actualizó para reflejar la función de quema pública de LinkenToken
+    // Se actualizo para reflejar la funcion de quema publica de LinkenToken
     function test_DepositWithZeroSupplyReverts() public {
-        // El supply está en platform, no en circulación con holders
+        // El supply esta en platform, no en circulacion con holders
         // Quemamos todo para simular supply = 0
         vm.startPrank(platform);
         token.burn(SUPPLY);
@@ -180,7 +180,7 @@ contract DividendDistributorTest is Test {
 
         // La suma no supera lo depositado (puede haber 1-2 wei de redondeo)
         assertLe(alicePending + bobPending, 1_000 * 1e6 + 2);
-        // Alice siempre obtiene más si tiene más tokens
+        // Alice siempre obtiene mas si tiene mas tokens
         if (aliceShare > bobShare) {
             assertGe(alicePending, bobPending);
         }
@@ -209,7 +209,7 @@ contract DividendDistributorTest is Test {
         vm.stopPrank();
     }
 
-    // Revert corregido: Crea un LinkenToken con total supply en cero y valida la reversión
+    // Revert corregido: Crea un LinkenToken con total supply en cero y valida la reversion
     function test_DepositDividends_RevertIf_NoSupply() public {
         vm.startPrank(platform);
         LinkenToken emptyToken = new LinkenToken(platform, platform, 1e18);
@@ -226,7 +226,7 @@ contract DividendDistributorTest is Test {
 
     function test_ClaimDividends_RevertIf_NothingToClaim() public {
         vm.prank(alice);
-        // Alice no tiene tokens ni hay depósitos
+        // Alice no tiene tokens ni hay depositos
         vm.expectRevert("DD: nothing to claim");
         distributor.claimDividends();
     }

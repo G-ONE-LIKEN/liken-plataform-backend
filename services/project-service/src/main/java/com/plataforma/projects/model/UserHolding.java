@@ -7,16 +7,16 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * Índice de compras de LKN por proyecto (token global).
+ * indice de compras de LKN por proyecto (token global).
  *
- * <p>Bajo el modelo de token global, el balance real de LKN del usuario está on-chain
+ * <p>Bajo el modelo de token global, el balance real de LKN del usuario esta on-chain
  * ({@code LinkenToken.balanceOf(wallet)}). Este entity NO es la fuente de verdad de
- * cuántos LKN tiene un inversor — sirve para analítica/historial: cuánta plata
- * invirtió cada usuario en cada proyecto y cuántos LKN compró en la ronda primaria.
+ * cuantos LKN tiene un inversor — sirve para analitica/historial: cuanta plata
+ * invirtio cada usuario en cada proyecto y cuantos LKN compro en la ronda primaria.
  *
  * <p>Los movimientos los puebla el Blockchain Service desde el evento
  * {@code TokensPurchased} (compra primaria) y desde {@code Transfer} entre wallets
- * cuando se integre el marketplace (analítica de holdings derivados).
+ * cuando se integre el marketplace (analitica de holdings derivados).
  */
 @Entity
 @Table(
@@ -42,7 +42,7 @@ public class UserHolding {
     private Project project;
 
     /**
-     * LKN acumulados comprados de este proyecto en la ronda primaria (índice).
+     * LKN acumulados comprados de este proyecto en la ronda primaria (indice).
      * NO es el balance actual on-chain del usuario — eso se consulta a la chain.
      */
     @Column(name = "tokens_amount", nullable = false, precision = 20, scale = 8)
@@ -57,7 +57,7 @@ public class UserHolding {
     private BigDecimal usdcInvested = BigDecimal.ZERO;
 
     /**
-     * Dirección on-chain (EIP-55) del comprador. Puede ser null en holdings legacy
+     * Direccion on-chain (EIP-55) del comprador. Puede ser null en holdings legacy
      * pre-blockchain; los holdings creados por eventos on-chain siempre la traen.
      */
     @Column(name = "wallet_address", length = 42)

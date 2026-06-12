@@ -34,7 +34,7 @@ contract OfferingContractTest is Test {
     address alice = makeAddr("alice");
     address bob = makeAddr("bob");
 
-    // Parámetros del ejemplo del documento
+    // Parametros del ejemplo del documento
     uint256 constant TGE_SUPPLY = 200_000 * 1e18;
     uint256 constant TOKEN_PRICE = 10_000_000; // USD 10 / LKN (6 dec)
     uint256 constant SOFT_CAP = 500_000 * 1e6; // USD 500k
@@ -295,7 +295,7 @@ contract OfferingContractTest is Test {
         vm.prank(emisor);
         offering.finalize();
 
-        // Emisor recuperó los no vendidos (checkeando que el contrato se vacio)
+        // Emisor recupero los no vendidos (checkeando que el contrato se vacio)
         assertEq(lkn.balanceOf(address(offering)), 0);
     }
 

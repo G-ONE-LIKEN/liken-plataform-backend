@@ -1,13 +1,13 @@
 -- ============================================================================
--- V11: Vínculo wallet on-chain (custodia híbrida)
+-- V11: Vinculo wallet on-chain (custodia hibrida)
 -- ----------------------------------------------------------------------------
 -- Cada usuario puede vincular UNA wallet (MetaMask). El backend no custodia
 -- claves: el usuario firma un nonce con su wallet y este servicio verifica la
 -- firma con ecrecover (ver WalletLinkingService).
 --
--- Formato: dirección EIP-55 (checksum case-sensitive), 42 chars (0x + 40 hex).
+-- Formato: direccion EIP-55 (checksum case-sensitive), 42 chars (0x + 40 hex).
 -- Se persiste el checksum tal cual lo devuelve `Keys.toChecksumAddress` para
--- mantener la convención EIP-55. El UNIQUE es case-sensitive a propósito —
+-- mantener la convencion EIP-55. El UNIQUE es case-sensitive a proposito —
 -- la app normaliza siempre a checksum antes de persistir.
 -- ============================================================================
 

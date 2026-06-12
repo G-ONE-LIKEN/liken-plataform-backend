@@ -18,7 +18,7 @@ INSERT INTO permissions (name, description) VALUES
 -- =========================
 INSERT INTO roles (name, description, active, created_at)
 VALUES
-('BASIC',     'Usuario básico',        true, now()),
+('BASIC',     'Usuario basico',        true, now()),
 ('INVESTOR',  'Usuario inversor',      true, now()),
 ('DEVELOPER', 'Usuario desarrollador', true, now()),
 ('ADMIN',      'Administrador',        true, now());

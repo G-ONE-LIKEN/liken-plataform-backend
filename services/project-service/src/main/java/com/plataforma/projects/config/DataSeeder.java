@@ -49,8 +49,8 @@ public class DataSeeder implements CommandLineRunner {
                 .build());
 
         projectRepository.save(Project.builder()
-                .name("Parque Eólico Patagonia Sur")
-                .description("Aerogeneradores en la Patagonia con vientos constantes de más de 8 m/s promedio.")
+                .name("Parque Eolico Patagonia Sur")
+                .description("Aerogeneradores en la Patagonia con vientos constantes de mas de 8 m/s promedio.")
                 .ownerId(1L)
                 .state(ProjectState.PRE_OPEN)
                 .energyType(EnergyType.WIND)
@@ -70,7 +70,7 @@ public class DataSeeder implements CommandLineRunner {
 
         projectRepository.save(Project.builder()
                 .name("Mini Hidro Neuquén")
-                .description("Central hidroeléctrica de paso sobre el río Limay.")
+                .description("Central hidroeléctrica de paso sobre el rio Limay.")
                 .ownerId(2L)
                 .state(ProjectState.DRAFT)
                 .energyType(EnergyType.HYDRO)

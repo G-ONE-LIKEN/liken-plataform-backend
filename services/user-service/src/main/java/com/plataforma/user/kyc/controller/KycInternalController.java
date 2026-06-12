@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
  *   - invest-dividend-service.POST /api/investments → check KYC antes de aceptar
  *   - marketplace-service.POST /api/orders          → check KYC antes de aceptar
  *
- * No están expuestos por el gateway al exterior. Protegidos por ClusterIP en Kubernetes.
+ * No estan expuestos por el gateway al exterior. Protegidos por ClusterIP en Kubernetes.
  */
 @RestController
 @RequestMapping("/internal/users")

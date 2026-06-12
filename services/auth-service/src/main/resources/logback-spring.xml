@@ -4,10 +4,10 @@
 
   Appenders:
     - CONSOLE  → docker logs / dev day-to-day. Formato corto, con colores cuando hay TTY.
-    - FILE_JSON → logs/app.log con JSON estructurado (uno por línea). Parseable con jq.
-    - FILE_ERROR → logs/error.log solo WARN+ERROR (también JSON), retención 30 días.
+    - FILE_JSON → logs/app.log con JSON estructurado (uno por linea). Parseable con jq.
+    - FILE_ERROR → logs/error.log solo WARN+ERROR (también JSON), retencion 30 dias.
 
-  Cómo leer:
+  Como leer:
     docker logs liken_auth_service -f
     tail -f logs/auth-service/app.log | jq '.'              # ver todo formateado
     jq -r '.message' logs/auth-service/app.log              # solo mensajes
@@ -25,7 +25,7 @@
     <!--
       %clr(...) es un convertidor de Spring Boot que aplica colores ANSI solo si
       el output soporta TTY. En docker logs / terminal moderno se ve coloreado;
-      en CI/redirección a archivo se ve sin códigos basura.
+      en CI/redireccion a archivo se ve sin codigos basura.
     -->
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
@@ -132,7 +132,7 @@
     <logger name="org.springframework.security.web.access" level="WARN"/>
     <logger name="org.springframework.security.access" level="WARN"/>
 
-    <!-- App propia: configurable vía LOG_LEVEL_APP -->
+    <!-- App propia: configurable via LOG_LEVEL_APP -->
     <logger name="com.plataforma" level="${LOG_LEVEL_APP:-INFO}"/>
 
     <root level="${LOG_LEVEL_ROOT:-INFO}">

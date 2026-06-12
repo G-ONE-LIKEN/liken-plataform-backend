@@ -44,7 +44,7 @@ public class Notification {
     @Column(name = "email_sent_at")
     private LocalDateTime emailSentAt;
 
-    /** ID del evento Kafka que originó la notificación (para idempotencia). NULL en broadcasts. */
+    /** ID del evento Kafka que origino la notificacion (para idempotencia). NULL en broadcasts. */
     @Column(name = "external_event_id", length = 64)
     private String externalEventId;
 

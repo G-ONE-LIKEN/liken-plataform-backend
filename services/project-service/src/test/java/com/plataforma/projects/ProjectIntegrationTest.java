@@ -30,8 +30,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 /**
- * Tests de integración end-to-end: Controller → Service → Repository → H2.
- * Kafka y S3 están mockeados. Flyway deshabilitado; Hibernate crea el schema con ddl-auto=create-drop.
+ * Tests de integracion end-to-end: Controller → Service → Repository → H2.
+ * Kafka y S3 estan mockeados. Flyway deshabilitado; Hibernate crea el schema con ddl-auto=create-drop.
  *
  * Correr con: mvn test -Pintegration
  */
@@ -41,7 +41,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ActiveProfiles("test")
 class ProjectIntegrationTest {
 
-    // La autenticación se inyecta directamente con authentication() (DD002).
+    // La autenticacion se inyecta directamente con authentication() (DD002).
     // GatewayHeaderAuthFilter no interfiere: sin X-User-Id header, pasa sin modificar el contexto.
     @MockBean ProjectEventPublisher eventPublisher;
     @MockBean Storage storage;
@@ -83,10 +83,10 @@ class ProjectIntegrationTest {
 
     private ProjectRequest solarRequest() {
         ProjectRequest req = new ProjectRequest();
-        req.setName("Campo Solar Córdoba");
-        req.setDescription("Parque fotovoltaico en el Valle de Punilla, Córdoba.");
+        req.setName("Campo Solar Cordoba");
+        req.setDescription("Parque fotovoltaico en el Valle de Punilla, Cordoba.");
         req.setEnergyType(EnergyType.SOLAR);
-        req.setProvince("Córdoba");
+        req.setProvince("Cordoba");
         req.setTotalTokens(new BigDecimal("50000"));
         req.setEarlyBirdPrice(new BigDecimal("10.0000"));
         req.setStandardPrice(new BigDecimal("12.5000"));
@@ -106,7 +106,7 @@ class ProjectIntegrationTest {
                         .content(objectMapper.writeValueAsString(solarRequest())))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.state").value("DRAFT"))
-                .andExpect(jsonPath("$.data.name").value("Campo Solar Córdoba"))
+                .andExpect(jsonPath("$.data.name").value("Campo Solar Cordoba"))
                 .andReturn().getResponse().getContentAsString();
 
         Long projectId = objectMapper.readTree(createJson)
@@ -160,7 +160,7 @@ class ProjectIntegrationTest {
 
     @Test
     void createProject_sinAuth_returns4xx() throws Exception {
-        // Sin auth → Spring Security devuelve 401 o 403 según la configuración del entry point
+        // Sin auth → Spring Security devuelve 401 o 403 segun la configuracion del entry point
         mockMvc.perform(post("/api/projects")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(solarRequest())))
@@ -179,7 +179,7 @@ class ProjectIntegrationTest {
         Long projectId = objectMapper.readTree(createJson).path("data").path("id").asLong();
 
         StateChangeRequest stateReq = new StateChangeRequest();
-        stateReq.setState(ProjectState.OPEN); // salto inválido: DRAFT → OPEN
+        stateReq.setState(ProjectState.OPEN); // salto invalido: DRAFT → OPEN
 
         mockMvc.perform(put("/api/projects/" + projectId + "/state")
                         .with(authentication(ownerAuth()))

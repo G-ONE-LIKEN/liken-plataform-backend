@@ -12,15 +12,15 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Mantiene los SseEmitter activos por usuario. Cuando un evento genera una
- * notificación, se busca aquí el set de emitters del destinatario y se le
- * pushea por SSE. Si el usuario no está conectado, simplemente queda en DB
- * y la verá al refrescar la lista o conectarse.
+ * notificacion, se busca aqui el set de emitters del destinatario y se le
+ * pushea por SSE. Si el usuario no esta conectado, simplemente queda en DB
+ * y la vera al refrescar la lista o conectarse.
  */
 @Slf4j
 @Component
 public class SseEmitterRegistry {
 
-    /** 30 minutos. Browser reconecta automáticamente al expirar. */
+    /** 30 minutos. Browser reconecta automaticamente al expirar. */
     private static final long EMITTER_TIMEOUT_MS = 30 * 60 * 1000L;
 
     private final Map<Long, Set<SseEmitter>> emittersByUser = new ConcurrentHashMap<>();

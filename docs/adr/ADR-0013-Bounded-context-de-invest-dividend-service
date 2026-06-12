@@ -1,45 +1,45 @@
 # ADR-0013: Bounded context y modelo de invest-dividend-service
 
-- **Estado:** Revisado (la implementación divergió del diseño original)
+- **Estado:** Revisado (la implementacion divergio del diseño original)
 - **Fecha:** 2026-05-28
 - **DD original:** DD011
-- **Contexto:** Ownership de holdings, tablas y cálculo de dividendos
+- **Contexto:** Ownership de holdings, tablas y calculo de dividendos
 
 ---
 
 ## Contexto
 
-Antes de implementar `invest-dividend-service` había que decidir tres cosas caras de cambiar: dónde vive `UserHolding`, qué tablas tiene el servicio, y cómo se calculan los dividendos al repartir.
+Antes de implementar `invest-dividend-service` habia que decidir tres cosas caras de cambiar: donde vive `UserHolding`, qué tablas tiene el servicio, y como se calculan los dividendos al repartir.
 
-## Decisión (original)
+## Decision (original)
 
-- **Ownership:** `invest-dividend-service` es la fuente única de verdad de `UserHolding` (un holding existe porque alguien invirtió). `project-service` deja de mantenerlo y, si necesita holders, los pide por REST.
+- **Ownership:** `invest-dividend-service` es la fuente unica de verdad de `UserHolding` (un holding existe porque alguien invirtio). `project-service` deja de mantenerlo y, si necesita holders, los pide por REST.
 - **Tablas:** `investments` (append-only), `user_holdings` (agregado por usuario+proyecto), `dividend_distributions`, `dividend_payments`.
-- **Cálculo de dividendos:** prorrateado por tokens al **snapshot** del cierre del período. El admin (o un trigger por `projects.metrics_updated`) dispara la distribución; se calcula `payment = (holderTokens / totalTokens) * totalRevenue` y se publica `dividends.distributed` por holder.
+- **Calculo de dividendos:** prorrateado por tokens al **snapshot** del cierre del periodo. El admin (o un trigger por `projects.metrics_updated`) dispara la distribucion; se calcula `payment = (holderTokens / totalTokens) * totalRevenue` y se publica `dividends.distributed` por holder.
 
 ## Alternativas consideradas
 
 | Alternativa | Motivo de descarte |
 |---|---|
-| `UserHolding` en project-service | Mantiene duplicación y confunde ownership. |
-| Cálculo "live" sin snapshot | Injusto: quien vende justo antes no cobra; quien compra justo antes cobra de más. |
-| Distribución asíncrona vía Kafka worker | Más complejo y menos trazable; el cálculo es rápido inline. |
+| `UserHolding` en project-service | Mantiene duplicacion y confunde ownership. |
+| Calculo "live" sin snapshot | Injusto: quien vende justo antes no cobra; quien compra justo antes cobra de mas. |
+| Distribucion asincrona via Kafka worker | Mas complejo y menos trazable; el calculo es rapido inline. |
 
 ## Consecuencias
 
 ### Positivas
-- Single source of truth alineado con el dominio; snapshot al cierre = distribución justa.
+- Single source of truth alineado con el dominio; snapshot al cierre = distribucion justa.
 
 ### Negativas / Advertencias
 - Requiere migrar/eliminar `UserHolding` de project-service y crear la DB `invest_db`.
 
-## Estado de implementación (2026-06-08) — ⚠️ divergió
+## Estado de implementacion (2026-06-08) — ⚠️ divergio
 
-El servicio se implementó bajo el **modelo on-chain** (ver [ADR-0012](ADR-0012-Modelo-canonico-de-eventos-Kafka) y la integración blockchain), que cambió varias premisas del DD original:
+El servicio se implemento bajo el **modelo on-chain** (ver [ADR-0012](ADR-0012-Modelo-canonico-de-eventos-Kafka) y la integracion blockchain), que cambio varias premisas del DD original:
 
 - **Tablas reales:** `investment`, `dividend_claim`, `user_investment_total`, `processed_event` — **no** `user_holdings`/`dividend_distributions`/`dividend_payments`. El servicio es event-sourced desde la cadena: materializa compras y reclamos a partir de los eventos del `blockchain-service`, no calcula distribuciones por snapshot.
-- **Cálculo de dividendos por snapshot/prorrata: NO implementado.** Los dividendos se distribuyen y reclaman **on-chain** (`DividendDistributor`); el servicio solo registra los `dividends.claimed` y expone `pendingDividends(wallet)` vía `eth_call`. El algoritmo de prorrata del DD original quedó superado por la lógica del contrato.
-- **Ownership de holdings:** `project-service` **sigue** exponiendo `GET /api/projects/{id}/holders` y manteniendo holders desde eventos. La migración de ownership a invest-dividend no se concretó como estaba planteada.
-- **Reconciliación por wallet:** se sumó un mecanismo no previsto en el DD (compras/reclamos huérfanos sin `userId` se adoptan al llegar `user.wallet_linked`).
+- **Calculo de dividendos por snapshot/prorrata: NO implementado.** Los dividendos se distribuyen y reclaman **on-chain** (`DividendDistributor`); el servicio solo registra los `dividends.claimed` y expone `pendingDividends(wallet)` via `eth_call`. El algoritmo de prorrata del DD original quedo superado por la logica del contrato.
+- **Ownership de holdings:** `project-service` **sigue** exponiendo `GET /api/projects/{id}/holders` y manteniendo holders desde eventos. La migracion de ownership a invest-dividend no se concreto como estaba planteada.
+- **Reconciliacion por wallet:** se sumo un mecanismo no previsto en el DD (compras/reclamos huérfanos sin `userId` se adoptan al llegar `user.wallet_linked`).
 
-**Recomendación:** reescribir este ADR como "modelo on-chain de inversiones" reflejando el diseño real, o emitir un ADR nuevo que lo reemplace formalmente.
+**Recomendacion:** reescribir este ADR como "modelo on-chain de inversiones" reflejando el diseño real, o emitir un ADR nuevo que lo reemplace formalmente.

@@ -1,47 +1,47 @@
-# ADR-0020: Reconciliación de actividad on-chain huérfana por wallet
+# ADR-0020: Reconciliacion de actividad on-chain huérfana por wallet
 
 - **Estado:** Aceptado
 - **Fecha:** 2026-06-06
-- **Contexto:** Race entre la actividad on-chain y la vinculación wallet↔usuario
+- **Contexto:** Race entre la actividad on-chain y la vinculacion wallet↔usuario
 
 ---
 
 ## Contexto
 
-En el modelo de [ADR-0017](ADR-0017-Modelo-de-integracion-on-chain-Web2-Web3), los eventos on-chain identifican al actor por su **wallet address**, no por el `userId` del backend. Pero un usuario puede operar on-chain (comprar tokens, recibir dividendos) **antes** de vincular su wallet a su cuenta — o sin tener cuenta. Cuando el evento llega, el `blockchain-service` intenta resolver `wallet → userId` contra `user-service`, pero puede no existir todavía.
+En el modelo de [ADR-0017](ADR-0017-Modelo-de-integracion-on-chain-Web2-Web3), los eventos on-chain identifican al actor por su **wallet address**, no por el `userId` del backend. Pero un usuario puede operar on-chain (comprar tokens, recibir dividendos) **antes** de vincular su wallet a su cuenta — o sin tener cuenta. Cuando el evento llega, el `blockchain-service` intenta resolver `wallet → userId` contra `user-service`, pero puede no existir todavia.
 
-Si se descartaran esos eventos, se perdería actividad financiera real del usuario.
+Si se descartaran esos eventos, se perderia actividad financiera real del usuario.
 
-## Decisión
+## Decision
 
 **La actividad con `userId` desconocido se persiste igual, indexada por `walletAddress`, y se "adopta" cuando la wallet se vincula.**
 
 - El `blockchain-service` publica el evento con `userId = null` si no resuelve la wallet (no lo descarta).
 - `invest-dividend-service` (y `wallet-service`) guardan la fila con `userId` nulo y la `walletAddress`.
 - Cuando `user-service` emite `user.wallet_linked` (tras verificar la firma del usuario, [ADR-0021](ADR-0021-Estrategia-de-sesion-y-vinculacion-de-wallet)), los consumidores **reconcilian**: asignan el `userId` a todas las filas huérfanas de esa wallet y recomputan agregados (total invertido, tier).
-- Adicionalmente, la reconciliación se dispara de forma **perezosa** al consultar `/me` (`UserWalletReconciliationService.reconcileIfNeeded`), por si el evento se perdió.
+- Adicionalmente, la reconciliacion se dispara de forma **perezosa** al consultar `/me` (`UserWalletReconciliationService.reconcileIfNeeded`), por si el evento se perdio.
 
 ## Alternativas consideradas
 
 | Alternativa | Motivo de descarte |
 |---|---|
-| Descartar eventos sin `userId` | Pérdida de actividad financiera real; el usuario no vería sus compras previas a vincular. |
+| Descartar eventos sin `userId` | Pérdida de actividad financiera real; el usuario no veria sus compras previas a vincular. |
 | Bloquear compras hasta vincular wallet | No es posible: la compra ocurre on-chain, fuera del control del backend. |
-| Resolver wallet→userId de forma síncrona y obligatoria | Imposible si el usuario aún no vinculó (o no tiene cuenta). |
+| Resolver wallet→userId de forma sincrona y obligatoria | Imposible si el usuario aun no vinculo (o no tiene cuenta). |
 
 ## Consecuencias
 
 ### Positivas
-- Ninguna actividad on-chain se pierde, ocurra antes o después del vínculo.
-- Doble red de seguridad: reconciliación por evento **y** perezosa por consulta.
+- Ninguna actividad on-chain se pierde, ocurra antes o después del vinculo.
+- Doble red de seguridad: reconciliacion por evento **y** perezosa por consulta.
 
 ### Negativas / Advertencias
 - Filas con `userId` nulo temporalmente: las queries por usuario deben tolerarlas y los agregados se recomputan al reconciliar.
-- Una wallet podría, en teoría, ser vinculada por el usuario equivocado si el mecanismo de vínculo no exige prueba de posesión → por eso el vínculo requiere **firma del challenge** ([ADR-0021](ADR-0021-Estrategia-de-sesion-y-vinculacion-de-wallet)).
+- Una wallet podria, en teoria, ser vinculada por el usuario equivocado si el mecanismo de vinculo no exige prueba de posesion → por eso el vinculo requiere **firma del challenge** ([ADR-0021](ADR-0021-Estrategia-de-sesion-y-vinculacion-de-wallet)).
 
 ### No aplica a
 - Operaciones off-chain, donde el `userId` siempre se conoce desde el JWT.
 
-## Estado de implementación (2026-06-08)
+## Estado de implementacion (2026-06-08)
 
-✅ Implementado en `invest-dividend-service`: `Investment`/`DividendClaim` con `userId` nullable + `walletAddress`; `reconcileWalletLinked` (consumer de `user.wallet_linked`) y `reconcileIfNeeded` (perezoso en `/me`), con recálculo de `user_investment_total` y publicación de `user.tier_changed` si cambia el tier. `wallet-service` tiene su `WalletLinkedConsumer` análogo.
+✅ Implementado en `invest-dividend-service`: `Investment`/`DividendClaim` con `userId` nullable + `walletAddress`; `reconcileWalletLinked` (consumer de `user.wallet_linked`) y `reconcileIfNeeded` (perezoso en `/me`), con recalculo de `user_investment_total` y publicacion de `user.tier_changed` si cambia el tier. `wallet-service` tiene su `WalletLinkedConsumer` analogo.

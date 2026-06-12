@@ -66,7 +66,7 @@ class GatewayRoutingTest {
     private ReactiveRedisConnectionFactory redisConnectionFactory;
 
     /**
-     * Antes de cada test que use un JWT válido, stubear el endpoint que el gateway
+     * Antes de cada test que use un JWT valido, stubear el endpoint que el gateway
      * va a consultar para resolver el contexto del usuario (DD004).
      */
     @BeforeEach
@@ -166,7 +166,7 @@ class GatewayRoutingTest {
         proyectosWm.verify(0, anyRequestedFor(anyUrl()));
     }
 
-    // ── Con token válido ─────────────────────────────────────────────────────
+    // ── Con token valido ─────────────────────────────────────────────────────
 
     @Test
     void usersRoute_validToken_routesToUsuarios() {

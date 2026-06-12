@@ -43,10 +43,10 @@ public class SecurityConfig {
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .exceptionHandling(exc -> exc
                         .authenticationEntryPoint((req, res, ex) ->
-                                res.sendError(HttpServletResponse.SC_UNAUTHORIZED, "No autorizado o token inválido")))
+                                res.sendError(HttpServletResponse.SC_UNAUTHORIZED, "No autorizado o token invalido")))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        // /internal/** no lleva JWT — está protegido a nivel de red (ClusterIP, DD003)
+                        // /internal/** no lleva JWT — esta protegido a nivel de red (ClusterIP, DD003)
                         .requestMatchers("/internal/**").permitAll()
                         .requestMatchers("/actuator/**").permitAll()
                         .anyRequest().authenticated())

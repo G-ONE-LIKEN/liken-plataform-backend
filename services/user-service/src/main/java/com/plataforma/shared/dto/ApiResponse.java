@@ -28,7 +28,7 @@ public class ApiResponse<T> {
     }
 
     public static <T> ApiResponse<T> success(T data) {
-        return success("Operación exitosa", data);
+        return success("Operacion exitosa", data);
     }
 
     public static <T> ApiResponse<T> error(String msg, int statusCode) {

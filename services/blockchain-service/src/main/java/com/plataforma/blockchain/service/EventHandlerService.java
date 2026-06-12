@@ -183,7 +183,7 @@ public class EventHandlerService {
         BigInteger amount = ((Uint256) data.get(0)).getValue();
 
         // Mint (from == 0x0) y burn (to == 0x0) no son transferencias entre holders;
-        // los ignoramos para la analítica de holdings.
+        // los ignoramos para la analitica de holdings.
         String zero = "0x0000000000000000000000000000000000000000";
         if (from.equalsIgnoreCase(zero) || to.equalsIgnoreCase(zero)) return;
 
@@ -207,8 +207,8 @@ public class EventHandlerService {
     }
 
     /**
-     * Lee un topic indexado como Address (los topics están en hex con padding a 32 bytes,
-     * la address son los últimos 20 bytes).
+     * Lee un topic indexado como Address (los topics estan en hex con padding a 32 bytes,
+     * la address son los ultimos 20 bytes).
      */
     private String topicAsAddress(Log log, int index) {
         String topic = log.getTopics().get(index);

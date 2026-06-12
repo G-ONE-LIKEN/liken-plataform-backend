@@ -93,7 +93,7 @@ public class User extends Auditable {
 
     /**
      * Estado del proceso KYC. Default NOT_STARTED al registrarse.
-     * Las operaciones críticas (inversión, marketplace) requieren APPROVED.
+     * Las operaciones criticas (inversion, marketplace) requieren APPROVED.
      */
     @Enumerated(EnumType.STRING)
     @Column(name = "kyc_status", nullable = false, length = 20)
@@ -101,7 +101,7 @@ public class User extends Auditable {
     private KycStatus kycStatus = KycStatus.NOT_STARTED;
 
     /**
-     * Estado de verificación del desarrollador. Solo aplica a usuarios con rol DEVELOPER.
+     * Estado de verificacion del desarrollador. Solo aplica a usuarios con rol DEVELOPER.
      * Un developer debe ser APPROVED por un admin antes de poder publicar proyectos.
      */
     @Enumerated(EnumType.STRING)
@@ -109,8 +109,8 @@ public class User extends Auditable {
     private DeveloperStatus developerStatus;
 
     /**
-     * Dirección de la wallet on-chain (EIP-55, 42 chars) vinculada al usuario.
-     * Custodia híbrida: el backend NO guarda claves. El usuario prueba ser dueño
+     * Direccion de la wallet on-chain (EIP-55, 42 chars) vinculada al usuario.
+     * Custodia hibrida: el backend NO guarda claves. El usuario prueba ser dueño
      * de la wallet firmando un nonce con MetaMask; ver {@code WalletLinkingService}.
      * Una sola wallet por usuario (constraint UNIQUE en V11).
      */

@@ -6,8 +6,8 @@ import lombok.Data;
 import java.math.BigDecimal;
 
 /**
- * Respuesta del endpoint de preview: dada una intención de invertir
- * {@code usdcAmount} en {@code projectId}, devuelve cuántos LKN recibiría el
+ * Respuesta del endpoint de preview: dada una intencion de invertir
+ * {@code usdcAmount} en {@code projectId}, devuelve cuantos LKN recibiria el
  * inversor al precio vigente y si el proyecto acepta inversiones.
  */
 @Data

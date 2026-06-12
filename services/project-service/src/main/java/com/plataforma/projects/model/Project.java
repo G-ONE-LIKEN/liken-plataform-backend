@@ -13,22 +13,22 @@ import java.util.List;
 /**
  * Proyecto energético tokenizable.
  *
- * <p>Bajo el modelo de <b>token global</b> (LKN único para toda la plataforma,
+ * <p>Bajo el modelo de <b>token global</b> (LKN unico para toda la plataforma,
  * ver ADR-0011), este entity NO representa un token distinto por proyecto. Lo
- * que representa es: un parque de generación, la ronda primaria de venta de LKN
+ * que representa es: un parque de generacion, la ronda primaria de venta de LKN
  * asociada a él, y las addresses on-chain de su {@code OfferingContract}.
  *
  * <p>Identificadores on-chain (poblados por el Blockchain Service tras el deploy):
  * <ul>
  *   <li>{@link #registryProjectId}: ID que devuelve {@code ProjectRegistry.registerProject}.</li>
- *   <li>{@link #offeringContractAddress}: dirección del OfferingContract desplegado.</li>
+ *   <li>{@link #offeringContractAddress}: direccion del OfferingContract desplegado.</li>
  *   <li>{@link #deployTxHash} / {@link #deployBlockNumber}: trazabilidad del deploy.</li>
  *   <li>{@link #onChainStatus}: estado del deploy (NOT_DEPLOYED por default).</li>
  *   <li>{@link #roundState}: estado on-chain de la ronda (refleja OfferingContract.state).</li>
  * </ul>
  *
  * <p>Las addresses de los contratos <b>globales</b> ({@code LinkenToken},
- * {@code DividendDistributor}, {@code USDC}) NO viven acá — son configuración
+ * {@code DividendDistributor}, {@code USDC}) NO viven aca — son configuracion
  * de plataforma en {@code application.yml}.
  */
 @Entity
@@ -100,41 +100,41 @@ public class Project extends Auditable {
     private BigDecimal earlyBirdPrice;
 
     /**
-     * Precio en USDC por LKN una vez que la ronda cerró exitosamente y el proyecto
-     * pasó a estado operativo (Registry {@code ACTIVE}). Debe ser mayor que
+     * Precio en USDC por LKN una vez que la ronda cerro exitosamente y el proyecto
+     * paso a estado operativo (Registry {@code ACTIVE}). Debe ser mayor que
      * {@link #earlyBirdPrice}.
      */
     @Column(name = "standard_price", nullable = false, precision = 15, scale = 4)
     private BigDecimal standardPrice;
 
     @Column(name = "minimum_investment", precision = 15, scale = 4)
-    private BigDecimal minimumInvestment; // monto mínimo de inversión por usuario
+    private BigDecimal minimumInvestment; // monto minimo de inversion por usuario
 
     /**
-     * Monto mínimo total a recaudar. Si no se alcanza antes de {@link #expectedOpenDate},
+     * Monto minimo total a recaudar. Si no se alcanza antes de {@link #expectedOpenDate},
      * el contrato dispara {@code RoundFailed} y los inversores reclaman refund
      * individualmente (pull).
      */
     @Column(name = "soft_cap", precision = 20, scale = 4)
     private BigDecimal softCap;
 
-    /** Monto máximo a recaudar. Una vez alcanzado, la ronda cierra automáticamente. */
+    /** Monto maximo a recaudar. Una vez alcanzado, la ronda cierra automaticamente. */
     @Column(name = "hard_cap", precision = 20, scale = 4)
     private BigDecimal hardCap;
 
     /**
-     * Fecha esperada de apertura del parque — único campo de fecha clave.
+     * Fecha esperada de apertura del parque — unico campo de fecha clave.
      * Se usa como {@code OfferingContract.deadline} al deployar el contrato on-chain:
      * <ul>
-     *   <li>Si en esta fecha se alcanzó el {@link #softCap} → {@code RoundFinalized}
+     *   <li>Si en esta fecha se alcanzo el {@link #softCap} → {@code RoundFinalized}
      *       → backend pasa de PRE_OPEN a OPEN.</li>
-     *   <li>Si no se alcanzó → {@code RoundFailed} → backend pasa a CANCELLED.</li>
+     *   <li>Si no se alcanzo → {@code RoundFailed} → backend pasa a CANCELLED.</li>
      * </ul>
      */
     @Column(name = "expected_open_date")
     private LocalDate expectedOpenDate;
 
-    /** Monto total recaudado hasta ahora. Se actualiza vía eventos de inversión. */
+    /** Monto total recaudado hasta ahora. Se actualiza via eventos de inversion. */
     @Column(name = "raised_amount", precision = 20, scale = 4)
     @Builder.Default
     private BigDecimal raisedAmount = BigDecimal.ZERO;
@@ -147,7 +147,7 @@ public class Project extends Auditable {
     @Column(name = "expected_annual_yield", precision = 5, scale = 2)
     private BigDecimal expectedAnnualYield;
 
-    /** Cantidad anual estimada a producir, en MWh. Es información para el inversor — no se usa para calcular dividendos. */
+    /** Cantidad anual estimada a producir, en MWh. Es informacion para el inversor — no se usa para calcular dividendos. */
     @Column(name = "expected_annual_production_mwh", precision = 18, scale = 4)
     private BigDecimal expectedAnnualProductionMWh;
 
@@ -160,7 +160,7 @@ public class Project extends Auditable {
     @Column(name = "registry_project_id")
     private Long registryProjectId;
 
-    /** Dirección del {@code OfferingContract} desplegado para esta ronda (EIP-55). */
+    /** Direccion del {@code OfferingContract} desplegado para esta ronda (EIP-55). */
     @Column(name = "offering_contract_address", length = 42)
     private String offeringContractAddress;
 
@@ -168,7 +168,7 @@ public class Project extends Auditable {
     @Column(name = "deploy_tx_hash", length = 66)
     private String deployTxHash;
 
-    /** Número de bloque del deploy del OfferingContract. */
+    /** Numero de bloque del deploy del OfferingContract. */
     @Column(name = "deploy_block_number")
     private Long deployBlockNumber;
 
@@ -193,18 +193,18 @@ public class Project extends Auditable {
     @Builder.Default
     private List<ProjectDocument> documents = new ArrayList<>();
 
-    // ── Lógica de negocio ────────────────────────────────────────────────────
+    // ── Logica de negocio ────────────────────────────────────────────────────
 
     public boolean canAdvanceTo(ProjectState target) {
         // Estados finales: no se puede salir de ellos
         if (this.state == ProjectState.CLOSED || this.state == ProjectState.CANCELLED) {
             return false;
         }
-        // Cancelación permitida desde cualquier estado no-final
+        // Cancelacion permitida desde cualquier estado no-final
         if (target == ProjectState.CANCELLED) {
             return true;
         }
-        // Progresión normal secuencial
+        // Progresion normal secuencial
         return switch (this.state) {
             case PENDING_APPROVAL -> target == ProjectState.DRAFT;
             case DRAFT            -> target == ProjectState.PRE_OPEN;
@@ -226,19 +226,19 @@ public class Project extends Auditable {
     /**
      * Acepta compra en {@link ProjectState#PRE_OPEN} (ronda primaria, precio earlyBird)
      * y en {@link ProjectState#OPEN} (parque operativo, precio standard). La diferencia
-     * está en el precio que devuelve {@link #currentPrice()}.
+     * esta en el precio que devuelve {@link #currentPrice()}.
      */
     public boolean canReceiveInvestments() {
         return this.state == ProjectState.PRE_OPEN || this.state == ProjectState.OPEN;
     }
 
     /**
-     * Precio vigente para el frontend, en función del estado del proyecto.
+     * Precio vigente para el frontend, en funcion del estado del proyecto.
      * Refleja el comportamiento de {@code ProjectRegistry.currentPrice(projectId)}:
      * <ul>
      *   <li>{@code PRE_OPEN}  → {@code earlyBirdPrice} (Registry FUNDING).</li>
      *   <li>{@code OPEN}      → {@code standardPrice} (Registry ACTIVE).</li>
-     *   <li>otros            → earlyBird como referencia (pre-chain o histórico).</li>
+     *   <li>otros            → earlyBird como referencia (pre-chain o historico).</li>
      * </ul>
      */
     public BigDecimal currentPrice() {

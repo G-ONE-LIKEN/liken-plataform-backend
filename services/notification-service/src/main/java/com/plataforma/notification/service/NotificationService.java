@@ -27,10 +27,10 @@ public class NotificationService {
     private final UserServiceClient userServiceClient;
 
     /**
-     * Crea una notificación in-app para un usuario, opcionalmente envía email,
-     * y la pushea por SSE si el usuario está conectado.
+     * Crea una notificacion in-app para un usuario, opcionalmente envia email,
+     * y la pushea por SSE si el usuario esta conectado.
      *
-     * Si externalEventId no es null y ya existe una notificación para ese par
+     * Si externalEventId no es null y ya existe una notificacion para ese par
      * (user, eventId), se ignora la nueva (idempotencia).
      */
     @Transactional
@@ -46,7 +46,7 @@ public class NotificationService {
                        Map<String, Object> emailVars) {
 
         if (externalEventId != null && repository.existsByUserIdAndExternalEventId(userId, externalEventId)) {
-            log.debug("Notificación duplicada ignorada: user={} eventId={}", userId, externalEventId);
+            log.debug("Notificacion duplicada ignorada: user={} eventId={}", userId, externalEventId);
             return;
         }
 
@@ -66,7 +66,7 @@ public class NotificationService {
             log.warn("Error pusheando SSE a user={}: {}", userId, ex.getMessage());
         }
 
-        // Email (best-effort, no rompe la notificación si falla)
+        // Email (best-effort, no rompe la notificacion si falla)
         if (withEmail && emailTemplate != null) {
             userServiceClient.findContact(userId).ifPresent(contact -> {
                 Map<String, Object> vars = emailVars != null ? new HashMap<>(emailVars) : new HashMap<>();

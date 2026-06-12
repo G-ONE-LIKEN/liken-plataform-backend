@@ -33,9 +33,9 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             // Spring Boot Security activa HTTP Basic y form login por default.
-            // Si no los deshabilitás explícitamente, cualquier 401 viaja con
+            // Si no los deshabilitas explicitamente, cualquier 401 viaja con
             // `WWW-Authenticate: Basic realm="Realm"` y el browser dispara su
-            // popup nativo de "Iniciar sesión". Acá no queremos Basic — la
+            // popup nativo de "Iniciar sesion". Aca no queremos Basic — la
             // identidad viene en headers desde el gateway, ver `GatewayHeaderAuthFilter`.
             .httpBasic(basic -> basic.disable())
             .formLogin(form -> form.disable())

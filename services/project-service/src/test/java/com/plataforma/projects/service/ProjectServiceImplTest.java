@@ -81,7 +81,7 @@ class ProjectServiceImplTest {
 
         assertThatThrownBy(() -> projectService.createProject(req, 10L, true))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("descripción");
+                .hasMessageContaining("descripcion");
     }
 
     @Test
@@ -137,7 +137,7 @@ class ProjectServiceImplTest {
                 .isInstanceOf(ProjectStateException.class);
     }
 
-    // ── cancelación: reglas por rol ────────────────────────────────────────
+    // ── cancelacion: reglas por rol ────────────────────────────────────────
     // Roles: admin | dev (owner) | investor
     // DRAFT / PRE_OPEN → dev owner puede cancelar (sin inversores)
     // OPEN             → solo admin puede cancelar (hay inversores con tokens)
@@ -145,8 +145,8 @@ class ProjectServiceImplTest {
 
     @Test
     void changeState_devCancelaDesdeDraft_permitido() {
-        // Bajo Fase 6, las transiciones que SÍ puede disparar el owner manualmente
-        // son PENDING_APPROVAL→DRAFT (vía aprobación), DRAFT→PRE_OPEN, OPEN→CLOSED,
+        // Bajo Fase 6, las transiciones que Si puede disparar el owner manualmente
+        // son PENDING_APPROVAL→DRAFT (via aprobacion), DRAFT→PRE_OPEN, OPEN→CLOSED,
         // y CANCELLED desde estados pre-PRE_OPEN. Desde PRE_OPEN ya no puede:
         // la salida la fuerza el OfferingContract (Round Finalized / Failed).
         draftProject.setState(ProjectState.DRAFT);
@@ -160,7 +160,7 @@ class ProjectServiceImplTest {
 
     @Test
     void changeState_preOpenAOpen_bloqueadoPorqueLoDisparaLaChain() {
-        // PRE_OPEN → OPEN debe ser disparada por RoundFinalized vía Blockchain Service,
+        // PRE_OPEN → OPEN debe ser disparada por RoundFinalized via Blockchain Service,
         // no por el endpoint manual. Devuelve 409 (ProjectStateException).
         draftProject.setState(ProjectState.PRE_OPEN);
         when(projectRepository.findByIdAndActiveTrue(1L)).thenReturn(Optional.of(draftProject));

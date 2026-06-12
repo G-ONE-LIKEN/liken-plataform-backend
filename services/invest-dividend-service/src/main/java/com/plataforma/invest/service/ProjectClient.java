@@ -15,7 +15,7 @@ import java.util.Map;
  * Cliente que consulta {@code project-service} para obtener el precio vigente
  * y el estado de un proyecto (necesario para el preview de compra).
  *
- * <p>Pega al endpoint público {@code GET /api/projects/{id}} y extrae
+ * <p>Pega al endpoint publico {@code GET /api/projects/{id}} y extrae
  * {@code currentPrice} + {@code state}.
  */
 @Slf4j
@@ -54,7 +54,7 @@ public class ProjectClient {
             String offering = (String) data.get("offeringContractAddress");
             return new ProjectSnapshot(currentPrice, state, roundState, offering);
         } catch (Exception ex) {
-            log.warn("project-service /api/projects/{} falló: {}", projectId, ex.getMessage());
+            log.warn("project-service /api/projects/{} fallo: {}", projectId, ex.getMessage());
             return null;
         }
     }
@@ -75,7 +75,7 @@ public class ProjectClient {
                     .findFirst()
                     .orElse(null);
         } catch (Exception ex) {
-            log.warn("project-service /internal/projects/offering-contracts falló: {}", ex.getMessage());
+            log.warn("project-service /internal/projects/offering-contracts fallo: {}", ex.getMessage());
             return null;
         }
     }

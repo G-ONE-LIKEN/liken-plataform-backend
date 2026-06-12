@@ -1,9 +1,9 @@
 package com.plataforma.user.model;
 
 /**
- * Estado de verificación del desarrollador de proyectos.
+ * Estado de verificacion del desarrollador de proyectos.
  *
- *   PENDING  → se registró como DEVELOPER, esperando revisión de SUPER_ADMIN/ADMIN
+ *   PENDING  → se registro como DEVELOPER, esperando revision de SUPER_ADMIN/ADMIN
  *   APPROVED → verificado; puede dar de alta proyectos
  *   REJECTED → rechazado; no puede publicar proyectos
  *

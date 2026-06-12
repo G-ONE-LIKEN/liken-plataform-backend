@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "LIKEN — Smoke test",
-    "description": "Happy path mínimo del backend LIKEN (registro → login → proyectos → wallet).\n\nCómo usar:\n1. Importar este JSON en Postman.\n2. Ejecutar las requests en orden (la 2 captura el token admin, la 4 captura el token de juan, la 8 captura el projectId).\n3. Las variables se setean automáticamente con scripts post-response.",
+    "description": "Happy path minimo del backend LIKEN (registro → login → proyectos → wallet).\n\nComo usar:\n1. Importar este JSON en Postman.\n2. Ejecutar las requests en orden (la 2 captura el token admin, la 4 captura el token de juan, la 8 captura el projectId).\n3. Las variables se setean automaticamente con scripts post-response.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -47,7 +47,7 @@
           "host": ["{{gateway}}"],
           "path": ["actuator", "health"]
         },
-        "description": "Verifica que el gateway está vivo. Devuelve {\"status\":\"UP\"}."
+        "description": "Verifica que el gateway esta vivo. Devuelve {\"status\":\"UP\"}."
       },
       "response": []
     },
@@ -86,7 +86,7 @@
       "response": []
     },
     {
-      "name": "3. Registrar usuario nuevo (público)",
+      "name": "3. Registrar usuario nuevo (publico)",
       "request": {
         "method": "POST",
         "header": [{"key": "Content-Type", "value": "application/json"}],
@@ -99,7 +99,7 @@
           "host": ["{{gateway}}"],
           "path": ["api", "users"]
         },
-        "description": "Endpoint público. Crea un usuario con rol BASIC, tier BASIC y kyc_status NOT_STARTED."
+        "description": "Endpoint publico. Crea un usuario con rol BASIC, tier BASIC y kyc_status NOT_STARTED."
       },
       "response": []
     },
@@ -151,7 +151,7 @@
             {"key": "size", "value": "10"}
           ]
         },
-        "description": "Requiere rol ADMIN. Devuelve página de usuarios."
+        "description": "Requiere rol ADMIN. Devuelve pagina de usuarios."
       },
       "response": []
     },
@@ -165,12 +165,12 @@
           "host": ["{{gateway}}"],
           "path": ["api", "users", "me", "kyc"]
         },
-        "description": "Devuelve el estado KYC del usuario autenticado + lista de docs subidos. Inicial: NOT_STARTED + lista vacía."
+        "description": "Devuelve el estado KYC del usuario autenticado + lista de docs subidos. Inicial: NOT_STARTED + lista vacia."
       },
       "response": []
     },
     {
-      "name": "7. Listar proyectos (PÚBLICO)",
+      "name": "7. Listar proyectos (PuBLICO)",
       "request": {
         "method": "GET",
         "header": [],
@@ -179,7 +179,7 @@
           "host": ["{{gateway}}"],
           "path": ["api", "projects"]
         },
-        "description": "Endpoint público. Sin proyectos al inicio. Después de la request 8 va a tener uno."
+        "description": "Endpoint publico. Sin proyectos al inicio. Después de la request 8 va a tener uno."
       },
       "response": []
     },
@@ -230,7 +230,7 @@
           "host": ["{{gateway}}"],
           "path": ["api", "projects", "{{projectId}}"]
         },
-        "description": "Endpoint público. Usa el {{projectId}} capturado en la request 8."
+        "description": "Endpoint publico. Usa el {{projectId}} capturado en la request 8."
       },
       "response": []
     },
@@ -251,7 +251,7 @@
           "host": ["{{gateway}}"],
           "path": ["api", "projects", "{{projectId}}", "state"]
         },
-        "description": "Transición válida desde DRAFT. Requiere permiso project:update + ser owner (o ADMIN)."
+        "description": "Transicion valida desde DRAFT. Requiere permiso project:update + ser owner (o ADMIN)."
       },
       "response": []
     },
@@ -272,7 +272,7 @@
           "host": ["{{gateway}}"],
           "path": ["api", "projects", "{{projectId}}", "state"]
         },
-        "description": "Avanza el proyecto a OPEN. A partir de acá los inversores podrían comprar tokens (cuando exista invest-dividend-service)."
+        "description": "Avanza el proyecto a OPEN. A partir de aca los inversores podrian comprar tokens (cuando exista invest-dividend-service)."
       },
       "response": []
     },
@@ -287,7 +287,7 @@
           "path": ["api", "projects"],
           "query": [{"key": "state", "value": "OPEN"}]
         },
-        "description": "Filtro público por estado. Después de la request 11 tu proyecto debería aparecer acá."
+        "description": "Filtro publico por estado. Después de la request 11 tu proyecto deberia aparecer aca."
       },
       "response": []
     },
@@ -301,7 +301,7 @@
           "host": ["{{gateway}}"],
           "path": ["api", "wallets", "me"]
         },
-        "description": "Lazy creation: si juan nunca tuvo wallet, se crea acá con balance 0."
+        "description": "Lazy creation: si juan nunca tuvo wallet, se crea aca con balance 0."
       },
       "response": []
     },
@@ -336,7 +336,7 @@
           "host": ["{{gateway}}"],
           "path": ["api", "wallets", "me", "movements"]
         },
-        "description": "Historial paginado. Después de la request 14 debería haber 1 DEPOSIT."
+        "description": "Historial paginado. Después de la request 14 deberia haber 1 DEPOSIT."
       },
       "response": []
     },

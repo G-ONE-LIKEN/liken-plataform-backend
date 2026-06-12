@@ -26,7 +26,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(HttpStatus.FORBIDDEN)
                 .body(ApiResponse.error(
-                        "Acceso denegado: No tienes los permisos necesarios para realizar esta acción.",
+                        "Acceso denegado: No tienes los permisos necesarios para realizar esta accion.",
                         HttpStatus.FORBIDDEN.value()));
     }
 
@@ -43,7 +43,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ApiResponse<Void>> handleDataIntegrity(DataIntegrityViolationException ex) {
         return response(
-                "No se puede eliminar el recurso porque está siendo utilizado por otros registros.",
+                "No se puede eliminar el recurso porque esta siendo utilizado por otros registros.",
                 HttpStatus.CONFLICT);
     }
 
@@ -54,6 +54,6 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleGeneral(Exception ex) {
-        return response("Ocurrió un error interno en el servidor.", HttpStatus.INTERNAL_SERVER_ERROR);
+        return response("Ocurrio un error interno en el servidor.", HttpStatus.INTERNAL_SERVER_ERROR);
     }
 }

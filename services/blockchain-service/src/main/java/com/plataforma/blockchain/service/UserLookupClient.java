@@ -16,8 +16,8 @@ import java.util.Optional;
  * Consulta a {@code user-service} para resolver {@code walletAddress → userId}.
  *
  * <p>El endpoint upstream es {@code GET /internal/users/by-wallet/{address}}
- * y devuelve {@code {"userId": <Long>}} o {@code 404} si la wallet no está
- * vinculada a ningún usuario.
+ * y devuelve {@code {"userId": <Long>}} o {@code 404} si la wallet no esta
+ * vinculada a ningun usuario.
  */
 @Slf4j
 @Service
@@ -37,10 +37,10 @@ public class UserLookupClient {
     }
 
     /**
-     * @return userId si hay vinculación; {@link Optional#empty()} si la wallet
-     *         no está vinculada todavía. Eventos con userId vacío se publican
+     * @return userId si hay vinculacion; {@link Optional#empty()} si la wallet
+     *         no esta vinculada todavia. Eventos con userId vacio se publican
      *         igualmente — los consumers descartan con warning hasta que el
-     *         usuario complete el vínculo.
+     *         usuario complete el vinculo.
      */
     @SuppressWarnings("unchecked")
     public Optional<Long> userIdForWallet(String walletAddress) {
@@ -56,7 +56,7 @@ public class UserLookupClient {
             if (ex.getStatusCode().equals(HttpStatusCode.valueOf(404))) {
                 return Optional.empty();
             }
-            log.warn("Lookup wallet→user falló para {}: {}", walletAddress, ex.getMessage());
+            log.warn("Lookup wallet→user fallo para {}: {}", walletAddress, ex.getMessage());
             return Optional.empty();
         } catch (Exception ex) {
             log.warn("Lookup wallet→user inesperado para {}: {}", walletAddress, ex.getMessage());

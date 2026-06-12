@@ -48,7 +48,7 @@ class KycServiceTest {
 
     @BeforeEach
     void setUp() {
-        // El @Value("${gcp.storage.bucket}") no se inyecta vía Mockito → forzar el valor
+        // El @Value("${gcp.storage.bucket}") no se inyecta via Mockito → forzar el valor
         ReflectionTestUtils.setField(kycService, "bucket", "test-bucket");
 
         user = User.builder()

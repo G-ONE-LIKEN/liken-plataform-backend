@@ -17,7 +17,7 @@ import java.util.Date;
 /**
  * Emisor de JWTs para el flujo de login.
  *
- * Esta clase SOLO genera tokens. La validación de tokens es responsabilidad
+ * Esta clase SOLO genera tokens. La validacion de tokens es responsabilidad
  * exclusiva del API Gateway (DD002), no de este servicio.
  */
 @Component

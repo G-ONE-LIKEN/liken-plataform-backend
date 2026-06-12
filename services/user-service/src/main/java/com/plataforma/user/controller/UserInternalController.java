@@ -85,9 +85,9 @@ public class UserInternalController {
      * Lookup wallet→user usado por el Blockchain Service para enriquecer eventos
      * on-chain con el {@code userId} resuelto antes de publicar a Kafka.
      *
-     * <p>Devuelve {@code {"userId": <Long>}} si la wallet está vinculada, o 404
+     * <p>Devuelve {@code {"userId": <Long>}} si la wallet esta vinculada, o 404
      * si no. Insensible al casing (la wallet se guarda en EIP-55, normalizamos
-     * para la comparación).
+     * para la comparacion).
      */
     @GetMapping("/by-wallet/{address}")
     public ResponseEntity<java.util.Map<String, Long>> findByWallet(@PathVariable String address) {
@@ -95,7 +95,7 @@ public class UserInternalController {
                 .or(() -> userRepository.findByWalletAddress(address.toLowerCase()))
                 .map(u -> ResponseEntity.ok(java.util.Map.of("userId", u.getId())))
                 .orElseThrow(() -> new UserNotFoundException(
-                        "Wallet no vinculada a ningún usuario: " + address));
+                        "Wallet no vinculada a ningun usuario: " + address));
     }
 
     @GetMapping("/{id}/context")
@@ -167,7 +167,7 @@ public class UserInternalController {
 
     /**
      * Devuelve los ids de los usuarios que matchean una audiencia para broadcasts
-     * y notificaciones automáticas. Audiencias soportadas:
+     * y notificaciones automaticas. Audiencias soportadas:
      *   ALL          → todos los usuarios activos
      *   ADMINS       → ADMIN + SUPER_ADMIN activos
      *   DEVELOPERS   → DEVELOPER activos

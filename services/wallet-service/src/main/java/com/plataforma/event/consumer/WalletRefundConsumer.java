@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component;
  * Consume {@code wallet.refund} (publicado por el Blockchain Service al indexar
  * {@code OfferingContract.Refunded}).
  *
- * <p>Una ronda primaria falló (deadline sin soft cap) y el inversor recuperó su
+ * <p>Una ronda primaria fallo (deadline sin soft cap) y el inversor recupero su
  * USDC llamando {@code refund()}. El wallet-service registra el reflejo contable
  * como {@link MovementType#REFUND}.
  *

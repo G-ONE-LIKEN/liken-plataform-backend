@@ -5,7 +5,7 @@ import org.springframework.stereotype.Component;
 import java.math.BigDecimal;
 
 /**
- * Calcula el tier del inversor según el total USDC invertido.
+ * Calcula el tier del inversor segun el total USDC invertido.
  *
  * <p>Espejo de {@code com.plataforma.user.model.Tier} del user-service:
  * <pre>
@@ -14,8 +14,8 @@ import java.math.BigDecimal;
  *   GOLD:   ≥ $5000
  * </pre>
  *
- * <p>Los umbrales se mantienen acá en string para no atar este servicio a la
- * definición exacta del enum del user-service: ambos lados deben moverse en
+ * <p>Los umbrales se mantienen aca en string para no atar este servicio a la
+ * definicion exacta del enum del user-service: ambos lados deben moverse en
  * conjunto si los umbrales cambian.
  */
 @Component

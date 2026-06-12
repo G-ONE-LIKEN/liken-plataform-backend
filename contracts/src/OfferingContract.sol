@@ -8,8 +8,8 @@ pragma solidity ^0.8.24;
  * Flujo:
  *   1. Emisor aprueba LKN a este contrato y llama deposit().
  *   2. Inversores llaman buy(usdcAmount) durante la ronda.
- *   3a. Si totalRaised >= hardCap → ronda cierra automáticamente.
- *   3b. Si deadline pasó y totalRaised < softCap → inversores llaman refund().
+ *   3a. Si totalRaised >= hardCap → ronda cierra automaticamente.
+ *   3b. Si deadline paso y totalRaised < softCap → inversores llaman refund().
  *   4. Si totalRaised >= softCap → emisor llama finalize().
  *
  * Ver ADR-0012 para el flujo completo y decisiones de diseño.
@@ -35,7 +35,7 @@ contract OfferingContract is AccessControl, ReentrancyGuard {
         FAILED
     }
 
-    // ── Parámetros inmutables de la ronda ─────────────────────
+    // ── Parametros inmutables de la ronda ─────────────────────
     IERC20 public immutable lkn;
     IERC20 public immutable usdc;
     address public immutable treasury;
@@ -45,13 +45,13 @@ contract OfferingContract is AccessControl, ReentrancyGuard {
     /// @notice USDC por LKN (6 decimales). Ej: 10_000_000 = USD 10/LKN
     uint256 public immutable tokenPrice;
 
-    /// @notice Mínimo USDC a recaudar para que la ronda sea exitosa.
+    /// @notice Minimo USDC a recaudar para que la ronda sea exitosa.
     uint256 public immutable softCap;
 
-    /// @notice Máximo USDC a recaudar — cierra la ronda automáticamente.
+    /// @notice Maximo USDC a recaudar — cierra la ronda automaticamente.
     uint256 public immutable hardCap;
 
-    /// @notice Timestamp límite para alcanzar el soft cap.
+    /// @notice Timestamp limite para alcanzar el soft cap.
     uint256 public immutable deadline;
 
     // ── Estado mutable ────────────────────────────────────────
@@ -66,7 +66,7 @@ contract OfferingContract is AccessControl, ReentrancyGuard {
     /// @notice USDC total recaudado.
     uint256 public totalRaised;
 
-    /// @notice Contribución de cada inversor en USDC (para refunds).
+    /// @notice Contribucion de cada inversor en USDC (para refunds).
     mapping(address => uint256) public contributions;
 
     // ── Eventos ───────────────────────────────────────────────
@@ -84,11 +84,11 @@ contract OfferingContract is AccessControl, ReentrancyGuard {
      * @param _usdc       Address del USDC.
      * @param _treasury   Address que recibe el USDC recaudado.
      * @param _tokenPrice USDC por LKN con 6 decimales (ej: 10_000_000 = $10).
-     * @param _softCap    Mínimo USDC a recaudar (6 decimales).
-     * @param _hardCap    Máximo USDC a recaudar (6 decimales).
-     * @param _deadline   Timestamp límite (Unix).
+     * @param _softCap    Minimo USDC a recaudar (6 decimales).
+     * @param _hardCap    Maximo USDC a recaudar (6 decimales).
+     * @param _deadline   Timestamp limite (Unix).
      * @param platformAdmin DEFAULT_ADMIN_ROLE.
-     * @param emisor      Dirección del SPE/emisor que deposita los LKN.
+     * @param emisor      Direccion del SPE/emisor que deposita los LKN.
      * @param _registry   Address del ProjectRegistry asociado.
      * @param _projectId  Identificador del proyecto registrado.
      */
@@ -137,7 +137,7 @@ contract OfferingContract is AccessControl, ReentrancyGuard {
     /**
      * @notice El emisor deposita LKN antes de abrir la ronda.
      * @dev Requiere approve previo de LKN a este contrato.
-     *      Puede llamarse múltiples veces hasta abrir la ronda.
+     *      Puede llamarse multiples veces hasta abrir la ronda.
      */
     function deposit(uint256 amount) external onlyRole(EMISOR_ROLE) nonReentrant {
         require(state == RoundState.PENDING, "OC: round not pending");
@@ -184,7 +184,7 @@ contract OfferingContract is AccessControl, ReentrancyGuard {
         totalRaised += usdcAmount;
         lknSold += lknAmount;
 
-        // Cerrar automáticamente si se alcanzó el hard cap
+        // Cerrar automaticamente si se alcanzo el hard cap
         if (totalRaised >= hardCap) {
             state = RoundState.FINALIZED;
             registry.activateProject(projectId); // activar el proyecto.
@@ -201,7 +201,7 @@ contract OfferingContract is AccessControl, ReentrancyGuard {
     // ── Emisor: finalizar ronda exitosa ───────────────────────
 
     /**
-     * @notice Finaliza la ronda si se alcanzó el soft cap.
+     * @notice Finaliza la ronda si se alcanzo el soft cap.
      *         Devuelve los LKN no vendidos al emisor.
      */
     function finalize() external onlyRole(EMISOR_ROLE) nonReentrant {
@@ -216,17 +216,17 @@ contract OfferingContract is AccessControl, ReentrancyGuard {
             emit UnsoldLKNReturned(msg.sender, unsold);
         }
 
-        // Activar el proyecto automáticamente en el Registry
+        // Activar el proyecto automaticamente en el Registry
         registry.activateProject(projectId);
 
         emit RoundFinalized(totalRaised, lknSold);
     }
 
-    // ── Inversores: refund si la ronda falló ──────────────────
+    // ── Inversores: refund si la ronda fallo ──────────────────
 
     /**
-     * @notice Devuelve el USDC al inversor si la ronda falló.
-     * @dev Patrón pull — cada inversor retira individualmente.
+     * @notice Devuelve el USDC al inversor si la ronda fallo.
+     * @dev Patron pull — cada inversor retira individualmente.
      *      El treasury debe aprobar USDC a este contrato para honrar refunds.
      */
     function refund() external nonReentrant {
@@ -256,14 +256,14 @@ contract OfferingContract is AccessControl, ReentrancyGuard {
         return lknDeposited - lknSold;
     }
 
-    /// @notice Verdadero si la ronda falló (deadline pasó sin alcanzar soft cap).
+    /// @notice Verdadero si la ronda fallo (deadline paso sin alcanzar soft cap).
     function _roundFailed() internal view returns (bool) {
         return
             (state == RoundState.OPEN || state == RoundState.FAILED) && block.timestamp > deadline
                 && totalRaised < softCap;
     }
 
-    /// @notice Verdadero si la ronda está activa y dentro del deadline.
+    /// @notice Verdadero si la ronda esta activa y dentro del deadline.
     function isActive() external view returns (bool) {
         return state == RoundState.OPEN && block.timestamp <= deadline;
     }

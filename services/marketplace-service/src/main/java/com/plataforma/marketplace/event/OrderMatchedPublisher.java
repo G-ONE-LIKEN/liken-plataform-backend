@@ -11,7 +11,7 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * Publica {@code marketplace.order_matched} cuando se concreta una transacción P2P.
+ * Publica {@code marketplace.order_matched} cuando se concreta una transaccion P2P.
  *
  * <p>Payload compatible con los consumidores ya existentes:
  * <ul>
@@ -19,7 +19,7 @@ import java.util.UUID;
  *   <li>{@code project-service} (UserHoldingEventConsumer → actualiza holdings vendedor/comprador)</li>
  * </ul>
  *
- * <p>El payload sigue el modelo canónico de eventos (ADR-0012):
+ * <p>El payload sigue el modelo canonico de eventos (ADR-0012):
  * {@code eventId}, {@code occurredAt}, {@code version} + campos de negocio.
  */
 @Slf4j

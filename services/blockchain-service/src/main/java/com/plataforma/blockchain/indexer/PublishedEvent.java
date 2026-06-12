@@ -14,9 +14,9 @@ import java.time.LocalDateTime;
  * <p>Los consumers downstream (wallet-service, project-service) ya hacen
  * idempotencia por {@code externalEventId}. Esta tabla protege el upstream:
  * si crasheamos entre publicar y commitear el checkpoint, al reanudar
- * detectamos que el evento ya salió y lo saltamos.
+ * detectamos que el evento ya salio y lo saltamos.
  *
- * <p>Clave: {@code txHash:logIndex} (único on-chain).
+ * <p>Clave: {@code txHash:logIndex} (unico on-chain).
  */
 @Entity
 @Table(name = "published_event")

@@ -14,7 +14,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.util.List;
 
 /**
- * Endpoints públicos de KYC (ver DD013).
+ * Endpoints publicos de KYC (ver DD013).
  *
  *   POST /api/users/me/kyc           — usuario sube documentos (multipart)
  *   GET  /api/users/me/kyc           — usuario consulta su estado

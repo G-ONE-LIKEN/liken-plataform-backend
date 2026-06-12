@@ -36,6 +36,6 @@ public class UserContextDTO {
     private Tier tier;
     private KycStatus kycStatus;
     private DeveloperStatus developerStatus;
-    /** Wallet on-chain vinculada (EIP-55), o null si el usuario no vinculó todavía. */
+    /** Wallet on-chain vinculada (EIP-55), o null si el usuario no vinculo todavia. */
     private String walletAddress;
 }

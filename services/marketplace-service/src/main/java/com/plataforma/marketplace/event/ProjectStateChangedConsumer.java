@@ -12,13 +12,13 @@ import java.time.LocalDateTime;
 import java.util.Map;
 
 /**
- * Consume {@code projects.state_changed} para cancelar las órdenes OPEN de un
+ * Consume {@code projects.state_changed} para cancelar las ordenes OPEN de un
  * proyecto que se cancela o cierra.
  *
  * <p>Este topic lo publica tanto {@code blockchain-service} (desde el evento
  * on-chain {@code ProjectRegistry.StageChanged}) como {@code project-service}
- * (al cambiar manualmente el estado). Hasta ahora no tenía consumidor (ver
- * implementar.md #10); el marketplace lo necesita para invalidar órdenes de
+ * (al cambiar manualmente el estado). Hasta ahora no tenia consumidor (ver
+ * implementar.md #10); el marketplace lo necesita para invalidar ordenes de
  * proyectos que dejan de ser tradeables.
  */
 @Slf4j
@@ -50,16 +50,16 @@ public class ProjectStateChangedConsumer {
 
             log.info("[event] projects.state_changed projectId={} newState={}", projectId, newState);
 
-            // Cancelar órdenes si el proyecto ya no permite trading.
+            // Cancelar ordenes si el proyecto ya no permite trading.
             // Un proyecto es tradeable solo en CLOSED (ronda exitosa). Si pasa a
-            // CANCELLED, PAUSED u otro estado, las órdenes abiertas se invalidan.
+            // CANCELLED, PAUSED u otro estado, las ordenes abiertas se invalidan.
             if ("CANCELLED".equalsIgnoreCase(newState) ||
                 "PAUSED".equalsIgnoreCase(newState) ||
                 "FAILED".equalsIgnoreCase(newState)) {
 
                 int cancelled = orderService.cancelOrdersForProject(
-                        projectId, "Proyecto cambió a estado " + newState);
-                log.info("Canceladas {} órdenes del proyecto {} por cambio de estado a {}",
+                        projectId, "Proyecto cambio a estado " + newState);
+                log.info("Canceladas {} ordenes del proyecto {} por cambio de estado a {}",
                         cancelled, projectId, newState);
             }
 

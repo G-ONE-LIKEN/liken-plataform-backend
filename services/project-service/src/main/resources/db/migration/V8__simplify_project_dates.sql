@@ -1,10 +1,10 @@
 -- =============================================================================
--- V8: Simplificación del modelo de fechas del proyecto
+-- V8: Simplificacion del modelo de fechas del proyecto
 -- -----------------------------------------------------------------------------
--- Decisión de negocio (ver Fase 6 del plan):
+-- Decision de negocio (ver Fase 6 del plan):
 --
---   * `expectedOpenDate` queda como ÚNICA fecha clave. Es la apertura del parque
---     Y el deadline implícito del soft cap (se usa también como
+--   * `expectedOpenDate` queda como uNICA fecha clave. Es la apertura del parque
+--     Y el deadline implicito del soft cap (se usa también como
 --     `OfferingContract.deadline` al deployar el contrato on-chain).
 --
 --   * Si el softCap se supera antes de `expectedOpenDate` → el contrato dispara
@@ -14,7 +14,7 @@
 --
 --   * `startDate` no aplica: la ronda arranca cuando admin/owner transiciona a
 --     PRE_OPEN (manual), no por fecha.
---   * `endDate` no aplica: `CLOSED` es una decisión del owner/admin (baja del
+--   * `endDate` no aplica: `CLOSED` es una decision del owner/admin (baja del
 --     proyecto), no una fecha programada.
 --   * `softCapDeadline` lo reemplaza `expectedOpenDate` (eran redundantes).
 -- =============================================================================

@@ -7,7 +7,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * Transacción completada del marketplace: un comprador ejecutó una orden de venta.
+ * Transaccion completada del marketplace: un comprador ejecuto una orden de venta.
  *
  * <p>Un {@code Trade} siempre tiene un {@link Order} asociado. El fee (si aplica)
  * se descuenta del lado del vendedor.

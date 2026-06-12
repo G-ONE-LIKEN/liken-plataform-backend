@@ -168,7 +168,7 @@ class WalletServiceTest {
 
     @Test
     void recordMovement_eventoDuplicado_noProcesaSegundaVez() {
-        // Primer call: el evento NO existe todavía → procesa normal
+        // Primer call: el evento NO existe todavia → procesa normal
         when(movementRepository.existsByExternalEventId("evt-abc-123")).thenReturn(false);
         when(walletRepository.findByUserIdForUpdate(99L)).thenReturn(Optional.of(wallet));
         when(walletRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
@@ -180,7 +180,7 @@ class WalletServiceTest {
         assertNotNull(first);
         assertEquals(new BigDecimal("70.00"), wallet.getBalance());
 
-        // Segundo call con MISMO eventId: ahora SÍ existe → no-op, retorna null,
+        // Segundo call con MISMO eventId: ahora Si existe → no-op, retorna null,
         // no toca el balance ni inserta movimiento nuevo
         when(movementRepository.existsByExternalEventId("evt-abc-123")).thenReturn(true);
 

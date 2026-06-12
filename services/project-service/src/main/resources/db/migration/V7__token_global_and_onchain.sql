@@ -1,18 +1,18 @@
 -- =============================================================================
--- V7: Colapso a token global (LKN único) + identificadores on-chain
+-- V7: Colapso a token global (LKN unico) + identificadores on-chain
 -- -----------------------------------------------------------------------------
--- Decisiones que esta migración refleja (ver doc implementar-con-blockchain.md):
+-- Decisiones que esta migracion refleja (ver doc implementar-con-blockchain.md):
 --
 --   * El token LKN es GLOBAL para toda la plataforma; no se mintea por proyecto.
 --     `total_tokens` deja de ser un cap de mint y pasa a representar el tramo
---     asignado a la ronda (los LKN que el emisor depositó en escrow del
+--     asignado a la ronda (los LKN que el emisor deposito en escrow del
 --     OfferingContract de ese proyecto). El nombre se mantiene por compatibilidad.
 --
---   * El precio único `token_price` se desdobla en `early_bird_price` (etapa
+--   * El precio unico `token_price` se desdobla en `early_bird_price` (etapa
 --     FUNDING) y `standard_price` (etapa ACTIVE), reflejando el modelo del
 --     ProjectRegistry.sol (con la constraint `early_bird < standard`).
 --
---   * Cada proyecto puede tener un OfferingContract desplegado (la dirección
+--   * Cada proyecto puede tener un OfferingContract desplegado (la direccion
 --     y el projectId del Registry on-chain). Eso se setea desde el Blockchain
 --     Service tras un deploy exitoso.
 --
@@ -61,7 +61,7 @@ ALTER TABLE projects
         CHECK (deploy_tx_hash IS NULL
                OR deploy_tx_hash ~ '^0x[a-fA-F0-9]{64}$');
 
--- Un OfferingContract a la vez por proyecto, único en la plataforma.
+-- Un OfferingContract a la vez por proyecto, unico en la plataforma.
 CREATE UNIQUE INDEX projects_offering_address_unique
     ON projects (offering_contract_address)
     WHERE offering_contract_address IS NOT NULL;
@@ -70,9 +70,9 @@ CREATE UNIQUE INDEX projects_registry_project_id_unique
     ON projects (registry_project_id)
     WHERE registry_project_id IS NOT NULL;
 
--- 4) UserHolding: reinterpretación bajo token global ─────────────────────────
--- El holding ahora es un ÍNDICE de compras por proyecto (analítica). El balance
--- real de LKN del usuario está on-chain (LinkenToken.balanceOf(wallet)).
+-- 4) UserHolding: reinterpretacion bajo token global ─────────────────────────
+-- El holding ahora es un iNDICE de compras por proyecto (analitica). El balance
+-- real de LKN del usuario esta on-chain (LinkenToken.balanceOf(wallet)).
 -- Se mantiene `tokens_amount` como "LKN comprados acumulados de este proyecto"
 -- por trazabilidad y para conservar la API/tests existentes.
 --

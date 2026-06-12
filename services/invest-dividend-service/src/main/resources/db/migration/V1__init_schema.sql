@@ -22,7 +22,7 @@ CREATE TABLE investment (
     tx_hash VARCHAR(66) NOT NULL,
     block_number BIGINT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    -- Una compra on-chain (txHash + buyer) no se duplica. Defense in depth además
+    -- Una compra on-chain (txHash + buyer) no se duplica. Defense in depth ademas
     -- del eventId idempotente de processed_event.
     CONSTRAINT uq_investment_tx_user UNIQUE (tx_hash, user_id)
 );

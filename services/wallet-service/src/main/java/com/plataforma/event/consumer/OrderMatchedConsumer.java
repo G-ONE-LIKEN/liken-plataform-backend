@@ -22,7 +22,7 @@ public class OrderMatchedConsumer {
                     event.getSellerId(), event.getBuyerId(), event.getPrice(), event.getOrderId());
 
             // Un evento marketplace.order_matched genera DOS movimientos (vendedor + comprador).
-            // Cada movimiento necesita su propio eventId único para no chocar con el UNIQUE
+            // Cada movimiento necesita su propio eventId unico para no chocar con el UNIQUE
             // INDEX. Derivamos sub-IDs del eventId original sufijando el rol.
             String sellEventId = event.getEventId() != null ? event.getEventId() + ":seller" : null;
             String buyEventId  = event.getEventId() != null ? event.getEventId() + ":buyer"  : null;

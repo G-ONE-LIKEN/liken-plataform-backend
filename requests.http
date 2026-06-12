@@ -1,16 +1,16 @@
 ### LIKEN — Smoke test del happy path
 ###
-### Cómo usar:
-### - VS Code: instalar la extensión "REST Client" (humao.rest-client) y hacer click
+### Como usar:
+### - VS Code: instalar la extension "REST Client" (humao.rest-client) y hacer click
 ###   en "Send Request" arriba de cada bloque ###
-### - IntelliJ: abrir este archivo y usar el botón ▶ arriba de cada bloque
+### - IntelliJ: abrir este archivo y usar el boton ▶ arriba de cada bloque
 ### - curl/httpie: copiar las requests a mano
 ###
 ### Prerequisitos:
 ###   docker compose up --build       # primera vez
 ###   docker compose ps               # esperar a que todos figuren (healthy)
 ###
-### Variables (cambiar acá si querés probar con otro usuario)
+### Variables (cambiar aca si querés probar con otro usuario)
 
 @gateway   = http://localhost:8090
 @adminMail = local-admin-1@example.test
@@ -41,7 +41,7 @@ Content-Type: application/json
 @token = {{loginAdmin.response.body.data}}
 
 ###############################################################################
-### 3. Registrar un usuario nuevo (público — no requiere auth)
+### 3. Registrar un usuario nuevo (publico — no requiere auth)
 ###############################################################################
 
 POST {{gateway}}/api/users
@@ -84,7 +84,7 @@ GET {{gateway}}/api/users/me/kyc
 Authorization: Bearer {{tokenJuan}}
 
 ###############################################################################
-### 7. Listar proyectos (PÚBLICO — no requiere auth)
+### 7. Listar proyectos (PuBLICO — no requiere auth)
 ###############################################################################
 
 GET {{gateway}}/api/projects

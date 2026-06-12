@@ -36,7 +36,7 @@ public class DividendService {
         }
         if (userId == null) {
             log.warn("recordClaim: userId null para wallet={} txHash={}. " +
-                    "Registrando claim por wallet para reconciliación posterior.", walletAddress, txHash);
+                    "Registrando claim por wallet para reconciliacion posterior.", walletAddress, txHash);
         }
 
         claims.save(DividendClaim.builder()

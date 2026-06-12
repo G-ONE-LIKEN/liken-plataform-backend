@@ -11,7 +11,7 @@
 
 [ADR-0004](ADR-0004-Validacion-JWT-centralizada-en-el-gateway) define que el gateway propaga la identidad como headers. Falta definir qué headers, con qué contenido, para que los servicios construyan su `SecurityContext` sin tocar el token.
 
-## Decisión
+## Decision
 
 El gateway inyecta headers de identidad en cada request autenticado, derivados del contexto resuelto ([ADR-0006](ADR-0006-JWT-contiene-solo-userId)/[ADR-0007](ADR-0007-Cache-de-contexto-de-usuario-en-el-gateway)):
 
@@ -21,14 +21,14 @@ El gateway inyecta headers de identidad en cada request autenticado, derivados d
 | `X-User-Role` | Nombre del rol | `ADMIN` |
 | `X-User-Permissions` | Permisos separados por coma | `project:read,project:create` |
 
-El `GatewayHeaderAuthFilter` de cada servicio splitea `X-User-Permissions` por `,` para reconstruir las authorities de Spring Security, y maneja el header vacío sin romper.
+El `GatewayHeaderAuthFilter` de cada servicio splitea `X-User-Permissions` por `,` para reconstruir las authorities de Spring Security, y maneja el header vacio sin romper.
 
 ## Alternativas consideradas
 
 | Alternativa | Motivo de descarte |
 |---|---|
-| Inyectar solo `X-User-Id` y que cada servicio resuelva rol/permisos | Distribuye la resolución de contexto y multiplica llamadas internas. |
-| Pasar el JWT original como header interno | Obligaría a re-validar/parsear en los servicios, contra [ADR-0004](ADR-0004-Validacion-JWT-centralizada-en-el-gateway). |
+| Inyectar solo `X-User-Id` y que cada servicio resuelva rol/permisos | Distribuye la resolucion de contexto y multiplica llamadas internas. |
+| Pasar el JWT original como header interno | Obligaria a re-validar/parsear en los servicios, contra [ADR-0004](ADR-0004-Validacion-JWT-centralizada-en-el-gateway). |
 
 ## Consecuencias
 
@@ -36,13 +36,13 @@ El `GatewayHeaderAuthFilter` de cada servicio splitea `X-User-Permissions` por `
 - Los servicios usan `@PreAuthorize` y el `SecurityContext` sin tocar el token ni hacer llamadas extra.
 
 ### Negativas / Advertencias
-- **El gateway debe ser la única fuente de estos headers:** si no elimina los que manda el cliente, son spoofeables (ver [ADR-0004](ADR-0004-Validacion-JWT-centralizada-en-el-gateway), desviación crítica).
+- **El gateway debe ser la unica fuente de estos headers:** si no elimina los que manda el cliente, son spoofeables (ver [ADR-0004](ADR-0004-Validacion-JWT-centralizada-en-el-gateway), desviacion critica).
 
 ### No aplica a
-- Endpoints públicos donde no hay identidad — pero igualmente deben limpiarse los headers entrantes.
+- Endpoints publicos donde no hay identidad — pero igualmente deben limpiarse los headers entrantes.
 
-## Estado de implementación (2026-06-08)
+## Estado de implementacion (2026-06-08)
 
-✅ Implementado, y **ampliado** a 6 headers (no 3 como el DD original): además de `X-User-Id`/`X-User-Role`/`X-User-Permissions`, el gateway inyecta `X-User-Tier`, `X-User-KycStatus` y, si aplica, `X-Developer-Status`. El `GatewayHeaderAuthFilter` los lee; nota: `SUPER_ADMIN` recibe también `ROLE_ADMIN`, y `X-Developer-Status: APPROVED` agrega la authority `developer:approved`.
+✅ Implementado, y **ampliado** a 6 headers (no 3 como el DD original): ademas de `X-User-Id`/`X-User-Role`/`X-User-Permissions`, el gateway inyecta `X-User-Tier`, `X-User-KycStatus` y, si aplica, `X-Developer-Status`. El `GatewayHeaderAuthFilter` los lee; nota: `SUPER_ADMIN` recibe también `ROLE_ADMIN`, y `X-Developer-Status: APPROVED` agrega la authority `developer:approved`.
 
-🔴 Ver desviación de spoofing en [ADR-0004](ADR-0004-Validacion-JWT-centralizada-en-el-gateway) / `implementar.md` #1: el gateway no hace *strip* de estos headers en rutas públicas.
+🔴 Ver desviacion de spoofing en [ADR-0004](ADR-0004-Validacion-JWT-centralizada-en-el-gateway) / `implementar.md` #1: el gateway no hace *strip* de estos headers en rutas publicas.

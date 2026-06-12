@@ -7,7 +7,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * Movimiento contable pendiente de reconciliación.
+ * Movimiento contable pendiente de reconciliacion.
  *
  * <p>Se guarda cuando un evento on-chain llega (compra, dividendo, refund)
  * con {@code walletAddress} resuelta pero sin {@code userId} y sin una
