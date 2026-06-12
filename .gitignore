@@ -38,3 +38,4 @@ contracts/cache/
 # Artefactos de herramientas (Claude Code hooks, etc.)
 .github/java-upgrade/
 .claude/
+.directory
