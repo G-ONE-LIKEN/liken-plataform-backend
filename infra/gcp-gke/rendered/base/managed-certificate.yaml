@@ -1,9 +1,0 @@
-apiVersion: networking.gke.io/v1
-kind: ManagedCertificate
-metadata:
-  name: liken-managed-cert
-  namespace: app
-spec:
-  domains:
-    - liken.lat
-    - www.liken.lat

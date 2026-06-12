@@ -61,7 +61,8 @@ public class UserInternalController {
                 .address(request.getAddress())
                 .termsAccepted(request.isTermsAccepted())
                 .build();
-        return ResponseEntity.ok(toDto(userService.registerVerifiedLocalUser(toCreate, request.getRoleName())));
+        return ResponseEntity.ok(toDto(userService.registerVerifiedLocalUser(
+                toCreate, request.getRoleName(), request.isPasswordEncoded())));
     }
 
     @PutMapping("/{id}/google")

@@ -24,4 +24,7 @@ public class LocalUserRegistrationRequest {
     private String province;
     private String address;
     private boolean termsAccepted;
+
+    /** true: {@code password} ya es un hash BCrypt (ADR-0026); user-service no re-hashea. */
+    private boolean passwordEncoded;
 }

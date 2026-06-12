@@ -21,6 +21,7 @@ import reactor.core.publisher.Mono;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -47,8 +48,24 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
     private static final Pattern PUBLIC_PROJECT_DETAIL_PATH = Pattern.compile("^/api/projects/\\d+$");
     private static final Pattern PUBLIC_PROJECT_METRICS_PATH = Pattern.compile("^/api/projects/\\d+/metrics$");
 
+    /**
+     * Headers de identidad que SOLO este filtro puede setear. Cualquier valor
+     * que venga del cliente se elimina antes de enrutar — sin esto, una
+     * request a una ruta pública podía llegar al servicio downstream con un
+     * X-User-Role: ADMIN forjado (ADR-0026).
+     */
+    private static final List<String> IDENTITY_HEADERS = List.of(
+            "X-User-Id", "X-User-Role", "X-User-Permissions",
+            "X-User-Tier", "X-User-KycStatus", "X-Developer-Status");
+
     @Override
-    public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
+    public Mono<Void> filter(ServerWebExchange originalExchange, GatewayFilterChain chain) {
+        // Strip incondicional: ninguna identidad entra desde afuera.
+        ServerHttpRequest sanitizedRequest = originalExchange.getRequest().mutate()
+                .headers(h -> IDENTITY_HEADERS.forEach(h::remove))
+                .build();
+        final ServerWebExchange exchange = originalExchange.mutate().request(sanitizedRequest).build();
+
         ServerHttpRequest request = exchange.getRequest();
         String path = request.getURI().getPath();
         HttpMethod method = request.getMethod();

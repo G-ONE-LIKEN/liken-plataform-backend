@@ -10,6 +10,7 @@ import com.plataforma.projects.model.EnergyType;
 import com.plataforma.projects.model.Project;
 import com.plataforma.projects.model.ProjectState;
 import com.plataforma.projects.repository.ProjectRepository;
+import com.plataforma.projects.service.BlockchainPublicationClient;
 import com.plataforma.projects.service.impl.ProjectServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -32,6 +33,7 @@ class ProjectServiceImplTest {
 
     @Mock ProjectRepository projectRepository;
     @Mock ProjectEventPublisher eventPublisher;
+    @Mock BlockchainPublicationClient blockchainPublicationClient;
     @InjectMocks ProjectServiceImpl projectService;
 
     private Project draftProject;
@@ -81,7 +83,7 @@ class ProjectServiceImplTest {
 
         assertThatThrownBy(() -> projectService.createProject(req, 10L, true))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("descripción");
+                .hasMessageContaining("descripcion");
     }
 
     @Test
@@ -119,13 +121,17 @@ class ProjectServiceImplTest {
 
     @Test
     void changeState_transicionValida_actualizaEstadoYPublicaEvento() {
+        // DRAFT→PRE_OPEN ya no es una transición directa: dispara startPublication
+        // (publicación on-chain asíncrona) y el cambio real de estado ocurre cuando
+        // llega el callback de éxito. Para verificar la lógica simple de transición +
+        // evento, usamos DRAFT→CANCELLED, que sigue siendo válida en Fase 6.
         when(projectRepository.findByIdAndActiveTrue(1L)).thenReturn(Optional.of(draftProject));
         when(projectRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        ProjectResponse response = projectService.changeState(1L, ProjectState.PRE_OPEN, 10L, false);
+        ProjectResponse response = projectService.changeState(1L, ProjectState.CANCELLED, 10L, false);
 
-        assertThat(response.getState()).isEqualTo(ProjectState.PRE_OPEN);
-        verify(eventPublisher).publishStateChanged(any(), eq(ProjectState.DRAFT), eq(ProjectState.PRE_OPEN));
+        assertThat(response.getState()).isEqualTo(ProjectState.CANCELLED);
+        verify(eventPublisher).publishStateChanged(any(), eq(ProjectState.DRAFT), eq(ProjectState.CANCELLED));
     }
 
     @Test
@@ -222,11 +228,14 @@ class ProjectServiceImplTest {
 
     @Test
     void changeState_adminPuedeModificarProyectoAjeno() {
+        // ownerId=10, admin=99 → bypassa checkOwnership. Usamos DRAFT→CANCELLED en lugar
+        // de DRAFT→PRE_OPEN para no atravesar startPublication, que requiere
+        // expectedOpenDate / softCap / hardCap (no setteados en el fixture base).
         when(projectRepository.findByIdAndActiveTrue(1L)).thenReturn(Optional.of(draftProject));
         when(projectRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         assertThatNoException().isThrownBy(
-                () -> projectService.changeState(1L, ProjectState.PRE_OPEN, 99L, true)
+                () -> projectService.changeState(1L, ProjectState.CANCELLED, 99L, true)
         );
     }
 

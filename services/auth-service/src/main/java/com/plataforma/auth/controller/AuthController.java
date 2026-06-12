@@ -19,7 +19,9 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import lombok.RequiredArgsConstructor;
 
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -38,6 +40,10 @@ public class AuthController {
     private final AuthService authService;
     private final EmailVerificationService emailVerificationService;
     private final RefreshTokenService refreshTokenService;
+
+    /** Secure en prod (HTTPS); false por default para dev local sobre HTTP. */
+    @org.springframework.beans.factory.annotation.Value("${auth.cookie-secure:false}")
+    private boolean cookieSecure;
 
     // ─────────────────────────────────────────────────────────────
     //  POST /api/auth/login  (public)
@@ -188,19 +194,20 @@ public class AuthController {
                 .findFirst();
     }
 
+    /**
+     * Emite la cookie con ResponseCookie (soporta SameSite y Secure nativos,
+     * sin reescribir headers a mano). El flag Secure se controla por
+     * configuración: true en prod (HTTPS), false en dev local (ADR-0026).
+     */
     private void addRefreshCookie(HttpServletResponse response, String value, int maxAge) {
-        Cookie cookie = new Cookie(REFRESH_COOKIE_NAME, value);
-        cookie.setHttpOnly(true);
-        cookie.setPath(COOKIE_PATH);
-        cookie.setMaxAge(maxAge);
-        // SameSite=Lax must be set via Set-Cookie header directly because
-        // the Jakarta Cookie API does not expose a setSameSite() method.
-        response.addCookie(cookie);
-        // Override the last Set-Cookie header to append SameSite=Lax
-        String existingHeader = response.getHeader("Set-Cookie");
-        if (existingHeader != null && existingHeader.contains(REFRESH_COOKIE_NAME)) {
-            response.setHeader("Set-Cookie", existingHeader + "; SameSite=Lax");
-        }
+        ResponseCookie cookie = ResponseCookie.from(REFRESH_COOKIE_NAME, value)
+                .httpOnly(true)
+                .secure(cookieSecure)
+                .path(COOKIE_PATH)
+                .maxAge(maxAge)
+                .sameSite("Lax")
+                .build();
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
     }
 
     private ResponseEntity<ApiResponse<LoginResponse>> issueLoginResponse(

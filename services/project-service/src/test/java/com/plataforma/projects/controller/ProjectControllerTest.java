@@ -9,31 +9,25 @@ import com.plataforma.projects.exception.ProjectNotFoundException;
 import com.plataforma.projects.exception.ProjectStateException;
 import com.plataforma.projects.model.EnergyType;
 import com.plataforma.projects.model.ProjectState;
-import com.plataforma.projects.security.GatewayHeaderAuthFilter;
-import com.plataforma.projects.service.ProjectMetricService;
 import com.plataforma.projects.service.ProjectService;
 import com.plataforma.projects.service.UserHoldingService;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
-import org.springframework.core.annotation.Order;
 import org.springframework.data.domain.Page;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
-import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
@@ -46,25 +40,19 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @Tag("unit")
-@WebMvcTest(controllers = {ProjectController.class, ProjectMetricController.class})
+// Slice mínimo: ProjectController + cadena de filtros permisiva propia de test.
+// Reemplaza la SecurityConfig de producción para no arrastrar GatewayHeaderAuthFilter
+// (no escaneado por el slice). @PreAuthorize sigue evaluándose por method security.
+@WebMvcTest(controllers = ProjectController.class)
 @Import({ProjectControllerTest.TestSecurityConfig.class, GlobalExceptionHandler.class})
-@TestPropertySource(properties = "app.frontend-url=http://localhost:3000")
 class ProjectControllerTest {
 
-    /**
-     * Seguridad mínima para el slice: permite todo a nivel URL, habilita
-     * method security para que @PreAuthorize se evalúe con la auth inyectada,
-     * y tiene @Order(1) para tomar precedencia sobre la cadena de producción.
-     */
-    @Configuration
-    @EnableWebSecurity
+    @TestConfiguration
     @EnableMethodSecurity
     static class TestSecurityConfig {
         @Bean
-        @Order(1)
         SecurityFilterChain testChain(HttpSecurity http) throws Exception {
             http.csrf(AbstractHttpConfigurer::disable)
-                .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth.anyRequest().permitAll());
             return http.build();
         }
@@ -73,10 +61,6 @@ class ProjectControllerTest {
     @Autowired MockMvc mockMvc;
     @MockBean ProjectService projectService;
     @MockBean UserHoldingService userHoldingService;
-    @MockBean ProjectMetricService projectMetricService;
-    // SecurityConfig (producción) requiere GatewayHeaderAuthFilter vía @RequiredArgsConstructor;
-    // @WebMvcTest no lo escanea como @Component, así que hay que mockearlo.
-    @MockBean GatewayHeaderAuthFilter gatewayHeaderAuthFilter;
 
     private final ObjectMapper objectMapper = new ObjectMapper()
             .registerModule(new JavaTimeModule());
@@ -149,19 +133,17 @@ class ProjectControllerTest {
         when(projectService.createProject(any(), eq(1L), anyBoolean())).thenReturn(sampleResponse());
 
         mockMvc.perform(post("/api/projects")
-                        .with(authentication(auth(1L, "project:create")))
+                        .with(authentication(auth(1L, "developer:approved")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(projectRequest())))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.name").value("Solar Test"));
     }
 
-    // ── PUT /api/projects/{id}/state ───────────────────────────────────────
-
     @Test
     void createProject_sinCamposObligatorios_returns400() throws Exception {
         mockMvc.perform(post("/api/projects")
-                        .with(authentication(auth(1L, "project:create")))
+                        .with(authentication(auth(1L, "developer:approved")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isBadRequest())
@@ -171,7 +153,7 @@ class ProjectControllerTest {
     @Test
     void createProject_energyTypeInvalido_returns400() throws Exception {
         mockMvc.perform(post("/api/projects")
-                        .with(authentication(auth(1L, "project:create")))
+                        .with(authentication(auth(1L, "developer:approved")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -187,6 +169,8 @@ class ProjectControllerTest {
                 .andExpect(jsonPath("$.status").value(400));
     }
 
+    // ── PUT /api/projects/{id}/state ───────────────────────────────────────
+
     @Test
     void changeState_transicionValida_returns200() throws Exception {
         ProjectResponse updated = sampleResponse();
@@ -195,7 +179,7 @@ class ProjectControllerTest {
                 .thenReturn(updated);
 
         mockMvc.perform(put("/api/projects/1/state")
-                        .with(authentication(auth(1L, "project:update")))
+                        .with(authentication(auth(1L, "developer:approved")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"state\": \"PRE_OPEN\"}"))
                 .andExpect(status().isOk())
@@ -208,7 +192,7 @@ class ProjectControllerTest {
                 .thenThrow(new ProjectStateException("No se puede pasar de CLOSED a OPEN"));
 
         mockMvc.perform(put("/api/projects/1/state")
-                        .with(authentication(auth(1L, "project:update")))
+                        .with(authentication(auth(1L, "developer:approved")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"state\": \"OPEN\"}"))
                 .andExpect(status().isConflict())
@@ -220,7 +204,7 @@ class ProjectControllerTest {
     @Test
     void deleteProject_conAuth_returns200() throws Exception {
         mockMvc.perform(delete("/api/projects/1")
-                        .with(authentication(auth(1L, "project:delete"))))
+                        .with(authentication(auth(1L, "developer:approved"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("Proyecto eliminado exitosamente"));
     }
@@ -230,9 +214,9 @@ class ProjectControllerTest {
         when(projectService.changeState(any(), any(), any(), anyBoolean()))
                 .thenThrow(new ProjectStateException("Solo se pueden eliminar proyectos en estado DRAFT"));
 
-        // este test valida que el handler mapea ProjectStateException → 409
+        // valida que el handler mapea ProjectStateException → 409
         mockMvc.perform(put("/api/projects/1/state")
-                        .with(authentication(auth(1L, "project:update")))
+                        .with(authentication(auth(1L, "developer:approved")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"state\": \"DRAFT\"}"))
                 .andExpect(status().isConflict());

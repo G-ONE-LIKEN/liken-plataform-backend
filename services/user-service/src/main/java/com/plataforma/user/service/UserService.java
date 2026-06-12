@@ -39,17 +39,28 @@ public class UserService {
 
     @Transactional
     public User registerUser(User user, String roleName) {
-        return registerLocalUser(user, roleName, false);
+        return registerLocalUser(user, roleName, false, false);
     }
 
     @Transactional
     public User registerVerifiedLocalUser(User user, String roleName) {
-        return registerLocalUser(user, roleName, true);
+        return registerLocalUser(user, roleName, true, false);
     }
 
-    private User registerLocalUser(User user, String roleName, boolean emailVerified) {
+    /**
+     * Variante para registros que llegan desde auth-service con la contraseña
+     * YA hasheada (BCrypt). auth-service valida la fortaleza sobre el texto
+     * plano y hashea antes de persistir el registro pendiente en Redis
+     * (ADR-0026) — acá no se re-valida ni se re-hashea.
+     */
+    @Transactional
+    public User registerVerifiedLocalUser(User user, String roleName, boolean passwordEncoded) {
+        return registerLocalUser(user, roleName, true, passwordEncoded);
+    }
+
+    private User registerLocalUser(User user, String roleName, boolean emailVerified, boolean passwordEncoded) {
         user.setAuthProvider(AuthProvider.LOCAL);
-        validateLocalRegistration(user);
+        validateLocalRegistration(user, passwordEncoded);
         user.setEmail(normalizeEmail(user.getEmail()));
         userRepository.findByEmail(user.getEmail()).ifPresent(existing -> {
             throw new IllegalArgumentException("Ya existe un usuario registrado con ese email.");
@@ -58,7 +69,9 @@ public class UserService {
         if (userRepository.existsByDni(user.getDni())) {
             throw new IllegalArgumentException("Ya existe un usuario registrado con ese DNI.");
         }
-        user.setPassword(passwordEncoder.encode(user.getPassword()));
+        if (!passwordEncoded) {
+            user.setPassword(passwordEncoder.encode(user.getPassword()));
+        }
         user.setProfileCompleted(true);
         user.setEmailVerified(emailVerified);
         user.setActive(true);
@@ -254,10 +267,14 @@ public class UserService {
         }
     }
 
-    private void validateLocalRegistration(User user) {
+    private void validateLocalRegistration(User user, boolean passwordEncoded) {
         requireText(user.getEmail(), "El email es obligatorio.");
         requireText(user.getPassword(), "La contrasena es obligatoria.");
-        validatePasswordStrength(user.getPassword());
+        if (!passwordEncoded) {
+            // Con passwordEncoded la fortaleza ya se validó en auth-service
+            // sobre el texto plano; un hash BCrypt no es validable acá.
+            validatePasswordStrength(user.getPassword());
+        }
         validateProfileFields(user.getFirstName(), user.getLastName(), user.getDni(), user.getBirthDate(),
                 user.getPhone(), user.getCountry(), user.getProvince(), user.getAddress(), user.isTermsAccepted());
     }

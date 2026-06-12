@@ -73,6 +73,26 @@ class JwtAuthFilterTest {
     }
 
     @Test
+    void publicPath_forgedIdentityHeaders_areStripped() {
+        // Un cliente intenta colar X-User-Role: ADMIN por una ruta pública.
+        // El gateway debe eliminar TODOS los headers de identidad (ADR-0026).
+        MockServerHttpRequest request = MockServerHttpRequest.get("/api/projects")
+                .header("X-User-Id", "1")
+                .header("X-User-Role", "ADMIN")
+                .header("X-User-Permissions", "user:delete")
+                .build();
+        MockServerWebExchange exchange = MockServerWebExchange.from(request);
+        AtomicReference<ServerWebExchange> captured = new AtomicReference<>();
+
+        filter.filter(exchange, ex -> { captured.set(ex); return Mono.empty(); }).block();
+
+        HttpHeaders downstream = captured.get().getRequest().getHeaders();
+        assertThat(downstream.getFirst("X-User-Id")).isNull();
+        assertThat(downstream.getFirst("X-User-Role")).isNull();
+        assertThat(downstream.getFirst("X-User-Permissions")).isNull();
+    }
+
+    @Test
     void getProjects_noToken_passesThrough() {
         MockServerWebExchange exchange = exchangeFor("GET", "/api/projects", null);
         AtomicReference<ServerWebExchange> captured = new AtomicReference<>();
