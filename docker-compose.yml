@@ -250,6 +250,9 @@ services:
       GCS_BUCKET_NAME: liken-documents
       GCS_EMULATOR_HOST: http://fake-gcs:4443
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      DIDIT_API_KEY: ${DIDIT_API_KEY:-}
+      DIDIT_WORKFLOW_ID: ${DIDIT_WORKFLOW_ID:-}
+      DIDIT_CALLBACK_URL: ${DIDIT_CALLBACK_URL:-http://localhost:3000/dashboard}
     deploy:
       <<: *spring-deploy
     healthcheck:
