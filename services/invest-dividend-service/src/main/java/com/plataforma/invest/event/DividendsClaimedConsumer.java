@@ -25,20 +25,17 @@ public class DividendsClaimedConsumer {
 
     private final DividendService dividendService;
 
+    /** Sin try/catch: las fallas van a retries + DLT (KafkaErrorHandlingConfig). */
     @KafkaListener(topics = "dividends.claimed", groupId = "invest-dividend-service")
     public void consume(Map<String, Object> payload) {
-        try {
-            String eventId = str(payload.get("eventId"));
-            String walletAddress = str(payload.get("walletAddress"));
-            Long userId = toLong(payload.get("userId"));
-            BigDecimal amount = bigDecimal(payload.get("amount"));
-            String txHash = str(payload.get("txHash"));
-            Long blockNumber = toLong(payload.get("blockNumber"));
+        String eventId = str(payload.get("eventId"));
+        String walletAddress = str(payload.get("walletAddress"));
+        Long userId = toLong(payload.get("userId"));
+        BigDecimal amount = bigDecimal(payload.get("amount"));
+        String txHash = str(payload.get("txHash"));
+        Long blockNumber = toLong(payload.get("blockNumber"));
 
-            dividendService.recordClaim(eventId, userId, walletAddress, amount, txHash, blockNumber);
-        } catch (Exception e) {
-            log.error("Error procesando dividends.claimed: {}", payload, e);
-        }
+        dividendService.recordClaim(eventId, userId, walletAddress, amount, txHash, blockNumber);
     }
 
     private static String str(Object v) {

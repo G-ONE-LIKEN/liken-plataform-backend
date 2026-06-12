@@ -33,11 +33,8 @@ public class WalletLinkedConsumer {
         }
 
         Long userId = userIdNum.longValue();
-        try {
-            log.info("Reconciliando movimientos pendientes para userId={} wallet={}", userId, walletAddress);
-            walletService.reconcilePendingMovements(userId, walletAddress);
-        } catch (Exception e) {
-            log.error("Error reconciliando pending movements para userId={}: {}", userId, e.getMessage(), e);
-        }
+        // Sin try/catch: las fallas van a retries + DLT (KafkaConfig, ADR-0024).
+        log.info("Reconciliando movimientos pendientes para userId={} wallet={}", userId, walletAddress);
+        walletService.reconcilePendingMovements(userId, walletAddress);
     }
 }
