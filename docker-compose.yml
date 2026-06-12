@@ -379,7 +379,11 @@ services:
 
   blockchain-service:
     build:
-      context: ./services/blockchain-service
+      # Contexto raíz: el Dockerfile copia contracts/ a /contracts dentro de
+      # la imagen (necesario en GKE). En compose el volumen ./contracts pisa
+      # esa copia, así el dev local sigue iterando sin rebuild.
+      context: .
+      dockerfile: services/blockchain-service/Dockerfile
     container_name: liken_blockchain_service
     depends_on:
       postgres:

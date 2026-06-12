@@ -1,0 +1,16 @@
+# Build context del blockchain-service (contexto = raíz del repo para poder
+# copiar contracts/). Excluye todo lo que no hace falta en la imagen.
+.git
+.github
+.idea
+docs
+infra
+logs
+**/target
+**/.idea
+contracts/out
+contracts/cache
+contracts/broadcast
+contracts/docs
+.env
+.env.*
