@@ -26,4 +26,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     java.util.List<User> findByRole_NameIn(java.util.Collection<String> roleNames);
     java.util.List<User> findByActiveTrue();
+
+    Optional<User> findByDiditSessionId(String diditSessionId);
 }
