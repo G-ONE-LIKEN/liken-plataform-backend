@@ -1,5 +1,15 @@
 package com.plataforma.user.kyc.service;
 
+import java.io.IOException;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.UUID;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
+
 import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.Storage;
@@ -15,17 +25,9 @@ import com.plataforma.user.kyc.repository.KycDocumentRepository;
 import com.plataforma.user.model.KycStatus;
 import com.plataforma.user.model.User;
 import com.plataforma.user.repository.UserRepository;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.multipart.MultipartFile;
-
-import java.io.IOException;
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.UUID;
 
 /**
  * Logica de KYC (ver DD013).
@@ -263,22 +265,21 @@ public class KycService {
         log.info("KYC Didit webhook: userId={} sessionId={} status={}",
                 user.getId(), sessionId, status);
 
-        switch (status) {
-            case "APPROVED" -> {
+        switch (status.toLowerCase()) {
+            case "approved" -> {
                 user.setKycStatus(KycStatus.APPROVED);
                 user.setKycVerifiedAt(java.time.LocalDateTime.now());
-                log.info("KYC Didit: usuario {} APROBADO automáticamente", user.getEmail());
-                // Invalidar contexto del usuario en el gateway (igual que el flujo manual)
+                log.info("KYC Didit: usuario {} APROBADO automaticamente", user.getEmail());
                 contextEventProducer.invalidateContext(user.getId());
             }
-            case "DECLINED" -> {
+            case "declined" -> {
                 user.setKycStatus(KycStatus.REJECTED);
-                log.info("KYC Didit: usuario {} RECHAZADO. Razón: {}",
+                log.info("KYC Didit: usuario {} RECHAZADO. Razon: {}",
                         user.getEmail(), declineReason);
             }
-            case "IN_REVIEW" -> {
+            case "in progress" -> {
                 user.setKycStatus(KycStatus.PENDING);
-                log.info("KYC Didit: usuario {} en revisión adicional", user.getEmail());
+                log.info("KYC Didit: usuario {} en revision adicional", user.getEmail());
             }
             default -> log.warn("KYC Didit webhook: estado desconocido '{}' para userId={}",
                     status, user.getId());
