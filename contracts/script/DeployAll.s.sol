@@ -107,7 +107,7 @@ contract DeployAll is Script {
         }
 
         // ── 1. LinkenToken (TGE → emisor) ──
-        LinkenToken lkn = new LinkenToken(platformAdmin, emisor, tgeSupply);
+        LinkenToken lkn = new LinkenToken(platformAdmin, emisor, tgeSupply + 50_000 * 1e18);
         console2.log("LinkenToken           :", address(lkn));
 
         // ── 2. ProjectRegistry ──

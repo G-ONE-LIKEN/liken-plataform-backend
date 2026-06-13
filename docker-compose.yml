@@ -25,9 +25,10 @@ x-spring-env: &spring-env
     -Xms80m
     -Xss256k
     -XX:ReservedCodeCacheSize=48m
-    -XX:MaxMetaspaceSize=96m
+    -XX:MaxMetaspaceSize=192m
     -XX:+DisableExplicitGC
-  SPRING_MAIN_LAZY_INITIALIZATION: "true"
+  SPRING_PROFILES_ACTIVE: "dev"
+  SPRING_MAIN_LAZY_INITIALIZATION: "false"
   SPRING_MAIN_BANNER_MODE: "off"          # deshabilitar el banner en los logs (ahorras lineas de logs)
   LOGGING_LEVEL_ROOT: "warn"              # el nivel de report lo paso a warning para enfocarnos en errores.
   LOGGING_LEVEL_ORG_APACHE_KAFKA: "warn"  # idem, para el de kafka
@@ -40,7 +41,7 @@ x-spring-env: &spring-env
 x-spring-deploy: &spring-deploy
   resources:
     limits:
-      memory: 400M
+      memory: 512M
       cpus: "0.50"
 
 services:

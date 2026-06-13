@@ -2,6 +2,7 @@ package com.plataforma.marketplace.dto;
 
 import com.plataforma.marketplace.model.Order;
 import com.plataforma.marketplace.model.OrderStatus;
+import com.plataforma.marketplace.model.OrderSide;
 import lombok.*;
 
 import java.math.BigDecimal;
@@ -20,6 +21,7 @@ public class OrderResponse {
     private Long id;
     private Long sellerId;
     private Long projectId;
+    private OrderSide side;
     private BigDecimal tokensAmount;
     private BigDecimal pricePerToken;
     private BigDecimal totalPrice;
@@ -32,6 +34,7 @@ public class OrderResponse {
                 .id(order.getId())
                 .sellerId(order.getSellerId())
                 .projectId(order.getProjectId())
+                .side(order.getSide())
                 .tokensAmount(order.getTokensAmount())
                 .pricePerToken(order.getPricePerToken())
                 .totalPrice(order.getTokensAmount().multiply(order.getPricePerToken()))

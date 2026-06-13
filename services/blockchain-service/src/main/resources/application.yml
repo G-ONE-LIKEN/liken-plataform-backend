@@ -71,3 +71,5 @@ logging:
   level:
     org.web3j: INFO
     com.plataforma.blockchain: DEBUG
+    org.springframework.kafka: DEBUG
+    org.apache.kafka: DEBUG

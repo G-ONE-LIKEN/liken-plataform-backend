@@ -16,6 +16,19 @@ import java.util.List;
 public class ProjectInternalController {
 
     private final ProjectService projectService;
+    private final com.plataforma.projects.service.UserHoldingService userHoldingService;
+
+    @GetMapping("/{id}")
+    public ResponseEntity<com.plataforma.projects.dto.ProjectResponse> getProject(@PathVariable Long id) {
+        return ResponseEntity.ok(projectService.getProject(id));
+    }
+
+    @GetMapping("/{projectId}/holders/{userId}")
+    public ResponseEntity<com.plataforma.projects.dto.UserHoldingResponse> getUserHolding(
+            @PathVariable Long projectId,
+            @PathVariable Long userId) {
+        return ResponseEntity.ok(userHoldingService.getUserHolding(projectId, userId));
+    }
 
     @GetMapping("/offering-contracts")
     public ResponseEntity<List<OfferingContractRefResponse>> listOfferingContracts() {
