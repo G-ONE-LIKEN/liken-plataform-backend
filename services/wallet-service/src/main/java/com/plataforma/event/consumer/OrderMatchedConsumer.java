@@ -15,20 +15,20 @@ public class OrderMatchedConsumer {
 
     private final WalletService walletService;
 
-    @KafkaListener(topics = "marketplace.order_matched", groupId = "wallet-service")
+    @KafkaListener(topics = "marketplace.trade_settled", groupId = "wallet-service")
     public void consume(OrderMatchedEvent event) {
         try {
-            log.info("Procesando orden P2P: vendedor={}, comprador={}, precio={}, orderId={}",
+            log.info("Procesando orden P2P liquidada: vendedor={}, comprador={}, precio={}, orderId={}",
                     event.getSellerId(), event.getBuyerId(), event.getPrice(), event.getOrderId());
 
-            // Un evento marketplace.order_matched genera DOS movimientos (vendedor + comprador).
+            // Un evento marketplace.trade_settled genera DOS movimientos (vendedor + comprador).
             // Cada movimiento necesita su propio eventId unico para no chocar con el UNIQUE
             // INDEX. Derivamos sub-IDs del eventId original sufijando el rol.
             String sellEventId = event.getEventId() != null ? event.getEventId() + ":seller" : null;
             String buyEventId  = event.getEventId() != null ? event.getEventId() + ":buyer"  : null;
 
             // Acreditar al vendedor
-            walletService.recordMovement(
+            walletService.recordExternalMovement(
                     event.getSellerId(),
                     MovementType.P2P_SALE,
                     event.getPrice(),
@@ -38,7 +38,7 @@ public class OrderMatchedConsumer {
             );
 
             // Debitar al comprador
-            walletService.recordMovement(
+            walletService.recordExternalMovement(
                     event.getBuyerId(),
                     MovementType.P2P_PURCHASE,
                     event.getPrice(),
@@ -47,7 +47,7 @@ public class OrderMatchedConsumer {
                     buyEventId
             );
         } catch (Exception e) {
-            log.error("Error procesando evento marketplace.order_matched para orden {}: {}",
+            log.error("Error procesando evento marketplace.trade_settled para orden {}: {}",
                     event.getOrderId(), e.getMessage(), e);
         }
     }

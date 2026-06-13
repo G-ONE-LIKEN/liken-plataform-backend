@@ -10,12 +10,17 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
 @Repository
 public interface OrderRepository extends JpaRepository<Order, Long> {
+
+    @Query("SELECT COALESCE(SUM(o.tokensAmount), 0) FROM Order o WHERE o.sellerId = :sellerId AND o.projectId = :projectId AND o.status = :status")
+    BigDecimal sumTokensAmountBySellerIdAndProjectIdAndStatus(
+            Long sellerId, Long projectId, OrderStatus status);
 
     /** ordenes activas de todos los proyectos, mas recientes primero. */
     Page<Order> findByStatusOrderByCreatedAtDesc(OrderStatus status, Pageable pageable);

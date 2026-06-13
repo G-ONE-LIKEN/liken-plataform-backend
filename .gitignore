@@ -44,3 +44,4 @@ contracts/cache/
 skills-lock.json
 graphify-out/
 
+/foundry_bin

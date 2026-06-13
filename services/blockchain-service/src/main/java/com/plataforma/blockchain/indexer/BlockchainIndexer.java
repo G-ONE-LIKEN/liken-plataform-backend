@@ -108,6 +108,7 @@ public class BlockchainIndexer {
 		addIfSet(contracts.getLinkenToken(), ContractKind.LINKEN_TOKEN);
 		addIfSet(contracts.getRegistry(), ContractKind.REGISTRY);
 		addIfSet(contracts.getDistributor(), ContractKind.DISTRIBUTOR);
+		addIfSet(contracts.getMarketplace(), ContractKind.MARKETPLACE);
 	}
 
 	private void refreshOfferingContracts() {
@@ -133,7 +134,8 @@ public class BlockchainIndexer {
 	private boolean isConfigured() {
 		return notZero(contracts.getLinkenToken())
 				|| notZero(contracts.getRegistry())
-				|| notZero(contracts.getDistributor());
+				|| notZero(contracts.getDistributor())
+				|| notZero(contracts.getMarketplace());
 	}
 
 	private boolean notZero(String s) {

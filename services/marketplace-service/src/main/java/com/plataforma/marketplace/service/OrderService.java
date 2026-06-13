@@ -2,6 +2,7 @@ package com.plataforma.marketplace.service;
 
 import com.plataforma.marketplace.dto.CreateOrderRequest;
 import com.plataforma.marketplace.event.OrderMatchedPublisher;
+import com.plataforma.marketplace.event.TradeSettledPublisher;
 import com.plataforma.marketplace.model.Order;
 import com.plataforma.marketplace.model.OrderStatus;
 import com.plataforma.marketplace.model.Trade;
@@ -45,7 +46,9 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final TradeRepository tradeRepository;
     private final ProjectClient projectClient;
+    private final WalletClient walletClient;
     private final OrderMatchedPublisher orderMatchedPublisher;
+    private final TradeSettledPublisher tradeSettledPublisher;
 
     @Value("${marketplace.fee-percent:1.0}")
     private double feePercent;
@@ -108,10 +111,13 @@ public class OrderService {
 
         // 2. Validar holdings del vendedor.
         BigDecimal currentHoldings = projectClient.getUserHoldings(sellerId, projectId);
-        if (currentHoldings.compareTo(request.getTokensAmount()) < 0) {
+        BigDecimal lockedTokens = orderRepository.sumTokensAmountBySellerIdAndProjectIdAndStatus(
+                sellerId, projectId, OrderStatus.OPEN);
+        BigDecimal availableHoldings = currentHoldings.subtract(lockedTokens);
+        if (availableHoldings.compareTo(request.getTokensAmount()) < 0) {
             throw new IllegalStateException(
                     "Holdings insuficientes: tenés " + currentHoldings +
-                    " tokens pero intentas vender " + request.getTokensAmount());
+                    " tokens (" + lockedTokens + " reservados en órdenes abiertas) pero intentas vender " + request.getTokensAmount());
         }
 
         // 3. Crear la orden.
@@ -170,13 +176,21 @@ public class OrderService {
                 .multiply(BigDecimal.valueOf(feePercent))
                 .divide(BigDecimal.valueOf(100), 6, RoundingMode.HALF_UP);
 
-        // 5. Marcar la orden como MATCHED.
-        order.setStatus(OrderStatus.MATCHED);
+        // 5. Marcar la orden como PENDING_SETTLEMENT.
+        order.setStatus(OrderStatus.PENDING_SETTLEMENT);
         order.setUpdatedAt(LocalDateTime.now());
         orderRepository.save(order);
 
-        // 6. Crear el Trade.
-        Trade trade = Trade.builder()
+        log.info("Orden {} bloqueada en PENDING_SETTLEMENT para comprador: {}", order.getId(), buyerId);
+
+        // 6. Publicar evento para iniciar liquidación en blockchain-service.
+        orderMatchedPublisher.publish(
+                order.getSellerId(), buyerId, order.getProjectId(),
+                order.getTokensAmount(), totalPrice, order.getId());
+
+        // 7. Retornar objeto Trade transitorio (sin guardar en base de datos aún)
+        return Trade.builder()
+                .id(0L) // Id temporal
                 .orderId(order.getId())
                 .sellerId(order.getSellerId())
                 .buyerId(buyerId)
@@ -187,19 +201,6 @@ public class OrderService {
                 .feeAmount(fee)
                 .createdAt(LocalDateTime.now())
                 .build();
-        trade = tradeRepository.save(trade);
-
-        log.info("Trade completado: tradeId={} orderId={} sellerId={} buyerId={} " +
-                "projectId={} tokens={} total={} fee={}",
-                trade.getId(), order.getId(), order.getSellerId(), buyerId,
-                order.getProjectId(), order.getTokensAmount(), totalPrice, fee);
-
-        // 7. Publicar evento para que wallet-service y project-service actualicen sus proyecciones.
-        orderMatchedPublisher.publish(
-                order.getSellerId(), buyerId, order.getProjectId(),
-                order.getTokensAmount(), totalPrice, order.getId());
-
-        return trade;
     }
 
     /**
@@ -268,5 +269,60 @@ public class OrderService {
         if (!expired.isEmpty()) {
             log.info("Expiradas {} ordenes vencidas", expired.size());
         }
+    }
+
+    /**
+     * Procesa la confirmación on-chain de un trade y emite el evento definitivo.
+     */
+    @Transactional
+    public void processTradeSettled(
+            Long orderId,
+            Long buyerId,
+            BigDecimal tokenCount,
+            BigDecimal totalPrice,
+            BigDecimal feeAmount,
+            String txHash,
+            String eventId
+    ) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new IllegalStateException("La orden " + orderId + " no existe."));
+
+        if (order.getStatus() == OrderStatus.MATCHED) {
+            log.info("La orden {} ya esta en estado MATCHED, ignorando.", orderId);
+            return;
+        }
+
+        // Marcar la orden como MATCHED.
+        order.setStatus(OrderStatus.MATCHED);
+        order.setUpdatedAt(LocalDateTime.now());
+        orderRepository.save(order);
+
+        // Crear y guardar el Trade definitivo.
+        Trade trade = Trade.builder()
+                .orderId(order.getId())
+                .sellerId(order.getSellerId())
+                .buyerId(buyerId != null ? buyerId : 0L)
+                .projectId(order.getProjectId())
+                .tokensAmount(tokenCount)
+                .pricePerToken(order.getPricePerToken())
+                .totalPrice(totalPrice)
+                .feeAmount(feeAmount)
+                .createdAt(LocalDateTime.now())
+                .build();
+        trade = tradeRepository.save(trade);
+
+        log.info("Trade persistido tras settlement on-chain: tradeId={} orderId={} txHash={}",
+                trade.getId(), order.getId(), txHash);
+
+        // Publicar evento final para que wallet-service y project-service actualicen sus holdings/movements
+        tradeSettledPublisher.publish(
+                order.getSellerId(),
+                buyerId != null ? buyerId : 0L,
+                order.getProjectId(),
+                tokenCount,
+                totalPrice,
+                order.getId(),
+                txHash
+        );
     }
 }

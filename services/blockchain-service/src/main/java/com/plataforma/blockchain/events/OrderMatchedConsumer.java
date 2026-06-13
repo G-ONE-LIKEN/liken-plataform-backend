@@ -10,6 +10,7 @@ import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 
 @Slf4j
 @Component
@@ -40,11 +41,23 @@ public class OrderMatchedConsumer {
                 return;
             }
 
-            // 3. Ejecutar transferFrom on-chain
-            log.info("Ejecutando transferFrom: seller={}, buyer={}, amount={}", sellerWallet, buyerWallet, event.getTokenCount());
-            tokenTransferService.executeTransferFrom(sellerWallet, buyerWallet, new BigDecimal(event.getTokenCount()));
+            // 3. Ejecutar settleTrade on-chain
+            log.info("Ejecutando settleTrade: orderId={}, seller={}, buyer={}, amount={}, totalUsdc={}", 
+                    event.getOrderId(), sellerWallet, buyerWallet, event.getTokenCount(), event.getPrice());
+            
+            BigInteger orderId = new BigInteger(event.getOrderId());
+            BigInteger feePercent = BigInteger.valueOf(100); // 1.0%
 
-            log.info("Transferencia P2P ejecutada exitosamente en la blockchain para orden: {}", event.getOrderId());
+            tokenTransferService.executeSettleTrade(
+                    orderId,
+                    sellerWallet,
+                    buyerWallet,
+                    new BigDecimal(event.getTokenCount()),
+                    event.getPrice(),
+                    feePercent
+            );
+
+            log.info("Liquidación P2P enviada exitosamente a la blockchain para orden: {}", event.getOrderId());
 
         } catch (Exception e) {
             log.error("Error procesando evento marketplace.order_matched", e);

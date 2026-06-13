@@ -31,6 +31,7 @@ class OrderServiceTest {
     @Mock private OrderRepository orderRepository;
     @Mock private TradeRepository tradeRepository;
     @Mock private ProjectClient projectClient;
+    @Mock private WalletClient walletClient;
     @Mock private OrderMatchedPublisher orderMatchedPublisher;
 
     @InjectMocks private OrderService orderService;
@@ -47,6 +48,8 @@ class OrderServiceTest {
     void createSellOrder_success() {
         when(projectClient.isProjectTradeable(1L)).thenReturn(true);
         when(projectClient.getUserHoldings(10L, 1L)).thenReturn(new BigDecimal("100"));
+        when(orderRepository.sumTokensAmountBySellerIdAndProjectIdAndStatus(10L, 1L, OrderStatus.OPEN))
+                .thenReturn(BigDecimal.ZERO);
         when(orderRepository.save(any(Order.class))).thenAnswer(inv -> {
             Order o = inv.getArgument(0);
             o.setId(42L);
@@ -78,8 +81,23 @@ class OrderServiceTest {
     void createSellOrder_insufficientHoldings_throwsException() {
         when(projectClient.isProjectTradeable(1L)).thenReturn(true);
         when(projectClient.getUserHoldings(10L, 1L)).thenReturn(new BigDecimal("10"));
+        when(orderRepository.sumTokensAmountBySellerIdAndProjectIdAndStatus(10L, 1L, OrderStatus.OPEN))
+                .thenReturn(BigDecimal.ZERO);
 
         var request = new CreateOrderRequest(1L, new BigDecimal("50"), new BigDecimal("2.50"));
+        assertThrows(IllegalStateException.class,
+                () -> orderService.createSellOrder(10L, request));
+        verify(orderRepository, never()).save(any());
+    }
+
+    @Test
+    void createSellOrder_insufficientAvailableHoldingsDueToLockedTokens_throwsException() {
+        when(projectClient.isProjectTradeable(1L)).thenReturn(true);
+        when(projectClient.getUserHoldings(10L, 1L)).thenReturn(new BigDecimal("100"));
+        when(orderRepository.sumTokensAmountBySellerIdAndProjectIdAndStatus(10L, 1L, OrderStatus.OPEN))
+                .thenReturn(new BigDecimal("60")); // 100 - 60 = 40 available
+
+        var request = new CreateOrderRequest(1L, new BigDecimal("50"), new BigDecimal("2.50")); // Needs 50
         assertThrows(IllegalStateException.class,
                 () -> orderService.createSellOrder(10L, request));
         verify(orderRepository, never()).save(any());
@@ -103,6 +121,8 @@ class OrderServiceTest {
                 .thenReturn(Optional.of(openOrder));
         when(projectClient.getUserHoldings(10L, 5L))
                 .thenReturn(new BigDecimal("100"));
+        when(walletClient.getUserBalance(20L))
+                .thenReturn(new BigDecimal("500"));
         when(tradeRepository.save(any(Trade.class))).thenAnswer(inv -> {
             Trade t = inv.getArgument(0);
             t.setId(99L);
@@ -168,6 +188,28 @@ class OrderServiceTest {
                 .thenReturn(Optional.of(order));
         when(projectClient.getUserHoldings(10L, 5L))
                 .thenReturn(new BigDecimal("50")); // Not enough
+
+        assertThrows(IllegalStateException.class,
+                () -> orderService.buyOrder(1L, 20L));
+        verify(tradeRepository, never()).save(any());
+    }
+
+    @Test
+    void buyOrder_insufficientBuyerBalance_throwsException() {
+        Order order = Order.builder()
+                .id(1L)
+                .sellerId(10L)
+                .projectId(5L)
+                .tokensAmount(new BigDecimal("100"))
+                .pricePerToken(new BigDecimal("2.00"))
+                .status(OrderStatus.OPEN)
+                .build();
+        when(orderRepository.findByIdAndStatusForUpdate(1L, OrderStatus.OPEN))
+                .thenReturn(Optional.of(order));
+        when(projectClient.getUserHoldings(10L, 5L))
+                .thenReturn(new BigDecimal("100"));
+        when(walletClient.getUserBalance(20L))
+                .thenReturn(new BigDecimal("50")); // Not enough: 50 < 200
 
         assertThrows(IllegalStateException.class,
                 () -> orderService.buyOrder(1L, 20L));

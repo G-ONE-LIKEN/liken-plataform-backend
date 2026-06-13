@@ -43,6 +43,7 @@ marketplace:
 
 services:
   project-service-url: ${PROJECT_SERVICE_URL:http://project-service:8082}
+  wallet-service-url: ${WALLET_SERVICE_URL:http://wallet-service:8084}
 
 logging:
   level:

@@ -64,10 +64,10 @@ public class UserHoldingEventConsumer {
     }
 
     /**
-     * Consume marketplace.order_matched: se completo una venta P2P.
+     * Consume marketplace.trade_settled: se completo y liquido una venta P2P.
      * Payload esperado: { eventId, sellerId, buyerId, projectId, tokenCount }
      */
-    @KafkaListener(topics = "marketplace.order_matched", groupId = "service-projects")
+    @KafkaListener(topics = "marketplace.trade_settled", groupId = "service-projects")
     public void onOrderMatched(Map<String, Object> payload) {
         try {
             String eventId = payload.get("eventId") != null ? payload.get("eventId").toString() : null;
@@ -77,9 +77,9 @@ public class UserHoldingEventConsumer {
             BigDecimal amount = new BigDecimal(payload.get("tokenCount").toString());
 
             userHoldingService.processOrderMatched(sellerId, buyerId, projectId, amount, eventId);
-            log.info("Holdings actualizados por orden: seller={} buyer={} projectId={} amount={}", sellerId, buyerId, projectId, amount);
+            log.info("Holdings actualizados por orden liquidada: seller={} buyer={} projectId={} amount={}", sellerId, buyerId, projectId, amount);
         } catch (Exception e) {
-            log.error("Error procesando marketplace.order_matched: {}", payload, e);
+            log.error("Error procesando marketplace.trade_settled: {}", payload, e);
         }
     }
 

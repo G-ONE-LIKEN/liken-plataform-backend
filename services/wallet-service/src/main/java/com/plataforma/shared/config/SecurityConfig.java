@@ -27,6 +27,8 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 // Actuator para healthcheck de docker-compose
                 .requestMatchers("/actuator/**").permitAll()
+                // Endpoints internos para comunicación inter-service
+                .requestMatchers("/internal/**").permitAll()
                 // Todos los endpoints de wallet requieren autenticacion
                 .anyRequest().authenticated()
             )
