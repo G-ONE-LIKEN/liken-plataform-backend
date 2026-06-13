@@ -28,6 +28,11 @@ Registro de decisiones de arquitectura de la plataforma LIKEN. Cada ADR document
 | [ADR-0020](ADR-0020-Reconciliacion-de-actividad-on-chain-huerfana) | Reconciliación de actividad on-chain huérfana por wallet | — | Aceptado |
 | [ADR-0021](ADR-0021-Estrategia-de-sesion-y-vinculacion-de-wallet) | Estrategia de sesión y vinculación de wallet por firma | — | Aceptado |
 | [ADR-0022](ADR-0022-Unidades-y-precision-monetaria-on-chain-off-chain) | Unidades y precisión monetaria on-chain ↔ off-chain | — | Aceptado |
+| [ADR-0023](ADR-0023-Resiliencia-en-llamadas-sincronas-internas) | Resiliencia en llamadas síncronas internas (timeouts + circuit breakers) | — | Aceptado |
+| [ADR-0024](ADR-0024-Mensajeria-confiable-retries-DLT-y-eventos-sinteticos) | Mensajería confiable: retries, DLT y eventos sintéticos | — | Aceptado |
+| [ADR-0025](ADR-0025-Observabilidad-tracing-logs-correlacionados-y-metricas) | Observabilidad: tracing, logs correlacionados y métricas | — | Aceptado |
+| [ADR-0026](ADR-0026-Hardening-identidad-secretos-y-credenciales) | Hardening: headers de identidad, secretos y credenciales | — | Aceptado |
+| [ADR-0027](ADR-0027-Persistencia-y-backups-del-plano-de-datos) | Persistencia y backups del plano de datos en GKE | — | Aceptado |
 
 ## Convenciones
 
@@ -35,5 +40,6 @@ Registro de decisiones de arquitectura de la plataforma LIKEN. Cada ADR document
 - **Numeración:** incremental y nunca se reutiliza. Un ADR no se borra: se marca `Reemplazado por ADR-XXXX`.
 - **Estados:** `Propuesto` · `Aceptado` · `Revisado` · `Reemplazado` · `Descartado`.
 - **DD original:** los ADR-0003 a ADR-0016 formalizan las "Decisiones de Diseño" (DD001–DD014) que el código referencia como `DDxxx`. El número DD se conserva como alias para no romper esas referencias. Fuente histórica: [`docs/LISTO/decisiones-de-diseno.md`](../LISTO/decisiones-de-diseno.md).
-- **ADR derivados del código:** los ADR-0017 en adelante no tienen DD original — documentan decisiones de arquitectura que estaban implementadas en el código pero no escritas en ningún lado (principalmente la integración on-chain, la estrategia de sesión y el manejo de precisión monetaria).
+- **ADR derivados del código:** los ADR-0017 a 0022 no tienen DD original — documentan decisiones de arquitectura que estaban implementadas en el código pero no escritas en ningún lado (principalmente la integración on-chain, la estrategia de sesión y el manejo de precisión monetaria).
+- **ADR de robustez operacional:** los ADR-0023 a 0027 surgen del plan de mejoras de arquitectura ([`docs/plan-mejoras-arquitectura.md`](../plan-mejoras-arquitectura.md)): resiliencia, mensajería confiable, observabilidad, hardening y persistencia.
 - **Estado de implementación:** cada ADR derivado de un DD incluye una sección con el estado real al 2026-06-08 y las desviaciones detectadas respecto de lo decidido (ver [`implementar.md`](../../implementar.md)).

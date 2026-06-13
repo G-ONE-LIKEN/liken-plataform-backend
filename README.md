@@ -8,7 +8,8 @@ Backend de la plataforma LIKEN: marketplace de inversión en proyectos de energ�
 Frontend (3000 / 5173)
       │
       ▼
-api-gateway (8090)        ← valida JWT, inyecta headers, rate-limit con Redis
+api-gateway (8090)        ← valida JWT, sanea e inyecta headers de identidad,
+      │                      rate-limit con Redis, circuit breaker hacia user-service
       │
       ├── /api/auth/**            ──▶  auth-service            (8081)
       ├── /api/users/**           ──▶  user-service            (8080)
@@ -26,14 +27,17 @@ api-gateway (8090)        ← valida JWT, inyecta headers, rate-limit con Redis
 indexer on-chain (polling vía Web3j) y publica contratos de forma asíncrona,
 disparado internamente por `project-service`.
 
-Comunicación interna service-to-service a través de endpoints `/internal/**` protegidos por red (ClusterIP en Kubernetes, sin JWT). Los servicios backend reciben la identidad como headers (`X-User-Id`, `X-User-Role`, `X-User-Permissions`) inyectados por el gateway.
+Comunicación interna service-to-service a través de endpoints `/internal/**` protegidos por red (ClusterIP en Kubernetes, sin JWT). Los servicios backend reciben la identidad como headers (`X-User-Id`, `X-User-Role`, `X-User-Permissions`, `X-User-Tier`, `X-User-KycStatus`) inyectados por el gateway — que además **elimina cualquier header de identidad que venga del cliente** antes de enrutar (ADR-0026).
 
 ### Flujo on-chain (Web3)
 
 El `blockchain-service` es el puente entre la cadena (Ethereum/Sepolia) y el resto de la plataforma:
 
-- **Indexer (lectura):** escanea `eth_getLogs` por rangos con checkpoints persistidos y confirmaciones, decodifica los eventos de los contratos y los traduce a topics Kafka (`investment.token_purchased`, `dividends.claimed`, `projects.round_finalized`, etc.) con `eventId = txHash:logIndex` para idempotencia.
-- **Publicación (escritura):** al aprobarse un proyecto, despliega su contrato Offering ejecutando `forge script` (Foundry) y reporta el resultado a `project-service`.
+- **Indexer (lectura):** escanea `eth_getLogs` por rangos con checkpoints persistidos y confirmaciones, decodifica los eventos de los contratos y los traduce a topics Kafka (`investment.token_purchased`, `dividends.claimed`, `projects.round_finalized`, etc.) con `eventId = txHash:logIndex` para idempotencia. Publica de forma **síncrona antes de avanzar el checkpoint** (at-least-once, ADR-0024).
+- **Publicación (escritura):** al aprobarse un proyecto, despliega su contrato Offering ejecutando `forge script` (Foundry, horneado en la imagen junto con `contracts/`) y reporta el resultado a `project-service`.
+- **Monitor de rondas vencidas:** detecta por `eth_call` las rondas OPEN con deadline vencido sin soft cap y publica un `projects.round_failed` sintético — habilita el refund en la UI sin esperar el primer `refund()` on-chain (ADR-0024).
+
+El esquema de cada topic y sus garantías de entrega están en [`docs/eventos-kafka.md`](docs/eventos-kafka.md).
 
 Los demás servicios reaccionan a esos eventos: `invest-dividend-service` materializa compras/dividendos y recalcula tiers; `notification-service` genera notificaciones in-app y emails.
 
@@ -59,7 +63,9 @@ Los demás servicios reaccionan a esos eventos: `invest-dividend-service` materi
 | Framework | Spring Boot 3.2.4 |
 | Seguridad | JWT HS256 (JJWT 0.11.5) — validación centralizada en gateway |
 | Persistencia | Spring Data JPA + PostgreSQL 15 + Flyway |
-| Mensajería | Apache Kafka 7.5.0 (at-least-once + idempotencia vía `eventId`) |
+| Mensajería | Apache Kafka 7.5.0 — at-least-once + idempotencia vía `eventId`, retries con backoff y Dead Letter Topics (`<topic>.DLT`, ADR-0024) |
+| Resiliencia | Resilience4j: timeouts + circuit breakers en las llamadas internas críticas (gateway↔user, auth↔user), 503 honesto en degradación (ADR-0023) |
+| Observabilidad | Micrometer Tracing (Brave): traceId propagado por HTTP y Kafka, logs JSON correlacionados en Cloud Logging, métricas `kafka.dlt.messages` e `indexer.lag.blocks` (ADR-0025) |
 | Blockchain | Web3j (indexer read-only + `eth_call`) y Foundry/`forge` (deploy de contratos) sobre Ethereum/Sepolia |
 | Email | Resend (SMTP) + notificaciones in-app y SSE |
 | Cache / Rate limit | Redis 7 |
@@ -169,12 +175,17 @@ liken-plataform-backend/
 │   └── marketplace-service/        # Pendiente (solo README)
 ├── contracts/                # Contratos Solidity + scripts Foundry (deploy de Offerings)
 ├── docs/
-│   ├── adr/                  # Architecture Decision Records (ADR-0001…0022)
+│   ├── adr/                  # Architecture Decision Records (ADR-0001…0027)
+│   ├── eventos-kafka.md      # Esquema canónico de cada topic + garantías + reproceso de DLT
+│   ├── runbook-backups.md    # Backups, restore y reconstrucción de proyecciones
+│   ├── plan-mejoras-arquitectura.md  # Plan de sprints (resiliencia, Kafka, observabilidad…)
 │   └── LISTO/                # Documentos de planificación e historial
 ├── infra/
 │   ├── postgres/
 │   │   └── init.sql          # Crea project_db, wallet_db, etc. al iniciar Postgres
 │   └── gcp-gke/              # Terraform + manifests Kubernetes + CI/CD para GKE
+├── scripts/
+│   └── chaos-demo.ps1        # Demo de degradación controlada (apaga user-service)
 ├── docker-compose.yml
 ├── implementar.md            # Hallazgos del escaneo de código (errores/mejoras)
 └── requests.http             # Smoke test del happy path
@@ -182,5 +193,5 @@ liken-plataform-backend/
 
 ## Decisiones de arquitectura (ADR)
 
-Las decisiones de diseño están documentadas como ADR en [`docs/adr/`](docs/adr/README.md). Los servicios referencian estos ADR (ej. la validación centralizada de JWT es [ADR-0004](docs/adr/ADR-0004-Validacion-JWT-centralizada-en-el-gateway), el modelo de eventos Kafka es [ADR-0012](docs/adr/ADR-0012-Modelo-canonico-de-eventos-Kafka)). La integración on-chain está cubierta por [ADR-0017](docs/adr/ADR-0017-Modelo-de-integracion-on-chain-Web2-Web3) a [ADR-0022](docs/adr/ADR-0022-Unidades-y-precision-monetaria-on-chain-off-chain) (modelo de proyecciones, indexador, deploy con Foundry, reconciliación por wallet, sesión y precisión monetaria). El índice con el mapeo `ADR ↔ DDxxx` está en [docs/adr/README.md](docs/adr/README.md).
+Las decisiones de diseño están documentadas como ADR en [`docs/adr/`](docs/adr/README.md). Los servicios referencian estos ADR (ej. la validación centralizada de JWT es [ADR-0004](docs/adr/ADR-0004-Validacion-JWT-centralizada-en-el-gateway), el modelo de eventos Kafka es [ADR-0012](docs/adr/ADR-0012-Modelo-canonico-de-eventos-Kafka)). La integración on-chain está cubierta por [ADR-0017](docs/adr/ADR-0017-Modelo-de-integracion-on-chain-Web2-Web3) a [ADR-0022](docs/adr/ADR-0022-Unidades-y-precision-monetaria-on-chain-off-chain) (modelo de proyecciones, indexador, deploy con Foundry, reconciliación por wallet, sesión y precisión monetaria). Las mejoras de robustez operacional están en [ADR-0023](docs/adr/ADR-0023-Resiliencia-en-llamadas-sincronas-internas) a [ADR-0027](docs/adr/ADR-0027-Persistencia-y-backups-del-plano-de-datos) (resiliencia, mensajería confiable, observabilidad, hardening de seguridad y persistencia del plano de datos). El índice con el mapeo `ADR ↔ DDxxx` está en [docs/adr/README.md](docs/adr/README.md).
 

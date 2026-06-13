@@ -12,6 +12,7 @@ Microservicio de la plataforma LIKEN responsable de la gestión de billeteras y 
 - Reconciliación de billetera al vincularse una wallet on-chain (`user.wallet_linked`)
 - Reporte de plataforma para ADMIN
 - Idempotencia en consumers vía `external_event_id` (ver ADR-0012)
+- Manejo de errores con retries (3×2s) + Dead Letter Topic (`<topic>.DLT`): un evento no procesable no se descarta, se aparta para reproceso (ver ADR-0024 y `docs/eventos-kafka.md`)
 - Concurrencia segura con `PESSIMISTIC_WRITE` sobre la fila de wallet
 - Publicación de eventos `wallet.credited` y `wallet.debited` para notificaciones
 

@@ -70,11 +70,18 @@ com.plataforma
 POST /api/auth/login
 { "email": "user@mail.com", "password": "secreto" }
 
-→ 200 { "data": { "accessToken": "<jwt>" }, ... }   + Set-Cookie: refresh_token=...; HttpOnly; SameSite=Lax
+→ 200 { "data": { "accessToken": "<jwt>" }, ... }   + Set-Cookie: refresh_token=...; HttpOnly; SameSite=Lax[; Secure]
 → 401 si credenciales inválidas o cuenta inactiva
+→ 503 si user-service no está disponible (circuit breaker, ADR-0023)
 ```
 
-El access token dura 15 min (`jwt.expiration-ms=900000`); el refresh token, 7 días. El frontend renueva vía `/refresh` usando la cookie.
+El access token dura 15 min (`jwt.expiration-ms=900000`); el refresh token, 7 días. El frontend renueva vía `/refresh` usando la cookie. El flag `Secure` se activa con `AUTH_COOKIE_SECURE=true` (prod sobre HTTPS).
+
+> **Registro pendiente seguro (ADR-0026):** el registro en dos pasos guarda el
+> formulario en Redis hasta confirmar el código de email — con la contraseña
+> **ya hasheada con BCrypt** (la fortaleza se valida sobre el texto plano antes
+> de hashear). user-service recibe `passwordEncoded=true` y no re-hashea.
+> Ninguna contraseña toca Redis en texto plano.
 
 ### Cambio de contraseña
 ```json
@@ -102,6 +109,8 @@ X-User-Id: 42                    # inyectado por el gateway (ADR-0004)
 
 Los endpoints `/internal/**` no llevan JWT — están protegidos a nivel de red (ClusterIP en Kubernetes, ver ADR-0005).
 
+Todas las llamadas a user-service tienen **timeouts (2s/3s) y circuit breaker** (`@CircuitBreaker("user-service")`, Resilience4j): si user-service falla repetidamente, el breaker abre y auth responde `503` inmediato en vez de agotar el pool de threads (ADR-0023). Estado visible en `/actuator/circuitbreakers`.
+
 ## Variables de entorno
 
 | Variable | Descripción | Default desarrollo |
@@ -115,6 +124,7 @@ Los endpoints `/internal/**` no llevan JWT — están protegidos a nivel de red 
 | `EMAIL_VERIFICATION_TTL_MINUTES` | Vigencia del código | `10` |
 | `EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS` | Cooldown entre reenvíos | `60` |
 | `EMAIL_VERIFICATION_MAX_ATTEMPTS` | Intentos máximos por código | `5` |
+| `AUTH_COOKIE_SECURE` | Flag `Secure` de la cookie de refresh (`true` en prod/HTTPS) | `false` |
 
 El `JWT_SECRET` debe ser **idéntico** al configurado en `api-gateway` (que valida los tokens emitidos por este servicio).
 

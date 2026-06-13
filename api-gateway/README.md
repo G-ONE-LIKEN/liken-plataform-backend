@@ -24,10 +24,14 @@ api-gateway (8090)        ← validación JWT + CORS + enrutamiento + rate limit
 ## Responsabilidades
 
 - **Autenticación centralizada**: valida el JWT antes de que el request llegue a cualquier servicio. Token ausente o inválido → `401` sin tocar los backends (ver [ADR-0004](../docs/adr/ADR-0004-Validacion-JWT-centralizada-en-el-gateway)).
-- **Propagación de identidad**: inyecta tres headers en cada request autenticado:
+- **Saneamiento de identidad**: elimina **todos** los headers `X-User-*` / `X-Developer-Status` que vengan del cliente, en toda request (pública o no). Solo el propio filtro puede setearlos — sin esto, una ruta pública permitía colar `X-User-Role: ADMIN` forjado (ver [ADR-0026](../docs/adr/ADR-0026-Hardening-identidad-secretos-y-credenciales)).
+- **Propagación de identidad**: inyecta los headers en cada request autenticado:
   - `X-User-Id` — ID numérico del usuario
   - `X-User-Role` — nombre del rol (`ADMIN`, `DEVELOPER`, etc.)
   - `X-User-Permissions` — permisos separados por coma (`project:read,project:create`)
+  - `X-User-Tier` / `X-User-KycStatus` — tier de inversión y estado KYC
+  - `X-Developer-Status` — solo si aplica
+- **Resiliencia**: la llamada de contexto a `user-service` corre detrás de un circuit breaker con timeout de 3s (Resilience4j). Si user-service no responde, el gateway devuelve `503` inmediato ("servicio temporalmente no disponible") en vez de un `401` engañoso o un cuelgue (ver [ADR-0023](../docs/adr/ADR-0023-Resiliencia-en-llamadas-sincronas-internas)). Un `404` de user-service (usuario inexistente/inactivo) sí es `401`.
 - **Rate limiting**: limita requests por IP (rutas públicas) o por usuario (rutas autenticadas) usando Redis. Devuelve `429` al exceder el límite (ver [ADR-0011](../docs/adr/ADR-0011-Rate-limiting-en-el-gateway-con-Redis)).
 - **Enrutamiento**: redirige cada request al microservicio correcto según el path.
 - **CORS**: gestiona los headers CORS centralmente para el frontend.
@@ -75,6 +79,8 @@ Al exceder el límite el gateway devuelve `429 Too Many Requests`. Si Redis no e
 | Gateway | Spring Cloud Gateway 2023.0.1 (reactivo / WebFlux) |
 | JWT | JJWT 0.11.5 (HS256) |
 | Rate limiting | Redis 7 (token bucket via `RequestRateLimiter`) |
+| Resiliencia | Resilience4j (circuit breaker + TimeLimiter, vía Spring Cloud CircuitBreaker) |
+| Observabilidad | Micrometer Tracing (Brave) — traceId en logs y propagación W3C |
 | Tests | JUnit 5 + WireMock |
 
 ## Variables de entorno
@@ -135,5 +141,5 @@ mvn test
 | Clase | Qué cubre |
 |-------|-----------|
 | `JwtUtilsTest` | Validación de firma, expiración y extracción de claims |
-| `JwtAuthFilterTest` | Rutas públicas, token ausente/inválido/válido, headers inyectados |
-| `GatewayRoutingTest` | Enrutamiento de cada path con WireMock, verificación de los tres headers |
+| `JwtAuthFilterTest` | Rutas públicas, token ausente/inválido/válido, headers inyectados, strip de headers forjados, 404→401 vs falla de infraestructura→503 |
+| `GatewayRoutingTest` | Enrutamiento de cada path con WireMock, verificación de los headers de identidad (requiere Redis local: `docker run --rm -p 6379:6379 redis:7-alpine`) |

@@ -10,7 +10,9 @@ Puente Web2 ↔ Web3 de la plataforma Liken. Tiene dos mitades:
 - **Indexa logs** vía polling `eth_getLogs` de bloques nuevos, con checkpoint persistente por contrato (`indexer_checkpoint`) para reanudar tras un restart sin re-procesar.
 - **Respeta confirmaciones**: solo procesa hasta `head - WEB3_CONFIRMATIONS` para no indexar bloques que puedan revertirse por reorg.
 - **Descubre los Offerings dinámicamente**: además de los contratos globales, en cada ciclo le pide a `project-service` la lista de proyectos con `offeringContractAddress` y los suma al set de contratos monitoreados.
-- **Publica a Kafka** con `eventId = txHash:logIndex` para idempotencia end-to-end (los consumers también deduplican).
+- **Publica a Kafka** con `eventId = txHash:logIndex` para idempotencia end-to-end (los consumers también deduplican). La publicación es **síncrona** (`send().get()`) antes de avanzar el checkpoint: si Kafka no confirma, el bloque se reescanea (at-least-once, ADR-0024).
+- **Monitor de rondas vencidas** (`RoundExpirationMonitor`): cada 60s consulta por `eth_call` los Offerings OPEN; si el deadline venció sin alcanzar el soft cap, publica un `projects.round_failed` sintético con `eventId = expired:<address>` (deduplicado). Sin esto, el evento `RoundFailed` on-chain recién se emitiría con el primer `refund()` y el botón de refund nunca aparecía en la UI.
+- **Métrica `indexer.lag.blocks`** (`/actuator/metrics`): bloques entre el head confirmado y el checkpoint más atrasado — si crece sostenido, el indexer no sigue el ritmo de la chain.
 - **Resuelve `walletAddress → userId`** consultando `user-service`. Los eventos con `userId` null se publican igual; los consumers los reconcilian cuando se vincula la wallet.
 - **Conversión de unidades**: USDC 6 dec ↔ BigDecimal escala 6; LKN 18 dec ↔ escala 8 (matchea `user_holdings.tokens_amount`).
 
@@ -36,7 +38,7 @@ Cuando `project-service` aprueba un proyecto, llama a `POST /internal/publicatio
 3. Parsea de la salida de `forge` el `REGISTRY_PROJECT_ID` y el `OFFERING_ADDRESS`.
 4. Reporta éxito (`markPublicationSucceeded`) o fallo (`markPublicationFailed`) de vuelta a `project-service`.
 
-> **Requisito de despliegue:** el workspace de Foundry (`/contracts` por defecto) y el binario `forge` deben estar disponibles **dentro del contenedor**, y `PUBLICATION_SIGNER_PRIVATE_KEY` + las addresses de los contratos globales deben estar configurados. En local, `docker-compose` monta `./contracts:/contracts` y el Dockerfile instala Foundry.
+> **Requisito de despliegue:** el workspace de Foundry (`/contracts`) y el binario `forge` van **horneados en la imagen**: el Dockerfile se buildea con contexto en la **raíz del repo** (`docker build -f services/blockchain-service/Dockerfile .`) y copia `contracts/` adentro — así funciona en GKE sin volúmenes. En `docker-compose` local, además, el volumen `./contracts:/contracts` pisa esa copia para iterar los contratos sin rebuild. `PUBLICATION_SIGNER_PRIVATE_KEY` + las addresses de los contratos globales deben estar configurados (y la wallet del signer necesita SepoliaETH para el gas).
 
 ## Endpoints
 
