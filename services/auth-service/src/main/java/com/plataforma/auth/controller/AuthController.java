@@ -17,6 +17,7 @@ import com.plataforma.shared.exception.UnauthorizedAccessException;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.validation.Valid;
 
 import lombok.RequiredArgsConstructor;
 
@@ -75,7 +76,7 @@ public class AuthController {
 
     @PostMapping("/register/request")
     public ResponseEntity<ApiResponse<Void>> register(
-            @RequestBody RegisterRequest request) {
+            @Valid @RequestBody RegisterRequest request) {
         emailVerificationService.requestRegistration(request);
         return ResponseEntity.ok(ApiResponse.success(
                 "Te enviamos un codigo de verificacion para completar el registro.",

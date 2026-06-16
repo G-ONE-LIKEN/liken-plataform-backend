@@ -1,3 +1,4 @@
+// services/auth-services/src/main/java/com/plataforma/shared/dto/ApiResponse.java
 package com.plataforma.shared.dto;
 
 import lombok.AllArgsConstructor;

@@ -1,3 +1,4 @@
+// services/auth-service/src/test/java/com/plataforma/auth/service/AuthServiceTest.java
 package com.plataforma.auth.service;
 
 import com.plataforma.shared.client.UserServiceClient;
