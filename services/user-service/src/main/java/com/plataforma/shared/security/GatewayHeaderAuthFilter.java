@@ -1,3 +1,4 @@
+// services/user-service/src/main/java/com/plataforma/shared/security/GatewayHeaderAuthFilter.java
 package com.plataforma.shared.security;
 
 import jakarta.servlet.FilterChain;

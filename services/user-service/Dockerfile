@@ -1,3 +1,4 @@
+# services/user-service/Dockerfile
 # ── Stage 1: build ──────────────────────────────────────────────────────────
 FROM maven:3.9-eclipse-temurin-21-alpine AS build
 
