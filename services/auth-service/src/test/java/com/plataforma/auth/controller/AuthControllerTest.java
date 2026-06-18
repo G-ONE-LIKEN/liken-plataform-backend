@@ -186,4 +186,198 @@ class AuthControllerTest {
 
         verify(emailVerificationService, never()).requestRegistration(any());
     }
+
+    // ── Login ─────────────────────────────────────────────────────────────────
+
+    @Test
+    void shouldRejectLoginWithNoBody() throws Exception {
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
+
+        verify(authService, never()).loginFull(any(), any());
+    }
+
+    @Test
+    void shouldRejectLoginWithMissingEmail() throws Exception {
+        String body = """
+            {
+              "password": "mipass123!"
+            }
+            """;
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
+
+        verify(authService, never()).loginFull(any(), any());
+    }
+
+    @Test
+    void shouldRejectLoginWithInvalidEmail() throws Exception {
+        String body = """
+            {
+              "email": "no-es-un-email",
+              "password": "mipass123!"
+            }
+            """;
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
+
+        verify(authService, never()).loginFull(any(), any());
+    }
+
+    @Test
+    void shouldRejectLoginWithMissingPassword() throws Exception {
+        String body = """
+            {
+              "email": "fede@test.com"
+            }
+            """;
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
+
+        verify(authService, never()).loginFull(any(), any());
+    }
+
+    // ── Email verification request ────────────────────────────────────────────
+
+    @Test
+    void shouldRejectVerificationRequestWithNoEmail() throws Exception {
+        mockMvc.perform(post("/api/auth/email-verification/request")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
+
+        verify(emailVerificationService, never()).requestVerification(any());
+    }
+
+    @Test
+    void shouldRejectVerificationRequestWithInvalidEmail() throws Exception {
+        String body = """
+            {
+                "email": "no-es-un-email"
+            }
+        """;
+
+        mockMvc.perform(post("/api/auth/email-verification/request")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
+
+        verify(emailVerificationService, never()).requestVerification(any());
+    }
+
+    // ── Email verification confirm ────────────────────────────────────────────
+
+    @Test
+    void shouldRejectConfirmWithNoBody() throws Exception {
+        mockMvc.perform(post("/api/auth/email-verification/confirm")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
+
+        verify(emailVerificationService, never()).confirmVerification(any(), any());
+    }
+
+    @Test
+    void shouldRejectConfirmWithInvalidCode() throws Exception {
+        String body = """
+            {
+              "email": "fede@test.com",
+              "code": "abc"
+            }
+            """;
+
+        mockMvc.perform(post("/api/auth/email-verification/confirm")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
+
+        verify(emailVerificationService, never()).confirmVerification(any(), any());
+    }
+
+    @Test
+    void shouldRejectConfirmWithCodeTooShort() throws Exception {
+        String body = """
+            {
+              "email": "fede@test.com",
+              "code": "123"
+            }
+            """;
+
+        mockMvc.perform(post("/api/auth/email-verification/confirm")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
+
+        verify(emailVerificationService, never()).confirmVerification(any(), any());
+    }
+
+    // ── Email verification resend ─────────────────────────────────────────────
+
+    @Test
+    void shouldRejectResendWithInvalidEmail() throws Exception {
+        String body = """
+                { "email": "no-es-un-email" }
+                """;
+
+        mockMvc.perform(post("/api/auth/email-verification/resend")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
+
+        verify(emailVerificationService, never()).resendVerification(any());
+    }
+
+    // ── Change password ───────────────────────────────────────────────────────
+
+    @Test
+    void shouldRejectChangePasswordWithNoBody() throws Exception {
+        mockMvc.perform(post("/api/auth/change-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", "1")
+                        .content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
+
+        verify(authService, never()).changePassword(any(), any(), any());
+    }
+
+    @Test
+    void shouldRejectChangePasswordWithShortNewPassword() throws Exception {
+        String body = """
+            {
+                "oldPassword": "mipass123!",
+                "newPassword": "abc"
+            }
+        """;
+
+        mockMvc.perform(post("/api/auth/change-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", "1")
+                        .content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
+
+        verify(authService, never()).changePassword(any(), any(), any());
+    }
 }

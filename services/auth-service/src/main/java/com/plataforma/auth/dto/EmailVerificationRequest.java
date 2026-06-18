@@ -1,8 +1,14 @@
+// services/auth-service/src/main/java/com/plataforma/auth/dto/EmailVerificationRequest.java
 package com.plataforma.auth.dto;
 
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
 @Data
 public class EmailVerificationRequest {
+
+    @NotBlank(message = "El email es obligatorio.")
+    @Email(message = "El email no tiene un formato válido.")
     private String email;
 }
