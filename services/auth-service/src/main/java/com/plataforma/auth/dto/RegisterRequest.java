@@ -9,7 +9,7 @@ import java.time.LocalDate;
 public class RegisterRequest {
 
     @NotBlank(message = "El email es obligatorio.")
-    @Email(message = "El email no tiene un formato válido.")
+    @Email(message = "El email no tiene un formato valido.")
     private String email;
 
     @NotBlank(message = "La contraseña es obligatoria.")
@@ -32,15 +32,15 @@ public class RegisterRequest {
     @Past(message = "La fecha de nacimiento debe ser en el pasado.")
     private LocalDate birthDate;
 
-    @NotBlank(message = "El teléfono es obligatorio.")
+    @NotBlank(message = "El telefono es obligatorio.")
     private String phone;
 
-    @NotBlank(message = "El país es obligatorio.")
+    @NotBlank(message = "El pais es obligatorio.")
     private String country;
 
     private String province;
     private String address;
 
-    @AssertTrue(message = "Debes aceptar los términos y condiciones.")
+    @AssertTrue(message = "Debes aceptar los terminos y condiciones.")
     private boolean termsAccepted;
 }
