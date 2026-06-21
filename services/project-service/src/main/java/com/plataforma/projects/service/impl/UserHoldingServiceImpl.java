@@ -53,6 +53,14 @@ public class UserHoldingServiceImpl implements UserHoldingService {
     }
 
     @Override
+    public List<UserHoldingResponse> listMyHoldings(Long userId) {
+        return holdingRepository.findByUserId(userId)
+                .stream()
+                .map(UserHoldingResponse::from)
+                .toList();
+    }
+
+    @Override
     @Transactional
     public void updateHolding(Long userId, Long projectId, BigDecimal tokensDelta, String eventId) {
         if (eventId != null && processedEventRepository.existsByEventId(eventId)) {

@@ -18,9 +18,11 @@ import java.util.Optional;
 @Repository
 public interface OrderRepository extends JpaRepository<Order, Long> {
 
-    @Query("SELECT COALESCE(SUM(o.tokensAmount), 0) FROM Order o WHERE o.sellerId = :sellerId AND o.projectId = :projectId AND o.status = :status")
-    BigDecimal sumTokensAmountBySellerIdAndProjectIdAndStatus(
-            Long sellerId, Long projectId, OrderStatus status);
+    @Query("SELECT COALESCE(SUM(o.tokensAmount), 0) FROM Order o WHERE o.sellerId = :sellerId AND o.projectId = :projectId AND o.status IN :statuses")
+    BigDecimal sumTokensAmountBySellerIdAndProjectIdAndStatusIn(
+            @org.springframework.data.repository.query.Param("sellerId") Long sellerId, 
+            @org.springframework.data.repository.query.Param("projectId") Long projectId, 
+            @org.springframework.data.repository.query.Param("statuses") List<OrderStatus> statuses);
 
     /** ordenes activas de todos los proyectos, mas recientes primero. */
     Page<Order> findByStatusOrderByCreatedAtDesc(OrderStatus status, Pageable pageable);

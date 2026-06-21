@@ -91,8 +91,7 @@ public class UserInternalController {
      */
     @GetMapping("/by-wallet/{address}")
     public ResponseEntity<java.util.Map<String, Long>> findByWallet(@PathVariable String address) {
-        return userRepository.findByWalletAddress(address)
-                .or(() -> userRepository.findByWalletAddress(address.toLowerCase()))
+        return userRepository.findByWalletAddressIgnoreCase(address)
                 .map(u -> ResponseEntity.ok(java.util.Map.of("userId", u.getId())))
                 .orElseThrow(() -> new UserNotFoundException(
                         "Wallet no vinculada a ningun usuario: " + address));

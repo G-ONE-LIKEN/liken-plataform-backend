@@ -48,7 +48,7 @@ class OrderServiceTest {
     void createSellOrder_success() {
         when(projectClient.isProjectTradeable(1L)).thenReturn(true);
         when(projectClient.getUserHoldings(10L, 1L)).thenReturn(new BigDecimal("100"));
-        when(orderRepository.sumTokensAmountBySellerIdAndProjectIdAndStatus(10L, 1L, OrderStatus.OPEN))
+        when(orderRepository.sumTokensAmountBySellerIdAndProjectIdAndStatusIn(10L, 1L, List.of(OrderStatus.OPEN, OrderStatus.PENDING_SETTLEMENT)))
                 .thenReturn(BigDecimal.ZERO);
         when(orderRepository.save(any(Order.class))).thenAnswer(inv -> {
             Order o = inv.getArgument(0);
@@ -81,7 +81,7 @@ class OrderServiceTest {
     void createSellOrder_insufficientHoldings_throwsException() {
         when(projectClient.isProjectTradeable(1L)).thenReturn(true);
         when(projectClient.getUserHoldings(10L, 1L)).thenReturn(new BigDecimal("10"));
-        when(orderRepository.sumTokensAmountBySellerIdAndProjectIdAndStatus(10L, 1L, OrderStatus.OPEN))
+        when(orderRepository.sumTokensAmountBySellerIdAndProjectIdAndStatusIn(10L, 1L, List.of(OrderStatus.OPEN, OrderStatus.PENDING_SETTLEMENT)))
                 .thenReturn(BigDecimal.ZERO);
 
         var request = new CreateOrderRequest(1L, new BigDecimal("50"), new BigDecimal("2.50"));
@@ -94,7 +94,7 @@ class OrderServiceTest {
     void createSellOrder_insufficientAvailableHoldingsDueToLockedTokens_throwsException() {
         when(projectClient.isProjectTradeable(1L)).thenReturn(true);
         when(projectClient.getUserHoldings(10L, 1L)).thenReturn(new BigDecimal("100"));
-        when(orderRepository.sumTokensAmountBySellerIdAndProjectIdAndStatus(10L, 1L, OrderStatus.OPEN))
+        when(orderRepository.sumTokensAmountBySellerIdAndProjectIdAndStatusIn(10L, 1L, List.of(OrderStatus.OPEN, OrderStatus.PENDING_SETTLEMENT)))
                 .thenReturn(new BigDecimal("60")); // 100 - 60 = 40 available
 
         var request = new CreateOrderRequest(1L, new BigDecimal("50"), new BigDecimal("2.50")); // Needs 50

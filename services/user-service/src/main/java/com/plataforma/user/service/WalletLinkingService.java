@@ -117,10 +117,11 @@ public class WalletLinkingService {
         }
 
         String checksum = Keys.toChecksumAddress(walletAddress);
-        userRepository.findByWalletAddress(checksum)
-                .filter(u -> !u.getId().equals(userId))
+        userRepository.findByWalletAddressIgnoreCase(checksum)
                 .ifPresent(u -> {
-                    throw new IllegalArgumentException("Esa wallet ya esta vinculada a otro usuario.");
+                    if (!u.getId().equals(userId)) {
+                        throw new IllegalArgumentException("La wallet " + checksum + " ya está vinculada a otro usuario.");
+                    }
                 });
 
         User user = userRepository.findById(userId)

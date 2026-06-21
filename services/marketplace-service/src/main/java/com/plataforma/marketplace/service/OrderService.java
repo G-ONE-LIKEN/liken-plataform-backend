@@ -111,8 +111,8 @@ public class OrderService {
 
         // 2. Validar holdings del vendedor.
         BigDecimal currentHoldings = projectClient.getUserHoldings(sellerId, projectId);
-        BigDecimal lockedTokens = orderRepository.sumTokensAmountBySellerIdAndProjectIdAndStatus(
-                sellerId, projectId, OrderStatus.OPEN);
+        BigDecimal lockedTokens = orderRepository.sumTokensAmountBySellerIdAndProjectIdAndStatusIn(
+                sellerId, projectId, List.of(OrderStatus.OPEN, OrderStatus.PENDING_SETTLEMENT));
         BigDecimal availableHoldings = currentHoldings.subtract(lockedTokens);
         if (availableHoldings.compareTo(request.getTokensAmount()) < 0) {
             throw new IllegalStateException(

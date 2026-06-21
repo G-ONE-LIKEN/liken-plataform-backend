@@ -73,6 +73,13 @@ public class ProjectController {
                 projectService.listMyProjects(ownerId, pageable)));
     }
 
+    @GetMapping("/holdings/me")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<java.util.List<UserHoldingResponse>>> getMyHoldings(Authentication auth) {
+        Long userId = (Long) auth.getPrincipal();
+        return ResponseEntity.ok(ApiResponse.success("Mis holdings obtenidos", userHoldingService.listMyHoldings(userId)));
+    }
+
     @PostMapping("/{id}/approve")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<ProjectResponse>> approveProject(
