@@ -325,4 +325,21 @@ public class OrderService {
                 txHash
         );
     }
+
+    /**
+     * Revierte una orden PENDING_SETTLEMENT a OPEN si falló la liquidación on-chain.
+     */
+    @Transactional
+    public void handleTradeFailed(Long orderId) {
+        orderRepository.findById(orderId).ifPresent(order -> {
+            if (order.getStatus() == OrderStatus.PENDING_SETTLEMENT) {
+                order.setStatus(OrderStatus.OPEN);
+                order.setUpdatedAt(LocalDateTime.now());
+                orderRepository.save(order);
+                log.info("Orden {} devuelta a OPEN tras fallo en liquidación on-chain", orderId);
+            } else {
+                log.warn("Se intentó revertir la orden {} pero no está en PENDING_SETTLEMENT. Estado actual: {}", orderId, order.getStatus());
+            }
+        });
+    }
 }

@@ -4,6 +4,7 @@ Puente Web2 ↔ Web3 de la plataforma Liken. Tiene dos mitades:
 
 1. **Indexer (lectura):** escanea los eventos on-chain de los contratos productivos (LinkenToken, ProjectRegistry, OfferingContract por proyecto, DividendDistributor) y los publica como mensajes Kafka que los demas servicios consumen.
 2. **Publicacion (escritura):** despliega el `OfferingContract` de cada proyecto aprobado ejecutando los scripts de Foundry (`forge`) y reporta el resultado a `project-service`.
+3. **Liquidación de Trades (escritura):** consume órdenes matcheadas (`marketplace.order_matched`), ejecuta el swap atómico LKN/USDC en el contrato `LknMarketplace` y espera el recibo de la transacción para emitir éxito (`blockchain.trade_settled` vía indexer) o fallo (`blockchain.trade_failed`).
 
 ## Indexer
 
@@ -27,6 +28,7 @@ Puente Web2 ↔ Web3 de la plataforma Liken. Tiene dos mitades:
 | `DividendDistributor.DividendsWithdrawn` | `dividends.claimed` |
 | `LinkenToken.Transfer` (excluye mint/burn) | `token.transferred` |
 | `LknMarketplace.TradeSettled` | `blockchain.trade_settled` |
+| N/A (EVM Revert en `settleTrade`) | `blockchain.trade_failed` |
 
 
 ## Publicacion de contratos

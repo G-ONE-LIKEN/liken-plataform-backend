@@ -142,6 +142,18 @@ public class TokenTransferService {
             throw new RuntimeException("Error executing settleTrade: " + ethSendTransaction.getError().getMessage());
         }
 
-        log.info("Successfully sent settleTrade transaction for order {}: {}", orderId, ethSendTransaction.getTransactionHash());
+        String txHash = ethSendTransaction.getTransactionHash();
+        log.info("Enviada transacción settleTrade para orden {}: {}. Esperando recibo...", orderId, txHash);
+
+        org.web3j.tx.response.TransactionReceiptProcessor receiptProcessor = 
+                new org.web3j.tx.response.PollingTransactionReceiptProcessor(web3j, 2000, 30);
+        org.web3j.protocol.core.methods.response.TransactionReceipt receipt = 
+                receiptProcessor.waitForTransactionReceipt(txHash);
+
+        if (!receipt.isStatusOK()) {
+            throw new RuntimeException("Transacción revertida en la blockchain (receipt status 0x0)");
+        }
+
+        log.info("Liquidación on-chain exitosa para orden {}: {} (Gas usado: {})", orderId, txHash, receipt.getGasUsed());
     }
 }

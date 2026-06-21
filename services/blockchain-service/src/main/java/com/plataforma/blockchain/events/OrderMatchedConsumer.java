@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import org.springframework.kafka.core.KafkaTemplate;
 
 @Slf4j
 @Component
@@ -21,16 +22,20 @@ public class OrderMatchedConsumer {
     private final TokenTransferService tokenTransferService;
     private final UserLookupClient userLookupClient;
 
+    private final KafkaTemplate<String, Object> kafkaTemplate;
+
     @KafkaListener(topics = "marketplace.order_matched", groupId = "blockchain-service")
     public void consume(String payload) {
         log.info("Recibido evento marketplace.order_matched: {}", payload);
+        OrderMatchedEvent event = null;
         try {
-            OrderMatchedEvent event = objectMapper.readValue(payload, OrderMatchedEvent.class);
+            event = objectMapper.readValue(payload, OrderMatchedEvent.class);
 
             // 1. Obtener wallet del vendedor
             String sellerWallet = userLookupClient.userContext(event.getSellerId()).walletAddress();
             if (sellerWallet == null || sellerWallet.isBlank()) {
                 log.error("Vendedor {} no tiene wallet vinculada. Ignorando evento.", event.getSellerId());
+                publishFailure(event.getOrderId(), "Seller wallet not linked");
                 return;
             }
 
@@ -38,6 +43,7 @@ public class OrderMatchedConsumer {
             String buyerWallet = userLookupClient.userContext(event.getBuyerId()).walletAddress();
             if (buyerWallet == null || buyerWallet.isBlank()) {
                 log.error("Comprador {} no tiene wallet vinculada. Ignorando evento.", event.getBuyerId());
+                publishFailure(event.getOrderId(), "Buyer wallet not linked");
                 return;
             }
 
@@ -61,8 +67,21 @@ public class OrderMatchedConsumer {
 
         } catch (Exception e) {
             log.error("Error procesando evento marketplace.order_matched", e);
-            // Si falla temporalmente, idealmente se debe reintentar o mandar a un DLQ.
-            // Para el MVP logueamos el error.
+            if (event != null && event.getOrderId() != null) {
+                publishFailure(event.getOrderId(), e.getMessage());
+            }
+        }
+    }
+
+    private void publishFailure(String orderId, String reason) {
+        try {
+            java.util.Map<String, Object> failurePayload = new java.util.HashMap<>();
+            failurePayload.put("orderId", orderId);
+            failurePayload.put("reason", reason);
+            kafkaTemplate.send("blockchain.trade_failed", orderId, failurePayload);
+            log.info("Publicado evento blockchain.trade_failed para orderId={}", orderId);
+        } catch (Exception ex) {
+            log.error("No se pudo publicar blockchain.trade_failed para orderId={}", orderId, ex);
         }
     }
 }

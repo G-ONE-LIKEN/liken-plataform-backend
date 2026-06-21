@@ -11,7 +11,7 @@ Microservicio de gestion de identidad y control de acceso de la plataforma LIKEN
 - **Flujo de developer**: alta como developer y aprobacion/rechazo por ADMIN; emite `user.developer_registered` y `user.developer_status_changed`.
 - **KYC**: subida de documentos a GCS, estados `NOT_STARTED / PENDING / APPROVED / REJECTED`, aprobacion por ADMIN (ADR-0015).
 - **Tiers de inversor** (`BRONZE / SILVER / GOLD`): consume `user.tier_changed` de invest-dividend-service y actualiza `users.tier`.
-- Endpoints internos que proveen datos de usuario a auth-service, gateway y servicios de negocio.
+- Endpoints internos que proveen datos de usuario a auth-service, gateway y servicios de negocio. **Nota:** las búsquedas por wallet son case-insensitive (`findByWalletAddressIgnoreCase`) para soportar tanto formato EIP-55 como minúsculas devueltas por RPCs on-chain.
 
 > El login y el cambio de contraseña son responsabilidad de **auth-service**, que llama a este servicio a través de los endpoints `/internal/**`.
 

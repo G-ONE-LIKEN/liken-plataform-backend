@@ -56,6 +56,7 @@ Microservicio de la plataforma LIKEN responsable del mercado secundario (P2P) de
 |--------|--------------|---------|
 | `projects.state_changed` | blockchain-service / project-service | Cancelar ordenes activas si el proyecto se cancela, pausa o falla |
 | `blockchain.trade_settled` | blockchain-service | Finalizar la orden a MATCHED y guardar el Trade |
+| `blockchain.trade_failed` | blockchain-service | Revertir la orden de PENDING_SETTLEMENT a OPEN si falla on-chain |
 
 ## Modelo de datos
 
