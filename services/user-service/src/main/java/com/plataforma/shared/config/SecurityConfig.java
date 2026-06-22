@@ -31,6 +31,7 @@ import java.util.List;
 public class SecurityConfig {
 
     private final GatewayHeaderAuthFilter gatewayHeaderAuthFilter;
+    private final com.plataforma.shared.security.InternalAuthFilter internalAuthFilter;
 
     @Value("${FRONTEND_URL:http://localhost:5173}")
     private String frontendUrl;
@@ -50,6 +51,7 @@ public class SecurityConfig {
                         .requestMatchers("/internal/**").permitAll()
                         .requestMatchers("/actuator/**").permitAll()
                         .anyRequest().authenticated())
+                .addFilterBefore(internalAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(gatewayHeaderAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

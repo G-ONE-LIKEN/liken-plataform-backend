@@ -19,6 +19,8 @@ import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 @EnableMethodSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.plataforma.shared.config.InternalAuthFilter internalAuthFilter;
 
     private final GatewayHeaderAuthFilter gatewayHeaderAuthFilter;
 
@@ -45,7 +47,9 @@ public class SecurityConfig {
                 .requestMatchers("/actuator/**", "/health").permitAll()
                 .anyRequest().authenticated()
             )
-            .addFilterBefore(gatewayHeaderAuthFilter, UsernamePasswordAuthenticationFilter.class);
+            
+                .addFilterBefore(internalAuthFilter, org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(gatewayHeaderAuthFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
 }
