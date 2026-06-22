@@ -208,8 +208,27 @@ public class KycService {
             throw new IllegalStateException("El usuario ya tiene KYC aprobado");
         }
 
+        // Armar expected_details con los datos registrados del usuario
+        DiditService.ExpectedDetails expectedDetails = null;
+        if (user.getDni() != null) {
+            String dateOfBirth = user.getBirthDate() != null
+                    ? user.getBirthDate().toString()  // formato yyyy-MM-dd
+                    : null;
+
+            expectedDetails = new DiditService.ExpectedDetails(
+                    user.getFirstName(),
+                    user.getLastName(),
+                    user.getDni(),
+                    dateOfBirth
+            );
+            log.info("KYC Didit: validando identidad contra datos registrados para userId={}", userId);
+        } else {
+            log.warn("KYC Didit: usuario {} no tiene DNI registrado, se omite expected_details", userId);
+        }
+
         // Crear sesión en Didit
-        DiditService.DiditSession session = diditService.createSession(String.valueOf(userId));
+        DiditService.DiditSession session = diditService.createSession(
+            String.valueOf(userId), expectedDetails);
 
         // Guardar el sessionId para poder vincular el webhook cuando llegue
         user.setDiditSessionId(session.sessionId());

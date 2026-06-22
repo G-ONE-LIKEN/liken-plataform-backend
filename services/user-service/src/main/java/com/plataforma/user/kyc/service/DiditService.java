@@ -54,7 +54,7 @@ public class DiditService {
      *                        identificar al usuario sin depender solo del session_id)
      * @return {@link DiditSession} con el sessionId y la URL del widget
      */
-    public DiditSession createSession(String externalUserId) throws Exception {
+    public DiditSession createSession(String externalUserId, ExpectedDetails expectedDetails) throws Exception {
         log.info("Creando sesión Didit para userId: {}", externalUserId);
 
         ObjectNode body = mapper.createObjectNode();
@@ -65,6 +65,19 @@ public class DiditService {
         // Solo se incluye si está configurado — campo vacío rompe la API de Didit.
         if (callbackUrl != null && !callbackUrl.isBlank()) {
             body.put("callback", callbackUrl);
+        }
+
+        if (expectedDetails != null) {
+            ObjectNode details = mapper.createObjectNode();
+            if (expectedDetails.firstName() != null)
+                details.put("first_name", expectedDetails.firstName());
+            if (expectedDetails.lastName() != null)
+                details.put("last_name", expectedDetails.lastName());
+            if (expectedDetails.documentNumber() != null)
+                details.put("document_number", expectedDetails.documentNumber());
+            if (expectedDetails.dateOfBirth() != null)
+                details.put("date_of_birth", expectedDetails.dateOfBirth());
+            body.set("expected_details", details);
         }
 
         HttpRequest request = HttpRequest.newBuilder()
@@ -96,6 +109,13 @@ public class DiditService {
         log.info("Sesión Didit creada: {} para userId: {}", sessionId, externalUserId);
         return new DiditSession(sessionId, verificationUrl);
     }
+
+    public record ExpectedDetails(
+        String firstName,
+        String lastName,
+        String documentNumber,
+        String dateOfBirth
+    ) {}
 
     /**
      * Consulta el estado actual de una sesión en Didit.
