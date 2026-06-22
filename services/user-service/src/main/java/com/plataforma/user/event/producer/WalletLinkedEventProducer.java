@@ -9,6 +9,8 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
  * Publica el evento {@code user.wallet_linked} cuando un usuario vincula
@@ -32,10 +34,23 @@ public class WalletLinkedEventProducer {
         payload.put("userId",        userId);
         payload.put("walletAddress", walletAddress);
         try {
-            kafkaTemplate.send(TOPIC_WALLET_LINKED, String.valueOf(userId), payload);
+            sendAfterCommit(TOPIC_WALLET_LINKED, String.valueOf(userId), payload);
             log.info("Publicado {}: userId={} wallet={}", TOPIC_WALLET_LINKED, userId, walletAddress);
         } catch (Exception e) {
             log.warn("Error publicando {}: {}", TOPIC_WALLET_LINKED, e.getMessage());
+        }
+    }
+
+    private void sendAfterCommit(String topic, String key, Object payload) {
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    kafkaTemplate.send(topic, key, payload);
+                }
+            });
+        } else {
+            kafkaTemplate.send(topic, key, payload);
         }
     }
 }

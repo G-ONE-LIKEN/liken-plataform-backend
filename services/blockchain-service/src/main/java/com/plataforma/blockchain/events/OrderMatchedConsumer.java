@@ -12,6 +12,8 @@ import org.springframework.stereotype.Component;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Slf4j
 @Component
@@ -78,10 +80,23 @@ public class OrderMatchedConsumer {
             java.util.Map<String, Object> failurePayload = new java.util.HashMap<>();
             failurePayload.put("orderId", orderId);
             failurePayload.put("reason", reason);
-            kafkaTemplate.send("blockchain.trade_failed", orderId, failurePayload);
+            sendAfterCommit("blockchain.trade_failed", orderId, failurePayload);
             log.info("Publicado evento blockchain.trade_failed para orderId={}", orderId);
         } catch (Exception ex) {
             log.error("No se pudo publicar blockchain.trade_failed para orderId={}", orderId, ex);
+        }
+    }
+
+    private void sendAfterCommit(String topic, String key, Object payload) {
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    kafkaTemplate.send(topic, key, payload);
+                }
+            });
+        } else {
+            kafkaTemplate.send(topic, key, payload);
         }
     }
 }

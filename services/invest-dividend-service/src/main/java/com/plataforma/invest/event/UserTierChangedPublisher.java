@@ -9,6 +9,8 @@ import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
  * Publica {@code user.tier_changed} cuando un usuario cruza un umbral de tier.
@@ -31,7 +33,20 @@ public class UserTierChangedPublisher {
         payload.put("userId", userId);
         payload.put("oldTier", oldTier);
         payload.put("newTier", newTier);
-        kafkaTemplate.send(TOPIC, String.valueOf(userId), payload);
+        sendAfterCommit(TOPIC, String.valueOf(userId), payload);
         log.info("user.tier_changed publicado: userId={} {} → {}", userId, oldTier, newTier);
+    }
+
+    private void sendAfterCommit(String topic, String key, Object payload) {
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    kafkaTemplate.send(topic, key, payload);
+                }
+            });
+        } else {
+            kafkaTemplate.send(topic, key, payload);
+        }
     }
 }

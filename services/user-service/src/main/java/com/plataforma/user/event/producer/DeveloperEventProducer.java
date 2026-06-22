@@ -11,6 +11,8 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
  * Publica eventos del ciclo de vida del rol DEVELOPER para que el
@@ -29,7 +31,7 @@ public class DeveloperEventProducer {
     public void publishRegistered(User user) {
         Map<String, Object> payload = baseEvent(user);
         try {
-            kafkaTemplate.send(TOPIC_REGISTERED, String.valueOf(user.getId()), payload);
+            sendAfterCommit(TOPIC_REGISTERED, String.valueOf(user.getId()), payload);
             log.info("Publicado {}: userId={}", TOPIC_REGISTERED, user.getId());
         } catch (Exception e) {
             log.warn("Error publicando {}: {}", TOPIC_REGISTERED, e.getMessage());
@@ -40,7 +42,7 @@ public class DeveloperEventProducer {
         Map<String, Object> payload = baseEvent(user);
         payload.put("status", status != null ? status.name() : null);
         try {
-            kafkaTemplate.send(TOPIC_STATUS_CHANGED, String.valueOf(user.getId()), payload);
+            sendAfterCommit(TOPIC_STATUS_CHANGED, String.valueOf(user.getId()), payload);
             log.info("Publicado {}: userId={} status={}", TOPIC_STATUS_CHANGED, user.getId(), status);
         } catch (Exception e) {
             log.warn("Error publicando {}: {}", TOPIC_STATUS_CHANGED, e.getMessage());
@@ -57,5 +59,18 @@ public class DeveloperEventProducer {
         payload.put("firstName",  user.getFirstName());
         payload.put("lastName",   user.getLastName());
         return payload;
+    }
+
+    private void sendAfterCommit(String topic, String key, Object payload) {
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    kafkaTemplate.send(topic, key, payload);
+                }
+            });
+        } else {
+            kafkaTemplate.send(topic, key, payload);
+        }
     }
 }

@@ -74,3 +74,10 @@ logging:
     com.plataforma.blockchain: DEBUG
     org.springframework.kafka: DEBUG
     org.apache.kafka: DEBUG
+
+spring:
+  kafka:
+    consumer:
+      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      properties:
+        spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JsonDeserializer

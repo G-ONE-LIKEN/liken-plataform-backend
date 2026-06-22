@@ -9,6 +9,8 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
  * Publica {@code marketplace.order_matched} cuando se concreta una transaccion P2P.
@@ -47,8 +49,21 @@ public class OrderMatchedPublisher {
                 "orderId", String.valueOf(orderId)
         );
 
-        kafkaTemplate.send(TOPIC, String.valueOf(orderId), event);
+        sendAfterCommit(TOPIC, String.valueOf(orderId), event);
         log.info("Evento {} publicado: sellerId={} buyerId={} projectId={} tokens={} price={}",
                 TOPIC, sellerId, buyerId, projectId, tokensAmount, totalPrice);
+    }
+
+    private void sendAfterCommit(String topic, String key, Object payload) {
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    kafkaTemplate.send(topic, key, payload);
+                }
+            });
+        } else {
+            kafkaTemplate.send(topic, key, payload);
+        }
     }
 }
