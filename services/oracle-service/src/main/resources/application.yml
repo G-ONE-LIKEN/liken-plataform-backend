@@ -31,7 +31,7 @@ project-service:
 oracle:
     simulation:
         # Intervalo entre ciclos de generacion de lecturas (en milisegundos)
-    interval-ms: ${ORACLE_INTERVAL_MS:60000} # 1 minuto por defecto
+        interval-ms: ${ORACLE_INTERVAL_MS:60000} # 1 minuto por defecto
 
 management:
     endpoints:
