@@ -17,6 +17,7 @@ import com.plataforma.shared.exception.UnauthorizedAccessException;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.validation.Valid;
 
 import lombok.RequiredArgsConstructor;
 
@@ -51,7 +52,7 @@ public class AuthController {
      */
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<LoginResponse>> login(
-            @RequestBody LoginRequest request,
+            @Valid @RequestBody LoginRequest request,
             HttpServletResponse response) {
 
         // Validate credentials and obtain access token + userId in one pass
@@ -75,32 +76,45 @@ public class AuthController {
 
     @PostMapping("/register/request")
     public ResponseEntity<ApiResponse<Void>> register(
-            @RequestBody RegisterRequest request) {
+            @Valid @RequestBody RegisterRequest request) {
         emailVerificationService.requestRegistration(request);
         return ResponseEntity.ok(ApiResponse.success(
-                "Te enviamos un codigo de verificacion para completar el registro.",
-                null));
+            "Enviamos un codigo de verificacion para completar el registro.",
+            null
+        ));
     }
 
     @PostMapping("/email-verification/request")
     public ResponseEntity<ApiResponse<Void>> requestEmailVerification(
-            @RequestBody EmailVerificationRequest request) {
+            @Valid @RequestBody EmailVerificationRequest request
+    ) {
         emailVerificationService.requestVerification(request.getEmail());
-        return ResponseEntity.ok(ApiResponse.success("Si la cuenta existe, enviamos un codigo de verificacion.", null));
+        return ResponseEntity.ok(ApiResponse.success(
+            "Si la cuenta existe, enviamos un codigo de verificacion.",
+            null
+        ));
     }
 
     @PostMapping("/email-verification/confirm")
     public ResponseEntity<ApiResponse<Void>> confirmEmailVerification(
-            @RequestBody EmailVerificationConfirmRequest request) {
-        emailVerificationService.confirmVerification(request.getEmail(), request.getCode());
-        return ResponseEntity.ok(ApiResponse.success("Email verificado correctamente.", null));
+        @Valid @RequestBody EmailVerificationConfirmRequest request
+    ){
+        emailVerificationService.confirmVerification(
+            request.getEmail(), request.getCode()
+        );
+        return ResponseEntity.ok(ApiResponse.success(
+            "Email verificado correctamente.", null
+        ));
     }
 
     @PostMapping("/email-verification/resend")
     public ResponseEntity<ApiResponse<Void>> resendEmailVerification(
-            @RequestBody EmailVerificationRequest request) {
+            @Valid @RequestBody EmailVerificationRequest request
+    ) {
         emailVerificationService.resendVerification(request.getEmail());
-        return ResponseEntity.ok(ApiResponse.success("Si la cuenta existe, reenviamos el codigo de verificacion.", null));
+        return ResponseEntity.ok(ApiResponse.success(
+            "Si la cuenta existe, reenviamos el codigo de verificacion.", null
+        ));
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -170,9 +184,14 @@ public class AuthController {
     @PostMapping("/change-password")
     public ResponseEntity<ApiResponse<Void>> changePassword(
             @RequestHeader("X-User-Id") Long userId,
-            @RequestBody ChangePasswordRequest request) {
-        authService.changePassword(userId, request.getOldPassword(), request.getNewPassword());
-        return ResponseEntity.ok(ApiResponse.success("Contraseña actualizada", null));
+            @Valid @RequestBody ChangePasswordRequest request
+    ) {
+        authService.changePassword(
+            userId, request.getOldPassword(), request.getNewPassword()
+        );
+        return ResponseEntity.ok(ApiResponse.success(
+            "Contraseña actualizada", null
+        ));
     }
 
     // ─────────────────────────────────────────────────────────────

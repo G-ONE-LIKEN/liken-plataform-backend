@@ -1,3 +1,4 @@
+// services/user-service/src/main/java/com/plataforma/user/service/UserService.java
 package com.plataforma.user.service;
 
 import com.plataforma.rbac.constant.RoleConstants;

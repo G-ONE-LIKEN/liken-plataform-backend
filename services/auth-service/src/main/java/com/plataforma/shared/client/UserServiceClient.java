@@ -1,3 +1,4 @@
+// services/auth-service/src/main/java/com/plataforma/shared/client/UserServiceClient.java
 package com.plataforma.shared.client;
 
 import com.plataforma.shared.client.dto.GoogleUserRequest;

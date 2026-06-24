@@ -5,7 +5,7 @@
   Appenders:
     - CONSOLE  → docker logs / dev day-to-day. Formato corto, con colores cuando hay TTY.
     - FILE_JSON → logs/app.log con JSON estructurado (uno por linea). Parseable con jq.
-    - FILE_ERROR → logs/error.log solo WARN+ERROR (también JSON), retencion 30 dias.
+    - FILE_ERROR → logs/error.log solo WARN+ERROR (tambien JSON), retencion 30 dias.
 
   Como leer:
     docker logs liken_auth_service -f
@@ -71,7 +71,7 @@
         </rollingPolicy>
     </appender>
 
-    <!-- ============ FILE: solo WARN+ERROR (también JSON) ============ -->
+    <!-- ============ FILE: solo WARN+ERROR (tambien JSON) ============ -->
     <appender name="FILE_ERROR" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>${LOG_PATH}/error.log</file>
         <filter class="ch.qos.logback.classic.filter.ThresholdFilter">

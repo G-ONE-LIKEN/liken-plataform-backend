@@ -1,3 +1,4 @@
+// services/user-service/src/test/java/com/plataforma/shared/exception/GlobalExceptionHandler.java
 package com.plataforma.shared.exception;
 
 import com.plataforma.shared.dto.ApiResponse;
@@ -8,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -43,8 +45,9 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ApiResponse<Void>> handleDataIntegrity(DataIntegrityViolationException ex) {
         return response(
-                "No se puede eliminar el recurso porque esta siendo utilizado por otros registros.",
-                HttpStatus.CONFLICT);
+            "No se puede eliminar el recurso porque esta siendo utilizado por otros registros.",
+            HttpStatus.CONFLICT
+        );
     }
 
     @ExceptionHandler({ DuplicateRoleException.class, RoleInUseException.class })
@@ -55,5 +58,14 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleGeneral(Exception ex) {
         return response("Ocurrio un error interno en el servidor.", HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ApiResponse<Void>> handleValidationExceptions(
+        MethodArgumentNotValidException ex
+    ) {
+        // Esto toma el mensaje del primer error de validación que encuentre
+        String message = ex.getBindingResult().getAllErrors().get(0).getDefaultMessage();
+        return response(message, HttpStatus.BAD_REQUEST);
     }
 }
