@@ -1,3 +1,4 @@
+// services/user-service/src/main/java/com/plataforma/user/controller/UserInternalController.java
 package com.plataforma.user.controller;
 
 import com.plataforma.rbac.model.Permission;
@@ -10,6 +11,8 @@ import com.plataforma.user.dto.UserInternalDTO;
 import com.plataforma.user.model.User;
 import com.plataforma.user.repository.UserRepository;
 import com.plataforma.user.service.UserService;
+
+import jakarta.validation.Valid;
 
 import lombok.RequiredArgsConstructor;
 
@@ -47,7 +50,9 @@ public class UserInternalController {
     }
 
     @PostMapping("/local")
-    public ResponseEntity<UserInternalDTO> createLocalUser(@RequestBody LocalUserRegistrationRequest request) {
+    public ResponseEntity<UserInternalDTO> createLocalUser(
+		@Valid @RequestBody LocalUserRegistrationRequest request
+	) {
         User toCreate = User.builder()
                 .email(request.getEmail())
                 .password(request.getPassword())

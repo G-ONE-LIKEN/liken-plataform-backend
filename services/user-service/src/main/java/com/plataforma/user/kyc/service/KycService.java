@@ -1,5 +1,15 @@
 package com.plataforma.user.kyc.service;
 
+import java.io.IOException;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.UUID;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
+
 import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.Storage;
@@ -15,17 +25,9 @@ import com.plataforma.user.kyc.repository.KycDocumentRepository;
 import com.plataforma.user.model.KycStatus;
 import com.plataforma.user.model.User;
 import com.plataforma.user.repository.UserRepository;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.multipart.MultipartFile;
-
-import java.io.IOException;
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.UUID;
 
 /**
  * Logica de KYC (ver DD013).
@@ -45,6 +47,8 @@ public class KycService {
     private final KycDocumentRepository documentRepository;
     private final Storage storage;
     private final UserContextEventProducer contextEventProducer;
+  
+    private final DiditService diditService;
 
     @Value("${gcp.storage.bucket}")
     private String bucket;
@@ -183,4 +187,124 @@ public class KycService {
                 .rejectionReason(d.getRejectionReason())
                 .build();
     }
+
+    /**
+     * Inicia una sesión de verificación KYC automatizada con Didit.
+     *
+     * Crea la sesión en Didit, guarda el sessionId en el usuario,
+     * y devuelve la URL del widget donde el usuario completa el proceso.
+     *
+     * El estado del usuario NO cambia aquí todavía — cambia cuando
+     * Didit llama al webhook con el resultado final.
+     *
+     * Endpoint: POST /api/users/me/kyc/didit/initiate
+     */
+    @Transactional
+    public String initiateDiditSession(Long userId) throws Exception {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserNotFoundException(userId));
+
+        if (KycStatus.APPROVED.equals(user.getKycStatus())) {
+            throw new IllegalStateException("El usuario ya tiene KYC aprobado");
+        }
+
+        // Armar expected_details con los datos registrados del usuario
+        DiditService.ExpectedDetails expectedDetails = null;
+        if (user.getDni() != null) {
+            String dateOfBirth = user.getBirthDate() != null
+                    ? user.getBirthDate().toString()  // formato yyyy-MM-dd
+                    : null;
+
+            expectedDetails = new DiditService.ExpectedDetails(
+                    user.getFirstName(),
+                    user.getLastName(),
+                    user.getDni(),
+                    dateOfBirth
+            );
+            log.info("KYC Didit: validando identidad contra datos registrados para userId={}", userId);
+        } else {
+            log.warn("KYC Didit: usuario {} no tiene DNI registrado, se omite expected_details", userId);
+        }
+
+        // Crear sesión en Didit
+        DiditService.DiditSession session = diditService.createSession(
+            String.valueOf(userId), expectedDetails);
+
+        // Guardar el sessionId para poder vincular el webhook cuando llegue
+        user.setDiditSessionId(session.sessionId());
+        // Marcar como PENDING: el usuario inició el proceso
+        user.setKycStatus(KycStatus.PENDING);
+        userRepository.save(user);
+
+        log.info("KYC Didit: sesión iniciada para userId={} sessionId={}",
+                userId, session.sessionId());
+
+        return session.verificationUrl();
+    }
+
+    /**
+     * Procesa el webhook que Didit envía al terminar una verificación.
+     *
+     * Didit llama a POST /api/kyc/webhook/didit con el resultado.
+     * Este método actualiza el kycStatus del usuario automáticamente,
+     * reemplazando la aprobación manual del admin para el flujo Didit.
+     *
+     * El campo vendor_data contiene nuestro userId (lo pusimos al crear la sesión)
+     * como fallback si el sessionId no matchea.
+     *
+     * @param sessionId    ID de sesión de Didit (campo session_id del webhook)
+     * @param status       Resultado: "APPROVED" o "DECLINED"
+     * @param vendorData   Nuestro userId interno (campo vendor_data del webhook)
+     * @param declineReason Razón del rechazo si status=DECLINED (puede ser null)
+     */
+    @Transactional
+    public void processDiditWebhook(String sessionId, String status,
+                                    String vendorData, String declineReason) {
+        // Buscar por sessionId primero
+        User user = userRepository.findByDiditSessionId(sessionId)
+                .orElseGet(() -> {
+                    // Fallback: buscar por vendorData (nuestro userId)
+                    if (vendorData != null) {
+                        try {
+                            Long userId = Long.parseLong(vendorData);
+                            return userRepository.findById(userId).orElse(null);
+                        } catch (NumberFormatException e) {
+                            return null;
+                        }
+                    }
+                    return null;
+                });
+
+        if (user == null) {
+            log.warn("KYC Didit webhook: no se encontró usuario para sessionId={} vendorData={}",
+                    sessionId, vendorData);
+            return;
+        }
+
+        log.info("KYC Didit webhook: userId={} sessionId={} status={}",
+                user.getId(), sessionId, status);
+
+        switch (status.toLowerCase()) {
+            case "approved" -> {
+                user.setKycStatus(KycStatus.APPROVED);
+                user.setKycVerifiedAt(java.time.LocalDateTime.now());
+                log.info("KYC Didit: usuario {} APROBADO automaticamente", user.getEmail());
+                contextEventProducer.invalidateContext(user.getId());
+            }
+            case "declined" -> {
+                user.setKycStatus(KycStatus.REJECTED);
+                log.info("KYC Didit: usuario {} RECHAZADO. Razon: {}",
+                        user.getEmail(), declineReason);
+            }
+            case "in progress" -> {
+                user.setKycStatus(KycStatus.PENDING);
+                log.info("KYC Didit: usuario {} en revision adicional", user.getEmail());
+            }
+            default -> log.warn("KYC Didit webhook: estado desconocido '{}' para userId={}",
+                    status, user.getId());
+        }
+
+        userRepository.save(user);
+    }
+
 }

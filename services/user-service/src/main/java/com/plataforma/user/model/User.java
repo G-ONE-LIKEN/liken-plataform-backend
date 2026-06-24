@@ -117,6 +117,24 @@ public class User extends Auditable {
     @Column(name = "wallet_address", length = 42, unique = true)
     private String walletAddress;
 
+    /**
+     * ID de sesión de verificación en Didit.
+     * Se guarda al iniciar el flujo KYC automatizado para vincular
+     * el webhook entrante con este usuario.
+     * NULL si el usuario usa el flujo manual de documentos.
+     */
+    @Column(name = "didit_session_id", length = 255)
+    private String diditSessionId;
+
+    /**
+     * Timestamp de aprobación automática por Didit.
+     * NULL si no fue aprobado aún o usó el flujo manual.
+     */
+    @Column(name = "kyc_verified_at")
+    private java.time.LocalDateTime kycVerifiedAt;
+
+    
+
     public boolean hasPermission(String permissionName) {
         if (role == null || role.getPermissions() == null) return false;
         return role.getPermissions().stream()

@@ -15,7 +15,7 @@ Microservicio de autenticacion de la plataforma LIKEN. Emite y gestiona tokens J
 
 No tiene base de datos relacional propia: usa **Redis** para refresh tokens y codigos de verificacion de email.
 
-## Por qué es un servicio separado
+## Por que es un servicio separado
 
 Ver [ADR-0008](../../docs/adr/ADR-0008-auth-service-como-microservicio-independiente). Resumen: auth tiene un ciclo de vida y responsabilidades distintos al CRUD de usuarios. Separarlo permite escalar, auditar y evolucionar la estrategia de autenticacion de forma independiente.
 
@@ -53,7 +53,7 @@ com.plataforma
 
 ## Endpoints
 
-| Método | Ruta | JWT | Descripcion |
+| Metodo | Ruta | JWT | Descripcion |
 |--------|------|-----|-------------|
 | POST | `/api/auth/login` | No | Credenciales → access token (body) + refresh token (cookie). |
 | POST | `/api/auth/google` | No | `idToken` de Google → access + refresh. |
@@ -116,11 +116,11 @@ Los endpoints `/internal/**` no llevan JWT — estan protegidos a nivel de red (
 | `EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS` | Cooldown entre reenvios | `60` |
 | `EMAIL_VERIFICATION_MAX_ATTEMPTS` | Intentos maximos por codigo | `5` |
 
-El `JWT_SECRET` debe ser **idéntico** al configurado en `api-gateway` (que valida los tokens emitidos por este servicio).
+El `JWT_SECRET` debe ser **identico** al configurado en `api-gateway` (que valida los tokens emitidos por este servicio).
 
 ## Division de responsabilidades de auth
 
-| Quién | Responsabilidad |
+| Quien | Responsabilidad |
 |-------|----------------|
 | `auth-service` | Verifica credenciales (login) y **emite** JWTs |
 | `api-gateway` | **Valida** JWTs en todas las requests posteriores (ADR-0004) |

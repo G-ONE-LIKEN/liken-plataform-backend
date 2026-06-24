@@ -14,7 +14,17 @@ http:
     data: |-
       {
         "email": "federicoclarosv.15@gmail.com",
-        "password": "mipass123"
+        "password": "mipass123!",
+        "roleName": "INVESTOR",
+        "firstName": "Federico",
+        "lastName": "Claros",
+        "dni": "12345678",
+        "birthDate": "1999-01-15",
+        "phone": "+5491112345678",
+        "country": "Argentina",
+        "province": "Buenos Aires",
+        "address": "Calle Falsa 123",
+        "termsAccepted": true
       }
 
 settings:

@@ -1,3 +1,4 @@
+// services/user-service/src/main/java/com/plataforma/shared/config/SecurityConfig.java
 package com.plataforma.shared.config;
 
 import com.plataforma.shared.security.GatewayHeaderAuthFilter;

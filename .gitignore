@@ -38,10 +38,10 @@ contracts/cache/
 # Artefactos de herramientas (Claude Code hooks, etc.)
 .github/java-upgrade/
 .claude/
-
 # Agent capabilities & metadata
 .agents/
 skills-lock.json
 graphify-out/
 
 /foundry_bin
+.directory
