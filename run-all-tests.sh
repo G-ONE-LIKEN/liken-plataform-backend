@@ -18,6 +18,7 @@ SERVICES=(
   invest-dividend-service
   marketplace-service
   notification-service
+  oracle-service
   project-service
   user-service
   wallet-service

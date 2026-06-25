@@ -18,7 +18,8 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
 
     Page<Project> findByActiveTrueAndState(ProjectState state, Pageable pageable);
 
-    Page<Project> findByActiveTrueAndStateNotAndEnergyType(ProjectState excludedState, EnergyType energyType, Pageable pageable);
+    Page<Project> findByActiveTrueAndStateNotAndEnergyType(ProjectState excludedState, EnergyType energyType,
+            Pageable pageable);
 
     Page<Project> findByActiveTrueAndStateAndEnergyType(ProjectState state, EnergyType energyType, Pageable pageable);
 
@@ -31,4 +32,6 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
     Optional<Project> findByActiveTrueAndRegistryProjectId(Long registryProjectId);
 
     List<Project> findByActiveTrueAndOfferingContractAddressIsNotNull();
+
+    List<Project> findByActiveTrueAndStateAndInstalledCapacityMWIsNotNull(ProjectState state);
 }

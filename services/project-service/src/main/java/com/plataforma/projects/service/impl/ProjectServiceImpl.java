@@ -2,6 +2,7 @@ package com.plataforma.projects.service.impl;
 
 import com.plataforma.projects.dto.ProjectRequest;
 import com.plataforma.projects.dto.ProjectResponse;
+import com.plataforma.projects.dto.internal.ActiveProjectOracleDto;
 import com.plataforma.projects.dto.internal.OfferingContractRefResponse;
 import com.plataforma.projects.dto.internal.ProjectPublicationFailureRequest;
 import com.plataforma.projects.dto.internal.ProjectPublicationRequest;
@@ -45,7 +46,8 @@ public class ProjectServiceImpl implements ProjectService {
         } else if (state != null) {
             page = projectRepository.findByActiveTrueAndState(state, pageable);
         } else if (energyType != null) {
-            page = projectRepository.findByActiveTrueAndStateNotAndEnergyType(ProjectState.PENDING_APPROVAL, energyType, pageable);
+            page = projectRepository.findByActiveTrueAndStateNotAndEnergyType(ProjectState.PENDING_APPROVAL, energyType,
+                    pageable);
         } else {
             page = projectRepository.findByActiveTrueAndStateNot(ProjectState.PENDING_APPROVAL, pageable);
         }
@@ -171,7 +173,8 @@ public class ProjectServiceImpl implements ProjectService {
         project.setDescription(request.getDescription());
         project.setEnergyType(request.getEnergyType());
         project.setProvince(request.getProvince());
-        if (request.getCountry() != null) project.setCountry(request.getCountry());
+        if (request.getCountry() != null)
+            project.setCountry(request.getCountry());
         project.setLatitude(request.getLatitude());
         project.setLongitude(request.getLongitude());
         project.setInstalledCapacityMW(request.getInstalledCapacityMW());
@@ -181,8 +184,10 @@ public class ProjectServiceImpl implements ProjectService {
             throw new IllegalArgumentException(
                     "El early bird price debe ser estrictamente menor que el standard price");
         }
-        if (request.getEarlyBirdPrice() != null) project.setEarlyBirdPrice(request.getEarlyBirdPrice());
-        if (request.getStandardPrice() != null) project.setStandardPrice(request.getStandardPrice());
+        if (request.getEarlyBirdPrice() != null)
+            project.setEarlyBirdPrice(request.getEarlyBirdPrice());
+        if (request.getStandardPrice() != null)
+            project.setStandardPrice(request.getStandardPrice());
         project.setMinimumInvestment(request.getMinimumInvestment());
         project.setSoftCap(request.getSoftCap());
         project.setHardCap(request.getHardCap());
@@ -285,11 +290,13 @@ public class ProjectServiceImpl implements ProjectService {
 
     private ProjectResponse startPublication(Project project) {
         if (project.getOnChainStatus() == OnChainStatus.DEPLOYING) {
-            throw new ProjectStateException("El proyecto ya se esta publicando on-chain. Espera a que termine el deploy.");
+            throw new ProjectStateException(
+                    "El proyecto ya se esta publicando on-chain. Espera a que termine el deploy.");
         }
 
         if (project.getExpectedOpenDate() == null) {
-            throw new ProjectStateException("No se puede publicar sin expectedOpenDate. Esa fecha define el deadline on-chain.");
+            throw new ProjectStateException(
+                    "No se puede publicar sin expectedOpenDate. Esa fecha define el deadline on-chain.");
         }
 
         if (project.getSoftCap() == null || project.getHardCap() == null) {
@@ -332,5 +339,13 @@ public class ProjectServiceImpl implements ProjectService {
         if (!isAdmin && !project.getOwnerId().equals(requesterId)) {
             throw new UnauthorizedProjectAccessException();
         }
+    }
+
+    public List<ActiveProjectOracleDto> listActiveProjectsForOracle() {
+        return projectRepository
+                .findByActiveTrueAndStateAndInstalledCapacityMWIsNotNull(ProjectState.OPEN)
+                .stream()
+                .map(p -> new ActiveProjectOracleDto(p.getId(), p.getInstalledCapacityMW()))
+                .toList();
     }
 }

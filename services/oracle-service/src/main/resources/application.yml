@@ -1,0 +1,44 @@
+server:
+    port: ${PORT:8088}
+spring:
+    application:
+        name: oracle-service
+
+    datasource:
+        url: ${DB_URL:jdbc:postgresql://localhost:5432/oracle_db}
+        username: ${DB_USERNAME:liken_user}
+        password: ${DB_PASSWORD}
+
+    jpa:
+        hibernate:
+            ddl-auto: validate
+        open-in-view: false
+
+    flyway:
+        enabled: true
+        locations: classpath:db/migration
+
+    kafka:
+        bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+        producer:
+            key-serializer: org.apache.kafka.common.serialization.StringSerializer
+            value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+
+# URL de project-service para consultar /internal/projects/active (service-to-service, sin gateway)
+project-service:
+    url: ${PROJECT_SERVICE_URL:http://localhost:8082}
+
+oracle:
+    simulation:
+        # Intervalo entre ciclos de generacion de lecturas (en milisegundos)
+        interval-ms: ${ORACLE_INTERVAL_MS:60000} # 1 minuto por defecto
+
+management:
+    endpoints:
+        web:
+            exposure:
+                include: health
+    endpoint:
+        health:
+            probes:
+                enabled: true

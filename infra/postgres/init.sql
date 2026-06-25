@@ -7,3 +7,4 @@ CREATE DATABASE notification_db;
 CREATE DATABASE blockchain_db;
 CREATE DATABASE invest_db;
 CREATE DATABASE marketplace_db;
+CREATE DATABASE oracle_db;
