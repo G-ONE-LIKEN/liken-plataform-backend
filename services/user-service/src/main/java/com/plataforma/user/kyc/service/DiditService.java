@@ -83,7 +83,9 @@ public class DiditService {
         }
 
         String requestBody = mapper.writeValueAsString(body);
-        log.info("Didit POST /v3/session/ request body: {}", requestBody);
+        // debug, no info: el body lleva PII (nombre, DNI, fecha de nacimiento) y no
+        // debe quedar en los logs de producción.
+        log.debug("Didit POST /v3/session/ request body: {}", requestBody);
 
         HttpRequest request = HttpRequest.newBuilder()
             .uri(URI.create(API_BASE + "/v3/session/"))
@@ -96,7 +98,9 @@ public class DiditService {
         HttpResponse<String> response = httpClient.send(request,
             HttpResponse.BodyHandlers.ofString());
 
-        log.info("Didit POST /v3/session/ → {}: {}", response.statusCode(), response.body());
+        // debug: la respuesta puede incluir datos de la sesión/PII. Solo el status va a info.
+        log.info("Didit POST /v3/session/ → {}", response.statusCode());
+        log.debug("Didit POST /v3/session/ response body: {}", response.body());
 
         if (response.statusCode() != 200 && response.statusCode() != 201) {
             throw new RuntimeException("Didit API error " + response.statusCode()

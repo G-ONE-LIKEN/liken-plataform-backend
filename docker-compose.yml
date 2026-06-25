@@ -33,6 +33,7 @@ x-spring-env: &spring-env
   LOGGING_LEVEL_ROOT: "warn"              # el nivel de report lo paso a warning para enfocarnos en errores.
   LOGGING_LEVEL_ORG_APACHE_KAFKA: "warn"  # idem, para el de kafka
   LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_KAFKA: "warn"
+  # Default solo para local. En producción seteá INTERNAL_API_KEY con un secreto real.
   INTERNAL_API_KEY: "${INTERNAL_API_KEY:-dev-internal-secret}"
 
 # ── Recursos para todos los Spring Boot ───────────────────────────────────────

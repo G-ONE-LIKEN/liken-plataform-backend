@@ -51,7 +51,10 @@ public class KycWebhookController {
     @PostMapping("/webhook/didit")
     public ResponseEntity<Void> handleWebhook(@RequestBody String rawBody) {
         try {
-            log.info("Webhook Didit recibido: {}", rawBody);
+            // debug: el payload puede traer datos de la verificación (PII). En info
+            // dejamos solo la confirmación de recepción.
+            log.info("Webhook Didit recibido");
+            log.debug("Webhook Didit payload: {}", rawBody);
             JsonNode payload = objectMapper.readTree(rawBody);
 
             String sessionId    = payload.path("session_id").asText(null);
