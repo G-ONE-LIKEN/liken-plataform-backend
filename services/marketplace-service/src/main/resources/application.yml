@@ -28,10 +28,11 @@ spring:
       group-id: marketplace-service
       auto-offset-reset: earliest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
       properties:
         spring.json.trusted.packages: "*"
         spring.json.value.default.type: java.util.LinkedHashMap
+        spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JsonDeserializer
 
 server:
   port: ${SERVER_PORT:8086}
@@ -49,9 +50,3 @@ logging:
   level:
     com.plataforma.marketplace: DEBUG
 
-spring:
-  kafka:
-    consumer:
-      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
-      properties:
-        spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JsonDeserializer

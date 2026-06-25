@@ -21,8 +21,9 @@ public class WalletClient {
     private final String walletServiceUrl;
 
     public WalletClient(
-            @Value("${services.wallet-service-url:http://wallet-service:8084}") String walletServiceUrl) {
-        this.restTemplate = new RestTemplate();
+            @Value("${services.wallet-service-url:http://wallet-service:8084}") String walletServiceUrl,
+            org.springframework.boot.web.client.RestTemplateBuilder builder) {
+        this.restTemplate = builder.build();
         this.walletServiceUrl = walletServiceUrl;
     }
 

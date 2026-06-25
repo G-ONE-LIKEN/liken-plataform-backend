@@ -77,6 +77,7 @@ class ProjectControllerTest {
     // SecurityConfig (produccion) requiere GatewayHeaderAuthFilter via @RequiredArgsConstructor;
     // @WebMvcTest no lo escanea como @Component, asi que hay que mockearlo.
     @MockBean GatewayHeaderAuthFilter gatewayHeaderAuthFilter;
+    @MockBean com.plataforma.shared.security.InternalAuthFilter internalAuthFilter;
 
     private final ObjectMapper objectMapper = new ObjectMapper()
             .registerModule(new JavaTimeModule());

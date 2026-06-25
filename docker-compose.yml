@@ -33,6 +33,7 @@ x-spring-env: &spring-env
   LOGGING_LEVEL_ROOT: "warn"              # el nivel de report lo paso a warning para enfocarnos en errores.
   LOGGING_LEVEL_ORG_APACHE_KAFKA: "warn"  # idem, para el de kafka
   LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_KAFKA: "warn"
+  INTERNAL_API_KEY: "${INTERNAL_API_KEY:-dev-internal-secret}"
 
 # ── Recursos para todos los Spring Boot ───────────────────────────────────────
 # memory: 180 heap + 96 metaspace + 48 code cache + ~76 OS/JVM overhead = ~400 MB
@@ -86,7 +87,7 @@ services:
       ZOOKEEPER_CLIENT_PORT: 2181
       KAFKA_OPTS: "-Dzookeeper.4lw.commands.whitelist=ruok,srvr"
       KAFKA_HEAP_OPTS: "-Xmx128m -Xms64m" # era 256m/128m
-      KAFKA_LOG4J_OPTS: "-Dlog4j.rootLogger=WARN,stdout" # reportar warnings y errors
+
     deploy:
       resources:
         limits:
@@ -118,7 +119,7 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_HEAP_OPTS: "-Xmx192m -Xms96m"                # era 256m/128m
-      KAFKA_LOG4J_OPTS: "-Dlog4j.rootLogger=WARN,stdout" # solo logs de warning y errors
+
       KAFKA_LOG_RETENTION_HOURS: 2                       # Reduce retencion en disco para dev local
       KAFKA_LOG_SEGMENT_BYTES: 52428800                  # 50 MB por segmento
     deploy:

@@ -23,6 +23,7 @@ import java.util.List;
 @EnableWebSecurity
 @EnableMethodSecurity
 @RequiredArgsConstructor
+@org.springframework.context.annotation.Import(com.plataforma.shared.security.InternalAuthFilter.class)
 public class SecurityConfig {
 
     private final GatewayHeaderAuthFilter gatewayHeaderAuthFilter;

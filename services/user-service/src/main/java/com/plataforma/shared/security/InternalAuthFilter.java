@@ -21,6 +21,12 @@ public class InternalAuthFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
         String path = request.getRequestURI();
         if (path.startsWith("/internal/")) {
+            if (path.equals("/internal/kyc/webhook/didit")) {
+                // Didit valida su propia firma (HMAC), no usa Internal Token
+                filterChain.doFilter(request, response);
+                return;
+            }
+
             if (expectedApiKey == null || expectedApiKey.isBlank()) {
                 logger.error("INTERNAL_API_KEY no configurada. Rechazando peticion a " + path);
                 response.sendError(HttpStatus.FORBIDDEN.value(), "Internal API Key not configured");

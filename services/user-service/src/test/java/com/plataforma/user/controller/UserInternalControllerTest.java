@@ -31,6 +31,7 @@ class UserInternalControllerTest {
     @MockBean UserService userService;
     @MockBean UserRepository userRepository;
     @MockBean GatewayHeaderAuthFilter gatewayHeaderAuthFilter;
+    @MockBean com.plataforma.shared.security.InternalAuthFilter internalAuthFilter;
 
     @Test
     void createLocalUser_ShouldRejectInvalidEmail() throws Exception {

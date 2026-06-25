@@ -23,8 +23,9 @@ public class ProjectClient {
     private final String projectServiceUrl;
 
     public ProjectClient(
-            @Value("${services.project-service-url:http://project-service:8082}") String projectServiceUrl) {
-        this.restTemplate = new RestTemplate();
+            @Value("${services.project-service-url:http://project-service:8082}") String projectServiceUrl,
+            org.springframework.boot.web.client.RestTemplateBuilder builder) {
+        this.restTemplate = builder.build();
         this.projectServiceUrl = projectServiceUrl;
     }
 
