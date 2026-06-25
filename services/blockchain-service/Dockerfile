@@ -4,6 +4,8 @@ WORKDIR /workspace
 COPY services/blockchain-service/pom.xml .
 RUN mvn -B -q dependency:go-offline
 COPY services/blockchain-service/src ./src
+# Corremos los tests en el build: si fallan, la imagen no se construye.
+RUN mvn -B test
 RUN mvn -B -q -DskipTests package
 
 # ── Stage 2: Foundry Oficial (reemplaza stage intermedio manual) ──────────

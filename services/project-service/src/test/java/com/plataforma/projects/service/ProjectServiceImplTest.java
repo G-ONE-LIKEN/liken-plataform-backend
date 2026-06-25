@@ -7,6 +7,7 @@ import com.plataforma.projects.exception.ProjectNotFoundException;
 import com.plataforma.projects.exception.ProjectStateException;
 import com.plataforma.projects.exception.UnauthorizedProjectAccessException;
 import com.plataforma.projects.model.EnergyType;
+import com.plataforma.projects.model.OnChainStatus;
 import com.plataforma.projects.model.Project;
 import com.plataforma.projects.model.ProjectState;
 import com.plataforma.projects.repository.ProjectRepository;
@@ -20,6 +21,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.*;
@@ -32,6 +34,9 @@ class ProjectServiceImplTest {
 
     @Mock ProjectRepository projectRepository;
     @Mock ProjectEventPublisher eventPublisher;
+    // Dependencia del flujo de publicacion on-chain (PRE_OPEN). Sin mockearla,
+    // @InjectMocks la deja null y changeState→startPublication tira NPE.
+    @Mock BlockchainPublicationClient blockchainPublicationClient;
     @InjectMocks ProjectServiceImpl projectService;
 
     private Project draftProject;
@@ -47,6 +52,11 @@ class ProjectServiceImplTest {
                 .totalTokens(new BigDecimal("10000"))
                 .earlyBirdPrice(new BigDecimal("8.0000"))
                 .standardPrice(new BigDecimal("10.0000"))
+                // Campos requeridos para publicar (PRE_OPEN): el service valida que
+                // expectedOpenDate, softCap y hardCap estén seteados antes del deploy on-chain.
+                .expectedOpenDate(LocalDate.now().plusDays(30))
+                .softCap(new BigDecimal("50000"))
+                .hardCap(new BigDecimal("100000"))
                 .active(true)
                 .build();
     }
@@ -118,14 +128,19 @@ class ProjectServiceImplTest {
     // ── changeState ────────────────────────────────────────────────────────
 
     @Test
-    void changeState_transicionValida_actualizaEstadoYPublicaEvento() {
+    void changeState_draftAPreOpen_iniciaPublicacionOnChain() {
         when(projectRepository.findByIdAndActiveTrue(1L)).thenReturn(Optional.of(draftProject));
         when(projectRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        ProjectResponse response = projectService.changeState(1L, ProjectState.PRE_OPEN, 10L, false);
+        projectService.changeState(1L, ProjectState.PRE_OPEN, 10L, false);
 
-        assertThat(response.getState()).isEqualTo(ProjectState.PRE_OPEN);
-        verify(eventPublisher).publishStateChanged(any(), eq(ProjectState.DRAFT), eq(ProjectState.PRE_OPEN));
+        // DRAFT→PRE_OPEN dispara el deploy on-chain (asíncrono): el estado NO cambia
+        // todavía, queda en DEPLOYING hasta que el OfferingContract confirme. Por eso
+        // NO se publica un StateChanged DRAFT→PRE_OPEN acá.
+        verify(blockchainPublicationClient).requestPublication(any());
+        assertThat(draftProject.getOnChainStatus()).isEqualTo(OnChainStatus.DEPLOYING);
+        verify(eventPublisher, never())
+                .publishStateChanged(any(), eq(ProjectState.DRAFT), eq(ProjectState.PRE_OPEN));
     }
 
     @Test

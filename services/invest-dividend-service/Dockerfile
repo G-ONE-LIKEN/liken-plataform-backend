@@ -4,6 +4,8 @@ WORKDIR /workspace
 COPY pom.xml .
 RUN mvn -B -q dependency:go-offline
 COPY src ./src
+# Corremos los tests en el build: si fallan, la imagen no se construye.
+RUN mvn -B test
 RUN mvn -B -q -DskipTests package
 
 FROM eclipse-temurin:21-jre-alpine

@@ -39,3 +39,4 @@ contracts/cache/
 .github/java-upgrade/
 .claude/
 .directory
+.test-logs/
