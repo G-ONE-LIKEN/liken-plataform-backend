@@ -253,8 +253,18 @@ services:
       DIDIT_API_KEY: ${DIDIT_API_KEY:-}
       DIDIT_WORKFLOW_ID: ${DIDIT_WORKFLOW_ID:-}
       DIDIT_CALLBACK_URL: ${DIDIT_CALLBACK_URL:-http://localhost:3000/dashboard}
+      JAVA_TOOL_OPTIONS: >-
+        -Xmx180m
+        -Xms80m
+        -Xss256k
+        -XX:ReservedCodeCacheSize=48m
+        -XX:MaxMetaspaceSize=160m
+        -XX:+DisableExplicitGC
     deploy:
-      <<: *spring-deploy
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.50"
     healthcheck:
       test:
         [

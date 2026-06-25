@@ -91,12 +91,13 @@ public class KycController {
                 Map.of("verificationUrl", verificationUrl)
             ));
         } catch (IllegalStateException e) {
+            log.warn("KYC Didit initiate rechazado para userId {}: {}", userId, e.getMessage());
             return ResponseEntity.badRequest()
                 .body(ApiResponse.error(e.getMessage(), 400));
         } catch (Exception e) {
-            log.error("Error iniciando sesión Didit para userId {}: {}", userId, e.getMessage());
+            log.error("Error iniciando sesión Didit para userId {}", userId, e);
             return ResponseEntity.internalServerError()
-                 .body(ApiResponse.error("No se pudo iniciar la verificación: " + e.getMessage(), 500));
+                 .body(ApiResponse.error("No se pudo iniciar la verificación. Intente nuevamente.", 500));
         }
     }
 

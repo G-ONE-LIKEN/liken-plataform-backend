@@ -3,6 +3,7 @@ package com.plataforma.user.kyc.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -12,30 +13,16 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 
-/**
- * Servicio de integración con la API v3 de Didit para verificación KYC automatizada.
- *
- * Autenticación: header {@code x-api-key} en cada request (sin OAuth2).
- * URL base: https://verification.didit.me
- *
- * Flujo:
- *   1. {@link #createSession} → crea sesión en Didit, devuelve URL del widget
- *   2. Usuario completa verificación en el widget de Didit (DNI + liveness)
- *   3. Didit llama al webhook con el resultado (APPROVED / DECLINED)
- *   4. {@link KycService#processDiditWebhook} actualiza kycStatus del usuario
- *
- * Docs: https://docs.didit.me/sessions-api/create-session
- */
 @Slf4j
 @Service
 public class DiditService {
 
     private static final String API_BASE = "https://verification.didit.me";
 
-    @Value("${didit.api-key}")
+    @Value("${didit.api-key:}")
     private String apiKey;
 
-    @Value("${didit.workflow-id}")
+    @Value("${didit.workflow-id:}")
     private String workflowId;
 
     @Value("${didit.callback-url:}")
@@ -43,6 +30,16 @@ public class DiditService {
 
     private final HttpClient httpClient = HttpClient.newHttpClient();
     private final ObjectMapper mapper = new ObjectMapper();
+
+    @PostConstruct
+    void validateConfig() {
+        if (apiKey == null || apiKey.isBlank()) {
+            log.warn("DIDIT_API_KEY no configurada — la verificación KYC con Didit no funcionará");
+        }
+        if (workflowId == null || workflowId.isBlank()) {
+            log.warn("DIDIT_WORKFLOW_ID no configurado — la verificación KYC con Didit no funcionará");
+        }
+    }
 
     /**
      * Crea una sesión de verificación KYC en Didit.
@@ -55,6 +52,11 @@ public class DiditService {
      * @return {@link DiditSession} con el sessionId y la URL del widget
      */
     public DiditSession createSession(String externalUserId, ExpectedDetails expectedDetails) throws Exception {
+        if (apiKey == null || apiKey.isBlank() || workflowId == null || workflowId.isBlank()) {
+            throw new IllegalStateException(
+                "Didit no está configurado. Verificar variables DIDIT_API_KEY y DIDIT_WORKFLOW_ID");
+        }
+
         log.info("Creando sesión Didit para userId: {}", externalUserId);
 
         ObjectNode body = mapper.createObjectNode();
@@ -80,18 +82,21 @@ public class DiditService {
             body.set("expected_details", details);
         }
 
+        String requestBody = mapper.writeValueAsString(body);
+        log.info("Didit POST /v3/session/ request body: {}", requestBody);
+
         HttpRequest request = HttpRequest.newBuilder()
             .uri(URI.create(API_BASE + "/v3/session/"))
             .header("x-api-key", apiKey.trim())
             .header("Content-Type", "application/json")
             .header("accept", "application/json")
-            .POST(HttpRequest.BodyPublishers.ofString(mapper.writeValueAsString(body)))
+            .POST(HttpRequest.BodyPublishers.ofString(requestBody))
             .build();
 
         HttpResponse<String> response = httpClient.send(request,
             HttpResponse.BodyHandlers.ofString());
 
-        log.debug("Didit POST /v3/session/ → {}: {}", response.statusCode(), response.body());
+        log.info("Didit POST /v3/session/ → {}: {}", response.statusCode(), response.body());
 
         if (response.statusCode() != 200 && response.statusCode() != 201) {
             throw new RuntimeException("Didit API error " + response.statusCode()
