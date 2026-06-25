@@ -28,10 +28,11 @@ spring:
       group-id: invest-dividend-service
       auto-offset-reset: earliest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
       properties:
         spring.json.trusted.packages: "*"
         spring.json.value.default.type: java.util.LinkedHashMap
+        spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JsonDeserializer
 
 server:
   port: ${SERVER_PORT:8083}
@@ -50,3 +51,4 @@ services:
 logging:
   level:
     com.plataforma.invest: DEBUG
+

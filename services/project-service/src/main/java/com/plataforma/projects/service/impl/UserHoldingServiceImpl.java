@@ -38,6 +38,29 @@ public class UserHoldingServiceImpl implements UserHoldingService {
     }
 
     @Override
+    public UserHoldingResponse getUserHolding(Long projectId, Long userId) {
+        if (!projectRepository.existsById(projectId)) {
+            throw new ProjectNotFoundException(projectId);
+        }
+        return holdingRepository.findByUserIdAndProjectId(userId, projectId)
+                .map(UserHoldingResponse::from)
+                .orElseGet(() -> UserHoldingResponse.builder()
+                        .userId(userId)
+                        .projectId(projectId)
+                        .tokensAmount(BigDecimal.ZERO)
+                        .usdcInvested(BigDecimal.ZERO)
+                        .build());
+    }
+
+    @Override
+    public List<UserHoldingResponse> listMyHoldings(Long userId) {
+        return holdingRepository.findByUserId(userId)
+                .stream()
+                .map(UserHoldingResponse::from)
+                .toList();
+    }
+
+    @Override
     @Transactional
     public void updateHolding(Long userId, Long projectId, BigDecimal tokensDelta, String eventId) {
         if (eventId != null && processedEventRepository.existsByEventId(eventId)) {

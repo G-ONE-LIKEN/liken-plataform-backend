@@ -10,6 +10,8 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
  * Publica el evento de registro de un usuario nuevo para que el
@@ -36,10 +38,23 @@ public class UserRegisteredEventProducer {
         payload.put("lastName",   user.getLastName());
         payload.put("role",       user.getRole() != null ? user.getRole().getName() : null);
         try {
-            kafkaTemplate.send(TOPIC_REGISTERED, String.valueOf(user.getId()), payload);
+            sendAfterCommit(TOPIC_REGISTERED, String.valueOf(user.getId()), payload);
             log.info("Publicado {}: userId={}", TOPIC_REGISTERED, user.getId());
         } catch (Exception e) {
             log.warn("Error publicando {}: {}", TOPIC_REGISTERED, e.getMessage());
+        }
+    }
+
+    private void sendAfterCommit(String topic, String key, Object payload) {
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    kafkaTemplate.send(topic, key, payload);
+                }
+            });
+        } else {
+            kafkaTemplate.send(topic, key, payload);
         }
     }
 }

@@ -17,4 +17,5 @@ public class ContractsProperties {
     private String registry;
     private String distributor;
     private String usdc;
+    private String marketplace;
 }

@@ -28,6 +28,9 @@ COPY --from=foundry /usr/local/bin/cast /usr/local/bin/cast
 COPY --from=build /workspace/target/app.jar app.jar
 RUN chown appuser:appgroup app.jar
 
+# Copiar el directorio de contratos (y sus librerias) al runtime
+COPY --chown=appuser:appgroup contracts/ /app/contracts/
+
 # Asegurar la carpeta de logs para este servicio tambien
 RUN mkdir -p /app/logs && chown -R appuser:appgroup /app/logs
 

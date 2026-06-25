@@ -47,9 +47,9 @@ Los demas servicios reaccionan a esos eventos: `invest-dividend-service` materia
 | [project-service](services/project-service/README.md) | 8082 | CRUD de proyectos, métricas, documentos en GCS, eventos Kafka. | ✅ Listo |
 | [wallet-service](services/wallet-service/README.md) | 8084 | Billeteras, movimientos, consumers Kafka idempotentes. | ✅ Listo |
 | invest-dividend-service | 8083 | Compras de tokens, holdings, dividendos y recalculo de tiers a partir de eventos on-chain. Idempotente, con reconciliacion de actividad por wallet. | ✅ Listo |
-| blockchain-service | 8085 | Puente on-chain: indexer de eventos (Web3j) → Kafka, y publicacion de contratos Offering via Foundry (`forge`). | ✅ Listo |
+| blockchain-service | 8085 | Puente on-chain: indexer de eventos (Web3j) → Kafka, publicacion de contratos Offering via Foundry (`forge`), y liquidación de trades P2P. | ✅ Listo |
 | notification-service | 8087 | Notificaciones in-app + email (Resend) + stream SSE, a partir de eventos Kafka. | ✅ Listo |
-| marketplace-service | 8086 | Mercado P2P de tokens (matching engine). | ✅ Listo |
+| marketplace-service | 8086 | Mercado secundario P2P (Orderbook off-chain). Matching engine de órdenes de compra/venta de LKN y publicación de liquidaciones. | ✅ Listo |
 
 ## Stack comun
 

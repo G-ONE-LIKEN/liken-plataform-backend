@@ -24,6 +24,9 @@ public class UserContextService {
     @Value("${app.user-context.ttl-seconds:30}")
     private int ttlSeconds;
 
+    @Value("${INTERNAL_API_KEY:}")
+    private String internalApiKey;
+
     private Cache<Long, UserContext> cache;
 
     @PostConstruct
@@ -41,6 +44,7 @@ public class UserContextService {
         return webClientBuilder.build()
                 .get()
                 .uri(userServiceUrl + "/internal/users/{id}/context", userId)
+                .header("X-Internal-Token", internalApiKey)
                 .retrieve()
                 .bodyToMono(UserContext.class)
                 .doOnNext(ctx -> cache.put(userId, ctx));

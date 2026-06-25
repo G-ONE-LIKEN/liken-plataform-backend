@@ -23,9 +23,11 @@ import java.util.List;
 @EnableWebSecurity
 @EnableMethodSecurity
 @RequiredArgsConstructor
+@org.springframework.context.annotation.Import(com.plataforma.shared.security.InternalAuthFilter.class)
 public class SecurityConfig {
 
     private final GatewayHeaderAuthFilter gatewayHeaderAuthFilter;
+    private final com.plataforma.shared.security.InternalAuthFilter internalAuthFilter;
 
     @Value("${app.frontend-url}")
     private String frontendUrl;
@@ -44,6 +46,7 @@ public class SecurityConfig {
                 .requestMatchers("/actuator/health").permitAll()
                 .anyRequest().authenticated()
             )
+            .addFilterBefore(internalAuthFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterBefore(gatewayHeaderAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

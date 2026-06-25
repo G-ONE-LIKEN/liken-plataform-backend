@@ -10,6 +10,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.Map;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
  * Publica eventos on-chain ya decodificados a Kafka, con guardia local de
@@ -49,7 +51,7 @@ public class KafkaEventPublisher {
         payload.putIfAbsent("version", 1);
         payload.putIfAbsent("occurredAt", LocalDateTime.now().toString());
 
-        kafkaTemplate.send(topic, eventId, payload);
+        sendAfterCommit(topic, eventId, payload);
 
         publishedEventRepository.save(PublishedEvent.builder()
                 .eventId(eventId)
@@ -65,5 +67,18 @@ public class KafkaEventPublisher {
     /** Construye el eventId canonico para un log on-chain. */
     public static String eventIdOf(String txHash, long logIndex) {
         return txHash + ":" + logIndex;
+    }
+
+    private void sendAfterCommit(String topic, String key, Object payload) {
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    kafkaTemplate.send(topic, key, payload);
+                }
+            });
+        } else {
+            kafkaTemplate.send(topic, key, payload);
+        }
     }
 }

@@ -23,8 +23,9 @@ public class ProjectClient {
     private final String projectServiceUrl;
 
     public ProjectClient(
-            @Value("${services.project-service-url:http://project-service:8082}") String projectServiceUrl) {
-        this.restTemplate = new RestTemplate();
+            @Value("${services.project-service-url:http://project-service:8082}") String projectServiceUrl,
+            org.springframework.boot.web.client.RestTemplateBuilder builder) {
+        this.restTemplate = builder.build();
         this.projectServiceUrl = projectServiceUrl;
     }
 
@@ -49,7 +50,8 @@ public class ProjectClient {
             String roundState = String.valueOf(response.getOrDefault("roundState", ""));
 
             // Trading permitido: ronda finalizada exitosamente.
-            boolean tradeable = "CLOSED".equalsIgnoreCase(state) ||
+            boolean tradeable = "OPEN".equalsIgnoreCase(state) ||
+                    "CLOSED".equalsIgnoreCase(state) ||
                     "FINALIZED".equalsIgnoreCase(roundState);
 
             log.debug("Proyecto {} tradeable={} (state={}, roundState={})",

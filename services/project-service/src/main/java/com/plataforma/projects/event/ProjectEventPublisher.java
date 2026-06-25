@@ -10,6 +10,8 @@ import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
 import java.util.Map;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Slf4j
 @Component
@@ -25,7 +27,7 @@ public class ProjectEventPublisher {
                 "ownerId", project.getOwnerId(),
                 "timestamp", LocalDateTime.now().toString()
         );
-        kafkaTemplate.send("projects.pending_approval", project.getId().toString(), payload);
+        sendAfterCommit("projects.pending_approval", project.getId().toString(), payload);
         log.info("Evento projects.pending_approval publicado: projectId={}", project.getId());
     }
 
@@ -36,7 +38,7 @@ public class ProjectEventPublisher {
                 "approvedBy", adminId,
                 "timestamp", LocalDateTime.now().toString()
         );
-        kafkaTemplate.send("projects.approved", project.getId().toString(), payload);
+        sendAfterCommit("projects.approved", project.getId().toString(), payload);
         log.info("Evento projects.approved publicado: projectId={} approvedBy={}", project.getId(), adminId);
     }
 
@@ -48,7 +50,7 @@ public class ProjectEventPublisher {
                 "reason", reason == null ? "" : reason,
                 "timestamp", LocalDateTime.now().toString()
         );
-        kafkaTemplate.send("projects.rejected", project.getId().toString(), payload);
+        sendAfterCommit("projects.rejected", project.getId().toString(), payload);
         log.info("Evento projects.rejected publicado: projectId={} rejectedBy={}", project.getId(), adminId);
     }
 
@@ -60,7 +62,7 @@ public class ProjectEventPublisher {
                 "energyType", project.getEnergyType().name(),
                 "timestamp", LocalDateTime.now().toString()
         );
-        kafkaTemplate.send("projects.created", project.getId().toString(), payload);
+        sendAfterCommit("projects.created", project.getId().toString(), payload);
         log.info("Evento projects.created publicado: projectId={}", project.getId());
     }
 
@@ -71,7 +73,7 @@ public class ProjectEventPublisher {
                 "newState", newState.name(),
                 "timestamp", LocalDateTime.now().toString()
         );
-        kafkaTemplate.send("projects.state_changed", project.getId().toString(), payload);
+        sendAfterCommit("projects.state_changed", project.getId().toString(), payload);
         log.info("Evento projects.state_changed publicado: projectId={} {} -> {}", project.getId(), oldState, newState);
     }
 
@@ -83,7 +85,20 @@ public class ProjectEventPublisher {
                 "revenueGenerated", metric.getRevenueGenerated(),
                 "timestamp", LocalDateTime.now().toString()
         );
-        kafkaTemplate.send("projects.metrics_updated", metric.getProject().getId().toString(), payload);
+        sendAfterCommit("projects.metrics_updated", metric.getProject().getId().toString(), payload);
         log.info("Evento projects.metrics_updated publicado: projectId={}", metric.getProject().getId());
+    }
+
+    private void sendAfterCommit(String topic, String key, Object payload) {
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    kafkaTemplate.send(topic, key, payload);
+                }
+            });
+        } else {
+            kafkaTemplate.send(topic, key, payload);
+        }
     }
 }

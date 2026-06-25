@@ -4,6 +4,7 @@ Puente Web2 ↔ Web3 de la plataforma Liken. Tiene dos mitades:
 
 1. **Indexer (lectura):** escanea los eventos on-chain de los contratos productivos (LinkenToken, ProjectRegistry, OfferingContract por proyecto, DividendDistributor) y los publica como mensajes Kafka que los demas servicios consumen.
 2. **Publicacion (escritura):** despliega el `OfferingContract` de cada proyecto aprobado ejecutando los scripts de Foundry (`forge`) y reporta el resultado a `project-service`.
+3. **Liquidación de Trades (escritura):** consume órdenes matcheadas (`marketplace.order_matched`), ejecuta el swap atómico LKN/USDC en el contrato `LknMarketplace` y espera el recibo de la transacción para emitir éxito (`blockchain.trade_settled` vía indexer) o fallo (`blockchain.trade_failed`).
 
 ## Indexer
 
@@ -26,6 +27,9 @@ Puente Web2 ↔ Web3 de la plataforma Liken. Tiene dos mitades:
 | `DividendDistributor.DividendsDeposited` | `dividends.deposited` |
 | `DividendDistributor.DividendsWithdrawn` | `dividends.claimed` |
 | `LinkenToken.Transfer` (excluye mint/burn) | `token.transferred` |
+| `LknMarketplace.TradeSettled` | `blockchain.trade_settled` |
+| N/A (EVM Revert en `settleTrade`) | `blockchain.trade_failed` |
+
 
 ## Publicacion de contratos
 
@@ -59,7 +63,7 @@ Cuando `project-service` aprueba un proyecto, llama a `POST /internal/publicatio
 | `WEB3_POLL_SECONDS` | `6` | Intervalo del polling. |
 | `WEB3_MAX_BLOCK_RANGE` | `500` | Bloques por peticion `eth_getLogs`. |
 | `WEB3_CONFIRMATIONS` | `1` | Bloques de delay antes de considerar un evento firme. |
-| `LKN_ADDRESS` / `REGISTRY_ADDRESS` / `DISTRIBUTOR_ADDRESS` / `USDC_ADDRESS` | `0x0` | Addresses de los contratos globales. En `0x0` el indexer queda idle. |
+| `LKN_ADDRESS` / `REGISTRY_ADDRESS` / `DISTRIBUTOR_ADDRESS` / `USDC_ADDRESS` / `MARKETPLACE_ADDRESS` | `0x0` | Addresses de los contratos globales e indexados. Si están en `0x0` el indexer correspondiente queda idle. |
 
 ### Publicacion / Foundry
 

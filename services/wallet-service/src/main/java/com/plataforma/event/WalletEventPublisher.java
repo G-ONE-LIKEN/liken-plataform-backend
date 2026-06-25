@@ -9,6 +9,8 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Slf4j
 @Component
@@ -29,7 +31,7 @@ public class WalletEventPublisher {
                 "amount",     amount,
                 "newBalance", newBalance
         );
-        kafkaTemplate.send(TOPIC_CREDITED, String.valueOf(userId), payload);
+        sendAfterCommit(TOPIC_CREDITED, String.valueOf(userId), payload);
         log.debug("Evento wallet.credited publicado para usuario {}", userId);
     }
 
@@ -42,7 +44,20 @@ public class WalletEventPublisher {
                 "amount",     amount,
                 "newBalance", newBalance
         );
-        kafkaTemplate.send(TOPIC_DEBITED, String.valueOf(userId), payload);
+        sendAfterCommit(TOPIC_DEBITED, String.valueOf(userId), payload);
         log.debug("Evento wallet.debited publicado para usuario {}", userId);
+    }
+
+    private void sendAfterCommit(String topic, String key, Object payload) {
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    kafkaTemplate.send(topic, key, payload);
+                }
+            });
+        } else {
+            kafkaTemplate.send(topic, key, payload);
+        }
     }
 }

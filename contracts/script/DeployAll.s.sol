@@ -8,6 +8,7 @@ import {LinkenToken} from "../src/LinkenToken.sol";
 import {ProjectRegistry} from "../src/ProjectRegistry.sol";
 import {OfferingContract} from "../src/OfferingContract.sol";
 import {DividendDistributor} from "../src/DividendDistributor.sol";
+import {LknMarketplace} from "../src/LknMarketplace.sol";
 
 /**
  * @title DeployAll
@@ -107,7 +108,7 @@ contract DeployAll is Script {
         }
 
         // ── 1. LinkenToken (TGE → emisor) ──
-        LinkenToken lkn = new LinkenToken(platformAdmin, emisor, tgeSupply);
+        LinkenToken lkn = new LinkenToken(platformAdmin, emisor, tgeSupply + 50_000 * 1e18);
         console2.log("LinkenToken           :", address(lkn));
 
         // ── 2. ProjectRegistry ──
@@ -159,6 +160,10 @@ contract DeployAll is Script {
         lkn.setDistributor(address(distributor));
         console2.log("Distributor wired into LinkenToken");
 
+        // ── 10. LknMarketplace ──
+        LknMarketplace marketplace = new LknMarketplace(platformAdmin, treasury);
+        console2.log("LknMarketplace        :", address(marketplace));
+
         vm.stopBroadcast();
 
         console2.log("================= ADDRESSES =================");
@@ -168,6 +173,7 @@ contract DeployAll is Script {
         console2.log("DISTRIBUTOR_ADDRESS=", address(distributor));
         console2.log("USDC_ADDRESS       =", usdcAddr);
         console2.log("PROJECT_ID         =", projectId);
+        console2.log("MARKETPLACE_ADDRESS=", address(marketplace));
         console2.log("=============================================");
     }
 }

@@ -62,6 +62,7 @@ public class EventHandlerService {
             case String s when s.equals(ContractEvents.DIVIDENDS_DEPOSITED_TOPIC) -> handleDividendsDeposited(evtLog, eventId);
             case String s when s.equals(ContractEvents.DIVIDENDS_WITHDRAWN_TOPIC) -> handleDividendsWithdrawn(evtLog, eventId);
             case String s when s.equals(ContractEvents.TRANSFER_TOPIC) -> handleTransfer(evtLog, eventId, contractKind);
+            case String s when s.equals(ContractEvents.TRADE_SETTLED_TOPIC) -> handleTradeSettled(evtLog, eventId);
             default -> log.debug("Topic no manejado: {}", topic0);
         }
     }
@@ -224,7 +225,40 @@ public class EventHandlerService {
         return FunctionReturnDecoder.decode(data, (List) List.of(types));
     }
 
+    private void handleTradeSettled(Log log, String eventId) {
+        BigInteger orderId = new BigInteger(log.getTopics().get(1).substring(2), 16);
+        String seller = topicAsAddress(log, 2);
+        String buyer = topicAsAddress(log, 3);
+
+        List<Type> data = decodeData(log.getData(),
+                TypeReference.create(Address.class),
+                TypeReference.create(Uint256.class),
+                TypeReference.create(Uint256.class),
+                TypeReference.create(Uint256.class));
+
+        String tokenAddress = ((Address) data.get(0)).getValue();
+        BigInteger tokenAmountRaw = ((Uint256) data.get(1)).getValue();
+        BigInteger usdcAmountRaw = ((Uint256) data.get(2)).getValue();
+        BigInteger feeAmountRaw = ((Uint256) data.get(3)).getValue();
+
+        Map<String, Object> payload = baseMeta(log);
+        payload.put("eventId", eventId);
+        payload.put("orderId", orderId.longValueExact());
+        payload.put("sellerWallet", seller);
+        payload.put("buyerWallet", buyer);
+        payload.put("sellerId", userLookup.userIdForWallet(seller).orElse(null));
+        payload.put("buyerId", userLookup.userIdForWallet(buyer).orElse(null));
+        payload.put("tokenAddress", tokenAddress);
+        payload.put("tokenCount", units.lknFromOnchain(tokenAmountRaw));
+        payload.put("price", units.usdcFromOnchain(usdcAmountRaw));
+        payload.put("feeAmount", units.usdcFromOnchain(feeAmountRaw));
+
+        // Publicar a blockchain.trade_settled para que marketplace-service lo procese
+        publisher.publish("blockchain.trade_settled", eventId, log.getAddress(),
+                log.getBlockNumber().longValueExact(), payload);
+    }
+
     public enum ContractKind {
-        LINKEN_TOKEN, REGISTRY, OFFERING, DISTRIBUTOR, USDC
+        LINKEN_TOKEN, REGISTRY, OFFERING, DISTRIBUTOR, USDC, MARKETPLACE
     }
 }

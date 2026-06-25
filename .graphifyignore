@@ -1,0 +1,42 @@
+# Ignore everything by default
+*
+
+# Whitelist code directories
+!services/
+!services/**
+!api-gateway/
+!api-gateway/**
+!contracts/
+!contracts/**
+
+# Blacklist dependencies/build folders inside whitelisted directories
+**/target/
+**/build/
+**/bin/
+contracts/lib/
+contracts/out/
+contracts/cache/
+
+# Blacklist non-code extensions globally
+**/*.md
+**/*.pdf
+**/*.png
+**/*.jpg
+**/*.jpeg
+**/*.gif
+**/*.webp
+**/*.mp4
+**/*.svg
+**/*.xml
+**/*.yml
+**/*.yaml
+**/*.txt
+**/*.html
+**/*.htm
+**/*.json
+**/*.properties
+**/*.conf
+**/*.config
+**/*.ini
+**/*.csv
+**/*.tsv

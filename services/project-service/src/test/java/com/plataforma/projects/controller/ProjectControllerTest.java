@@ -90,14 +90,19 @@ class ProjectControllerTest {
     // En @BeforeEach lo hacemos pasar de largo, asi el request llega al controller y la
     // cadena de seguridad (que carga el auth del postprocessor) sigue corriendo.
     @MockBean GatewayHeaderAuthFilter gatewayHeaderAuthFilter;
+    @MockBean com.plataforma.shared.security.InternalAuthFilter internalAuthFilter;
 
     @BeforeEach
-    void passThroughGatewayFilter() throws Exception {
-        doAnswer(inv -> {
+    void passThroughFilters() throws Exception {
+        // Ambos filtros (@Component OncePerRequestFilter) se auto-registran como servlet
+        // filters; mockeados serían no-ops que se tragan el request. Los hacemos pasar de largo.
+        org.mockito.stubbing.Answer<Void> passThrough = inv -> {
             FilterChain chain = inv.getArgument(2);
             chain.doFilter(inv.getArgument(0), inv.getArgument(1));
             return null;
-        }).when(gatewayHeaderAuthFilter).doFilter(any(), any(), any());
+        };
+        doAnswer(passThrough).when(gatewayHeaderAuthFilter).doFilter(any(), any(), any());
+        doAnswer(passThrough).when(internalAuthFilter).doFilter(any(), any(), any());
     }
 
     private final ObjectMapper objectMapper = new ObjectMapper()

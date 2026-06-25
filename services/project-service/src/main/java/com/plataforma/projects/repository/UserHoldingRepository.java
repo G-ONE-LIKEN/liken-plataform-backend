@@ -19,6 +19,8 @@ public interface UserHoldingRepository extends JpaRepository<UserHolding, Long> 
 
     Optional<UserHolding> findByUserIdAndProjectId(Long userId, Long projectId);
 
+    List<UserHolding> findByUserId(Long userId);
+
     Optional<UserHolding> findByWalletAddressIgnoreCaseAndProjectId(String walletAddress, Long projectId);
 
     List<UserHolding> findByUserIdIsNullAndWalletAddressIgnoreCase(String walletAddress);

@@ -31,6 +31,7 @@ class OrderServiceTest {
     @Mock private OrderRepository orderRepository;
     @Mock private TradeRepository tradeRepository;
     @Mock private ProjectClient projectClient;
+    @Mock private WalletClient walletClient;
     @Mock private OrderMatchedPublisher orderMatchedPublisher;
 
     @InjectMocks private OrderService orderService;
@@ -47,6 +48,8 @@ class OrderServiceTest {
     void createSellOrder_success() {
         when(projectClient.isProjectTradeable(1L)).thenReturn(true);
         when(projectClient.getUserHoldings(10L, 1L)).thenReturn(new BigDecimal("100"));
+        when(orderRepository.sumTokensAmountBySellerIdAndProjectIdAndStatusIn(10L, 1L, List.of(OrderStatus.OPEN, OrderStatus.PENDING_SETTLEMENT)))
+                .thenReturn(BigDecimal.ZERO);
         when(orderRepository.save(any(Order.class))).thenAnswer(inv -> {
             Order o = inv.getArgument(0);
             o.setId(42L);
@@ -78,8 +81,23 @@ class OrderServiceTest {
     void createSellOrder_insufficientHoldings_throwsException() {
         when(projectClient.isProjectTradeable(1L)).thenReturn(true);
         when(projectClient.getUserHoldings(10L, 1L)).thenReturn(new BigDecimal("10"));
+        when(orderRepository.sumTokensAmountBySellerIdAndProjectIdAndStatusIn(10L, 1L, List.of(OrderStatus.OPEN, OrderStatus.PENDING_SETTLEMENT)))
+                .thenReturn(BigDecimal.ZERO);
 
         var request = new CreateOrderRequest(1L, new BigDecimal("50"), new BigDecimal("2.50"));
+        assertThrows(IllegalStateException.class,
+                () -> orderService.createSellOrder(10L, request));
+        verify(orderRepository, never()).save(any());
+    }
+
+    @Test
+    void createSellOrder_insufficientAvailableHoldingsDueToLockedTokens_throwsException() {
+        when(projectClient.isProjectTradeable(1L)).thenReturn(true);
+        when(projectClient.getUserHoldings(10L, 1L)).thenReturn(new BigDecimal("100"));
+        when(orderRepository.sumTokensAmountBySellerIdAndProjectIdAndStatusIn(10L, 1L, List.of(OrderStatus.OPEN, OrderStatus.PENDING_SETTLEMENT)))
+                .thenReturn(new BigDecimal("60")); // 100 - 60 = 40 available
+
+        var request = new CreateOrderRequest(1L, new BigDecimal("50"), new BigDecimal("2.50")); // Needs 50
         assertThrows(IllegalStateException.class,
                 () -> orderService.createSellOrder(10L, request));
         verify(orderRepository, never()).save(any());
@@ -103,15 +121,12 @@ class OrderServiceTest {
                 .thenReturn(Optional.of(openOrder));
         when(projectClient.getUserHoldings(10L, 5L))
                 .thenReturn(new BigDecimal("100"));
-        when(tradeRepository.save(any(Trade.class))).thenAnswer(inv -> {
-            Trade t = inv.getArgument(0);
-            t.setId(99L);
-            return t;
-        });
 
         Trade trade = orderService.buyOrder(1L, 20L);
 
-        assertEquals(99L, trade.getId());
+        // El nuevo flujo on-chain devuelve un Trade transitorio (id=0, sin persistir):
+        // la liquidación y el guardado del Trade ocurren al confirmarse on-chain.
+        assertEquals(0L, trade.getId());
         assertEquals(10L, trade.getSellerId());
         assertEquals(20L, trade.getBuyerId());
         assertEquals(5L, trade.getProjectId());
@@ -119,8 +134,8 @@ class OrderServiceTest {
         // Fee = 200 * 1% = 2.00
         assertEquals(0, new BigDecimal("2.000000").compareTo(trade.getFeeAmount()));
 
-        // Verify order is now MATCHED
-        assertEquals(OrderStatus.MATCHED, openOrder.getStatus());
+        // La orden queda bloqueada esperando la liquidación on-chain.
+        assertEquals(OrderStatus.PENDING_SETTLEMENT, openOrder.getStatus());
 
         // Verify Kafka event published
         verify(orderMatchedPublisher).publish(
@@ -173,6 +188,12 @@ class OrderServiceTest {
                 () -> orderService.buyOrder(1L, 20L));
         verify(tradeRepository, never()).save(any());
     }
+
+    // NOTA: el test buyOrder_insufficientBuyerBalance_throwsException se eliminó.
+    // En el flujo on-chain, buyOrder ya NO valida el balance del comprador de forma
+    // síncrona — la liquidación (y el chequeo de fondos del comprador) ocurre on-chain
+    // durante el settlement, no en este método. La validación que sí queda síncrona es
+    // la de holdings del vendedor (ver buyOrder_sellerInsufficientHoldings_throwsException).
 
     // ─── cancelOrder ─────────────────────────────────────────
 

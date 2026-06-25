@@ -93,4 +93,18 @@ public final class ContractEvents {
                     TypeReference.create(Address.class, true),
                     TypeReference.create(Uint256.class, false)));
     public static final String DIVIDENDS_WITHDRAWN_TOPIC = EventEncoder.encode(DIVIDENDS_WITHDRAWN);
+
+    // ── LknMarketplace.TradeSettled(uint256 indexed orderId, address indexed seller, address indexed buyer, address tokenAddress, uint256 tokenAmount, uint256 usdcAmount, uint256 feeAmount) ──
+    public static final Event TRADE_SETTLED = new Event(
+            "TradeSettled",
+            List.of(
+                    TypeReference.create(Uint256.class, true),  // orderId
+                    TypeReference.create(Address.class, true),  // seller
+                    TypeReference.create(Address.class, true),  // buyer
+                    TypeReference.create(Address.class, false), // tokenAddress
+                    TypeReference.create(Uint256.class, false), // tokenAmount
+                    TypeReference.create(Uint256.class, false), // usdcAmount
+                    TypeReference.create(Uint256.class, false)  // feeAmount
+            ));
+    public static final String TRADE_SETTLED_TOPIC = EventEncoder.encode(TRADE_SETTLED);
 }

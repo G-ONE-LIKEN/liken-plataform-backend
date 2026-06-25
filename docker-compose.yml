@@ -25,13 +25,15 @@ x-spring-env: &spring-env
     -Xms80m
     -Xss256k
     -XX:ReservedCodeCacheSize=48m
-    -XX:MaxMetaspaceSize=96m
+    -XX:MaxMetaspaceSize=192m
     -XX:+DisableExplicitGC
-  SPRING_MAIN_LAZY_INITIALIZATION: "true"
+  SPRING_PROFILES_ACTIVE: "dev"
+  SPRING_MAIN_LAZY_INITIALIZATION: "false"
   SPRING_MAIN_BANNER_MODE: "off"          # deshabilitar el banner en los logs (ahorras lineas de logs)
   LOGGING_LEVEL_ROOT: "warn"              # el nivel de report lo paso a warning para enfocarnos en errores.
   LOGGING_LEVEL_ORG_APACHE_KAFKA: "warn"  # idem, para el de kafka
   LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_KAFKA: "warn"
+  INTERNAL_API_KEY: "${INTERNAL_API_KEY:-dev-internal-secret}"
 
 # ── Recursos para todos los Spring Boot ───────────────────────────────────────
 # memory: 180 heap + 96 metaspace + 48 code cache + ~76 OS/JVM overhead = ~400 MB
@@ -40,7 +42,7 @@ x-spring-env: &spring-env
 x-spring-deploy: &spring-deploy
   resources:
     limits:
-      memory: 400M
+      memory: 512M
       cpus: "0.50"
 
 services:
@@ -85,7 +87,7 @@ services:
       ZOOKEEPER_CLIENT_PORT: 2181
       KAFKA_OPTS: "-Dzookeeper.4lw.commands.whitelist=ruok,srvr"
       KAFKA_HEAP_OPTS: "-Xmx128m -Xms64m" # era 256m/128m
-      KAFKA_LOG4J_OPTS: "-Dlog4j.rootLogger=WARN,stdout" # reportar warnings y errors
+
     deploy:
       resources:
         limits:
@@ -117,7 +119,7 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_HEAP_OPTS: "-Xmx192m -Xms96m"                # era 256m/128m
-      KAFKA_LOG4J_OPTS: "-Dlog4j.rootLogger=WARN,stdout" # solo logs de warning y errors
+
       KAFKA_LOG_RETENTION_HOURS: 2                       # Reduce retencion en disco para dev local
       KAFKA_LOG_SEGMENT_BYTES: 52428800                  # 50 MB por segmento
     deploy:
@@ -456,7 +458,7 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       PROJECT_SERVICE_URL: http://project-service:8082
       USER_SERVICE_URL: http://user-service:8080
-      WEB3_RPC_URL: ${WEB3_RPC_URL:-http://host.docker.internal:8545}
+      WEB3_RPC_URL: ${WEB3_RPC_URL:-https://ethereum-sepolia-rpc.publicnode.com}
       DISTRIBUTOR_ADDRESS: ${DISTRIBUTOR_ADDRESS:-0x0000000000000000000000000000000000000000}
     deploy:
       <<: *spring-deploy
@@ -493,15 +495,16 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       USER_SERVICE_URL: http://user-service:8080
       PROJECT_SERVICE_URL: http://project-service:8082
-      WEB3_RPC_URL: ${WEB3_RPC_URL:-http://host.docker.internal:8545}
-      WEB3_CHAIN_ID: ${WEB3_CHAIN_ID:-31337}
+      WEB3_RPC_URL: ${WEB3_RPC_URL:-https://ethereum-sepolia-rpc.publicnode.com}
+      WEB3_CHAIN_ID: ${WEB3_CHAIN_ID:-11155111}
       WEB3_POLL_SECONDS: ${WEB3_POLL_SECONDS:-6}
       WEB3_MAX_BLOCK_RANGE: ${WEB3_MAX_BLOCK_RANGE:-500}
       WEB3_CONFIRMATIONS: ${WEB3_CONFIRMATIONS:-1}
       LKN_ADDRESS: ${LKN_ADDRESS:-0x0000000000000000000000000000000000000000}
       REGISTRY_ADDRESS: ${REGISTRY_ADDRESS:-0x0000000000000000000000000000000000000000}
       DISTRIBUTOR_ADDRESS: ${DISTRIBUTOR_ADDRESS:-0x0000000000000000000000000000000000000000}
-      USDC_ADDRESS: ${USDC_ADDRESS:-0x0000000000000000000000000000000000000000}
+      USDC_ADDRESS: ${USDC_ADDRESS:-0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238}
+      MARKETPLACE_ADDRESS: ${MARKETPLACE_ADDRESS:-0x0000000000000000000000000000000000000000}
       BLOCKCHAIN_SERVICE_URL: http://blockchain-service:8085
       PUBLICATION_CONTRACTS_WORKSPACE: /contracts
       FORGE_COMMAND: ${FORGE_COMMAND:-forge}
@@ -549,6 +552,7 @@ services:
       DB_PASSWORD: ${POSTGRES_PASSWORD:-change-me-db-password}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       PROJECT_SERVICE_URL: http://project-service:8082
+      WALLET_SERVICE_URL: http://wallet-service:8084
       MARKETPLACE_FEE_PERCENT: ${MARKETPLACE_FEE_PERCENT:-1.0}
       ORDER_TTL_DAYS: ${ORDER_TTL_DAYS:-30}
     deploy:

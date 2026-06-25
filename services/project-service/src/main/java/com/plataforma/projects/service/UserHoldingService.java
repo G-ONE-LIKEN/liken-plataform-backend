@@ -8,6 +8,8 @@ import java.math.BigDecimal;
 
 public interface UserHoldingService {
     Page<UserHoldingResponse> listHolders(Long projectId, Pageable pageable);
+    UserHoldingResponse getUserHolding(Long projectId, Long userId);
+    java.util.List<UserHoldingResponse> listMyHoldings(Long userId);
 
     /**
      * Version legacy del update (sin info on-chain). Conservada por compatibilidad

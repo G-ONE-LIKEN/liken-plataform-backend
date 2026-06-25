@@ -12,6 +12,7 @@ package com.plataforma.marketplace.model;
  */
 public enum OrderStatus {
     OPEN,
+    PENDING_SETTLEMENT,
     MATCHED,
     CANCELLED,
     EXPIRED

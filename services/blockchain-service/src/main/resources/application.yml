@@ -27,6 +27,10 @@ spring:
       acks: all
       properties:
         spring.json.add.type.headers: false
+    consumer:
+      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      properties:
+        spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JsonDeserializer
 
 server:
   port: ${SERVER_PORT:8085}
@@ -51,6 +55,7 @@ contracts:
   registry: ${REGISTRY_ADDRESS:0x0000000000000000000000000000000000000000}
   distributor: ${DISTRIBUTOR_ADDRESS:0x0000000000000000000000000000000000000000}
   usdc: ${USDC_ADDRESS:0x0000000000000000000000000000000000000000}
+  marketplace: ${MARKETPLACE_ADDRESS:0x0000000000000000000000000000000000000000}
 
 # ── Endpoints de servicios internos ─────────────────────────────────────────
 services:
@@ -71,3 +76,6 @@ logging:
   level:
     org.web3j: INFO
     com.plataforma.blockchain: DEBUG
+    org.springframework.kafka: DEBUG
+    org.apache.kafka: DEBUG
+

@@ -6,16 +6,18 @@ Microservicio de la plataforma LIKEN responsable del mercado secundario (P2P) de
 
 - **Publicacion de ordenes de venta** de tokens por parte de inversores.
 - **Matching de ordenes**: algoritmo FIFO con price-time priority, sin matching parcial (una orden se ejecuta completa o queda `OPEN`). Matching **sincrono** al ejecutar la compra (`SELECT FOR UPDATE` sobre la orden).
-- **Publicacion del evento `marketplace.order_matched`** al concretar una transaccion P2P. Lo consumen `wallet-service` (movimientos contables) y `project-service` (actualizacion de holdings).
+- **Inicio de la liquidación on-chain**: al matchear una orden, se cambia su estado a `PENDING_SETTLEMENT` y se publica el evento `marketplace.order_matched` para que el servicio de blockchain realice la liquidación (swap atómico LKN/USDC) en la testnet.
+- **Confirmación definitiva de la transacción**: consume `marketplace.trade_settled` desde Kafka (emitido por el indexador on-chain), transiciona el estado de la orden de `PENDING_SETTLEMENT` a `MATCHED`, persiste el `Trade` en la base de datos y publica el evento definitivo `marketplace.trade_settled` para otros servicios.
 - **Cancelacion reactiva** de ordenes si un proyecto cambia de estado (consume `projects.state_changed`).
 - **Vencimiento automatico** de ordenes con TTL configurable (default 30 dias).
 - **Historial de transacciones** del marketplace.
 
 ## Lo que NO hace
 
-- **Transferencias on-chain**: el modelo actual es off-chain. La transferencia real de LKN queda como paso futuro (firma con MetaMask sobre `LinkenToken.transfer`).
+- **Firma delegada de gas**: los usuarios compradores/vendedores firman la aprobación (`approve`) de sus respectivos tokens LKN/USDC en MetaMask hacia el contrato mediador, pero es la plataforma (el settler admin) quien firma y paga el gas de la transacción `settleTrade` on-chain.
 - **Matching parcial**: en MVP una orden se ejecuta completa o queda `OPEN`. Post-MVP se puede agregar partial fills.
 - **Bloqueo de tokens**: no se bloquean al crear la orden; se validan holdings en el momento del match (ventana de doble-venta improbable a este volumen, ADR-0014).
+
 
 ## Stack
 
@@ -45,21 +47,25 @@ Microservicio de la plataforma LIKEN responsable del mercado secundario (P2P) de
 
 | Topico | Cuando | Payload |
 |--------|--------|---------|
-| `marketplace.order_matched` | Al concretar una transaccion P2P | `eventId`, `occurredAt`, `version`, `sellerId`, `buyerId`, `projectId`, `tokenCount`, `price`, `orderId` |
+| `marketplace.order_matched` | Al matchear una orden (inicia liquidación en blockchain) | `eventId`, `occurredAt`, `version`, `sellerId`, `buyerId`, `projectId`, `tokenCount`, `price`, `orderId` |
+| `marketplace.trade_settled` | Al confirmarse la liquidación on-chain | `eventId`, `occurredAt`, `version`, `sellerId`, `buyerId`, `projectId`, `tokenCount`, `price`, `orderId`, `txHash` |
 
 **Consume:**
 
 | Topico | Publicado por | Para qué |
 |--------|--------------|---------|
 | `projects.state_changed` | blockchain-service / project-service | Cancelar ordenes activas si el proyecto se cancela, pausa o falla |
+| `blockchain.trade_settled` | blockchain-service | Finalizar la orden a MATCHED y guardar el Trade |
+| `blockchain.trade_failed` | blockchain-service | Revertir la orden de PENDING_SETTLEMENT a OPEN si falla on-chain |
 
 ## Modelo de datos
 
 | Tabla | Contenido |
 |-------|-----------|
-| `orders` | ordenes de venta/compra (status: OPEN, MATCHED, CANCELLED, EXPIRED) |
-| `trades` | Transacciones completadas (un match = un trade) |
+| `orders` | ordenes de venta/compra (status: OPEN, PENDING_SETTLEMENT, MATCHED, CANCELLED, EXPIRED) |
+| `trades` | Transacciones completadas (un match = un trade persistido tras confirmación on-chain) |
 | `processed_event` | Registro de eventId ya procesados (idempotencia Kafka) |
+
 
 ## Configuracion
 

@@ -43,8 +43,9 @@ public class WalletController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         Long userId = (Long) auth.getPrincipal();
+        int safeSize = Math.max(1, Math.min(size, 100));
         Page<MovementResponse> movements = walletService
-                .getMovements(userId, PageRequest.of(page, size))
+                .getMovements(userId, PageRequest.of(page, safeSize))
                 .map(MovementResponse::from);
         return ResponseEntity.ok(ApiResponse.success(movements));
     }
