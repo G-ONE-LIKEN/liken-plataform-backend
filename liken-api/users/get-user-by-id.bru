@@ -1,0 +1,15 @@
+meta {
+  name: get-user-by-id
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{baseUrl}}/api/users/1
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}

@@ -1,0 +1,21 @@
+meta {
+  name: change-state
+  type: http
+  seq: 5
+}
+
+put {
+  url: {{baseUrl}}/api/projects/1/state
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "state": "OPEN"
+  }
+}

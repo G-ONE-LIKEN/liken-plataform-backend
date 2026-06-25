@@ -1,0 +1,15 @@
+meta {
+  name: get-my-holdings
+  type: http
+  seq: 10
+}
+
+get {
+  url: {{baseUrl}}/api/projects/holdings/me
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}

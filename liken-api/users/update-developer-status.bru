@@ -1,0 +1,21 @@
+meta {
+  name: update-developer-status
+  type: http
+  seq: 11
+}
+
+put {
+  url: {{baseUrl}}/api/users/1/developer-status
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "status": "APPROVED"
+  }
+}

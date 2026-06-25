@@ -1,0 +1,20 @@
+meta {
+  name: get-movements
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/wallets/me/movements
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+params:query {
+  page: 0
+  size: 20
+}

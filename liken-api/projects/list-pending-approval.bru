@@ -1,0 +1,15 @@
+meta {
+  name: list-pending-approval
+  type: http
+  seq: 8
+}
+
+get {
+  url: {{baseUrl}}/api/projects/pending-approval
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}

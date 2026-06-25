@@ -1,0 +1,34 @@
+meta {
+  name: create-project
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/projects
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "name": "Parque Solar Córdoba",
+    "description": "Parque solar en las sierras de Córdoba con 8 MW de capacidad.",
+    "energyType": "SOLAR",
+    "province": "Córdoba",
+    "country": "Argentina",
+    "latitude": -31.4135,
+    "longitude": -64.1811,
+    "installedCapacityMW": 8.0,
+    "totalTokens": 80000,
+    "earlyBirdPrice": 9.0,
+    "standardPrice": 11.0,
+    "minimumInvestment": 100.0,
+    "expectedOpenDate": "2026-09-01",
+    "expectedAnnualYield": 9.5
+  }
+}
