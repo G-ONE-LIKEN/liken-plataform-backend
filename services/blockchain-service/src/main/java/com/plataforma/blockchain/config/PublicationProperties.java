@@ -12,6 +12,8 @@ public class PublicationProperties {
     private String forgeCommand;
     private String scriptEntry;
     private String signerPrivateKey;
+    private String signerPrivateKeySecretName;
+    private String signerPrivateKeySecretVersion = "latest";
     private String platformAdmin;
     private String emisor;
     private String treasury;

@@ -41,6 +41,20 @@ public class ProjectPublicationService {
     private final Web3Properties web3Properties;
     private final UserLookupClient userLookupClient;
     private final ProjectServiceClient projectServiceClient;
+    private final SecretManagerService secretManagerService;
+
+    private String getSignerPrivateKey() {
+        if (publicationProperties.getSignerPrivateKeySecretName() != null && !publicationProperties.getSignerPrivateKeySecretName().isBlank()) {
+            String projectId = System.getenv("GCP_PROJECT_ID");
+            if (projectId == null) {
+                throw new IllegalStateException("GCP_PROJECT_ID no configurado para leer el secret");
+            }
+            return secretManagerService.getSecret(projectId,
+                    publicationProperties.getSignerPrivateKeySecretName(),
+                    publicationProperties.getSignerPrivateKeySecretVersion());
+        }
+        return publicationProperties.getSignerPrivateKey();
+    }
 
     @Async
     public void publishAsync(ProjectPublicationCommand command) {
@@ -88,7 +102,7 @@ public class ProjectPublicationService {
         builder.redirectErrorStream(true);
 
         Map<String, String> env = builder.environment();
-        env.put("PRIVATE_KEY", publicationProperties.getSignerPrivateKey());
+        env.put("PRIVATE_KEY", getSignerPrivateKey());
         env.put("LKN_ADDRESS", contractsProperties.getLinkenToken());
         env.put("REGISTRY_ADDRESS", contractsProperties.getRegistry());
         env.put("USDC_ADDRESS", contractsProperties.getUsdc());
