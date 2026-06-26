@@ -104,11 +104,23 @@ services:
     image: confluentinc/cp-kafka:7.5.0
     container_name: liken_kafka
     logging: *default-logging
+    restart: on-failure
     depends_on:
       zookeeper:
         condition: service_healthy
     ports:
       - "29092:29092"
+    # Al reiniciar Docker, ZK puede conservar el nodo efímero /brokers/ids/1 de
+    # la sesión anterior (si Kafka no llegó a desregistrarse limpiamente).
+    # Este comando espera a ZK, borra el nodo stale si existe, y luego arranca.
+    command: >
+      bash -c "
+        until echo ruok | nc -w 2 zookeeper 2181 2>/dev/null | grep -q imok; do
+          sleep 1
+        done &&
+        (echo -e 'delete /brokers/ids/1\nquit' | /usr/bin/zookeeper-shell zookeeper:2181 2>/dev/null || true) &&
+        exec /etc/confluent/docker/run
+      "
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
