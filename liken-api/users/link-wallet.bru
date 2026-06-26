@@ -1,0 +1,22 @@
+meta {
+  name: link-wallet
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/api/users/me/wallet
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "walletAddress": "0xYourWalletAddress",
+    "signature": "0xYourSignatureFromMetaMask"
+  }
+}

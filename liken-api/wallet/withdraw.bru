@@ -1,0 +1,22 @@
+meta {
+  name: withdraw
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/api/wallets/withdraw
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "amount": 100.00,
+    "description": "Retiro parcial"
+  }
+}

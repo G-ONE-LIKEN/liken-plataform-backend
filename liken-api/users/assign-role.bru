@@ -1,0 +1,21 @@
+meta {
+  name: assign-role
+  type: http
+  seq: 9
+}
+
+put {
+  url: {{baseUrl}}/api/users/1/role
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "roleId": 2
+  }
+}

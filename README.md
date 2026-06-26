@@ -184,3 +184,11 @@ liken-plataform-backend/
 
 Las decisiones de diseño estan documentadas como ADR en [`docs/adr/`](docs/adr/README.md). Los servicios referencian estos ADR (ej. la validacion centralizada de JWT es [ADR-0004](docs/adr/ADR-0004-Validacion-JWT-centralizada-en-el-gateway), el modelo de eventos Kafka es [ADR-0012](docs/adr/ADR-0012-Modelo-canonico-de-eventos-Kafka)). La integracion on-chain esta cubierta por [ADR-0017](docs/adr/ADR-0017-Modelo-de-integracion-on-chain-Web2-Web3) a [ADR-0022](docs/adr/ADR-0022-Unidades-y-precision-monetaria-on-chain-off-chain) (modelo de proyecciones, indexador, deploy con Foundry, reconciliacion por wallet, sesion y precision monetaria). El indice con el mapeo `ADR ↔ DDxxx` esta en [docs/adr/README.md](docs/adr/README.md).
 
+# endpoints publicos
+| Endpoint                             | Descripción                                             |
+|--------------------------------------|---------------------------------------------------------|
+| GET /api/projects                    | Todos los proyectos (filtrado client-side por el front) |
+| GET /api/projects/mine               | Solo los tuyos                                          |
+| GET /api/projects?state=OPEN&size=50 | Por estado, útil para admin                             |
+| GET /api/projects/pending-approval   | Solo pendientes de aprobación                           |
+| GET /api/projects/{id}               | Detalle de uno                                          |

@@ -1,0 +1,15 @@
+meta {
+  name: list-developers
+  type: http
+  seq: 10
+}
+
+get {
+  url: {{baseUrl}}/api/users/developers
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}

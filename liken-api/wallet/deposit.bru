@@ -1,0 +1,22 @@
+meta {
+  name: deposit
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/wallets/deposit
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "amount": 1000.00,
+    "description": "Depósito inicial"
+  }
+}

@@ -1,0 +1,15 @@
+meta {
+  name: approve-project
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/api/projects/1/approve
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}

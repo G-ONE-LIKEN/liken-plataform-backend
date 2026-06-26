@@ -1,0 +1,34 @@
+meta {
+  name: update-project
+  type: http
+  seq: 4
+}
+
+put {
+  url: {{baseUrl}}/api/projects/1
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "name": "Campo Solar Mendoza (actualizado)",
+    "description": "Descripción actualizada.",
+    "energyType": "SOLAR",
+    "province": "Mendoza",
+    "country": "Argentina",
+    "latitude": -33.5986,
+    "longitude": -69.1566,
+    "installedCapacityMW": 6.0,
+    "totalTokens": 60000,
+    "earlyBirdPrice": 8.0,
+    "standardPrice": 10.0,
+    "minimumInvestment": 100.0,
+    "expectedOpenDate": "2026-06-01",
+    "expectedAnnualYield": 8.5
+  }
+}

@@ -1,0 +1,20 @@
+meta {
+  name: list-projects
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/projects
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+params:query {
+  ~state: OPEN
+  ~energyType: SOLAR
+}

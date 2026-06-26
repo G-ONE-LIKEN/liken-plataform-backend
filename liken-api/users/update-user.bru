@@ -1,0 +1,30 @@
+meta {
+  name: update-user
+  type: http
+  seq: 8
+}
+
+put {
+  url: {{baseUrl}}/api/users/1
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "email": "updated@example.com",
+    "firstName": "Federico",
+    "lastName": "Claros",
+    "dni": "12345678",
+    "birthDate": "1995-01-15",
+    "phone": "+5491112345678",
+    "country": "Argentina",
+    "province": "Buenos Aires",
+    "address": "Calle Falsa 123",
+    "termsAccepted": true
+  }
+}
