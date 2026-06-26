@@ -53,6 +53,36 @@ public class KycService {
     @Value("${gcp.storage.bucket}")
     private String bucket;
 
+    private static final List<String> ALLOWED_MIME_TYPES = List.of("application/pdf", "image/png", "image/jpeg");
+
+    private void validateFile(MultipartFile file) {
+        String contentType = file.getContentType();
+        if (!ALLOWED_MIME_TYPES.contains(contentType)) {
+            throw new IllegalArgumentException("Tipo de archivo no permitido: " + contentType);
+        }
+        
+        try (java.io.InputStream is = file.getInputStream()) {
+            byte[] header = new byte[4];
+            int read = is.read(header);
+            if (read < 3) throw new IllegalArgumentException("Archivo inválido");
+            
+            boolean isPdf = header[0] == 0x25 && header[1] == 0x50 && header[2] == 0x44;
+            boolean isPng = header[0] == (byte) 0x89 && header[1] == 0x50 && header[2] == 0x4E;
+            boolean isJpeg = header[0] == (byte) 0xFF && header[1] == (byte) 0xD8 && header[2] == (byte) 0xFF;
+            
+            if (!isPdf && !isPng && !isJpeg) {
+                throw new IllegalArgumentException("Contenido de archivo no coincide con el tipo reportado");
+            }
+        } catch (IOException e) {
+            throw new IllegalArgumentException("Error validando archivo", e);
+        }
+    }
+    
+    private String sanitizeFilename(String filename) {
+        if (filename == null) return UUID.randomUUID().toString();
+        return filename.replaceAll("[^a-zA-Z0-9.-_]", "_");
+    }
+
     /**
      * Sube documentos KYC del usuario autenticado.
      * Pasa el estado del usuario a PENDING (esperando revision de ADMIN).
@@ -71,19 +101,21 @@ public class KycService {
 
         for (int i = 0; i < files.size(); i++) {
             MultipartFile file = files.get(i);
+            validateFile(file);
+            
+            String sanitizedFilename = sanitizeFilename(file.getOriginalFilename());
             String type = types.get(i);
-            // Mantenemos el nombre de campo "s3Key" en la entidad por compat — semanticamente
-            // hoy es el object name de GCS. Si en el futuro se renombra, hacerlo en una sola migracion.
-            String objectName = "kyc/" + userId + "/" + UUID.randomUUID() + "_" + file.getOriginalFilename();
+            String objectName = "kyc/" + userId + "/" + UUID.randomUUID() + "_" + sanitizedFilename;
 
             try {
                 BlobId blobId = BlobId.of(bucket, objectName);
                 BlobInfo blobInfo = BlobInfo.newBuilder(blobId)
                         .setContentType(file.getContentType())
+                        .setContentDisposition("attachment; filename=\"" + sanitizedFilename + "\"")
                         .build();
                 storage.createFrom(blobInfo, file.getInputStream());
             } catch (IOException e) {
-                throw new RuntimeException("Error subiendo archivo a GCS: " + file.getOriginalFilename(), e);
+                throw new RuntimeException("Error subiendo archivo a GCS: " + sanitizedFilename, e);
             }
 
             documentRepository.save(KycDocument.builder()
