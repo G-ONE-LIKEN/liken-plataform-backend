@@ -43,8 +43,8 @@ public class UserHoldingEventConsumer {
             Long userId    = toLongOrNull(payload.get("userId"));
             Long projectId = resolveProjectId(payload);
             BigDecimal lknAmount = bigDecimal(
-                    payload.getOrDefault("lknAmount", payload.get("tokenCount")));
-            BigDecimal usdcAmount = bigDecimal(payload.getOrDefault("usdcAmount", "0"));
+                    payload.getOrDefault("tokens", payload.getOrDefault("lknAmount", payload.get("tokenCount"))));
+            BigDecimal usdcAmount = bigDecimal(payload.getOrDefault("amount", payload.getOrDefault("usdcAmount", "0")));
 
             // Camino nuevo (datos on-chain completos): registra wallet + USDC invertido.
             // Camino legacy (sin wallet ni USDC, solo tokenCount): mantiene compat con tests.

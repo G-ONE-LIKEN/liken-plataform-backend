@@ -201,8 +201,8 @@ public class KafkaConsumers {
         Long userId = asLong(payload.get("userId"));
         if (userId == null) return;
 
-        Object amount = payload.get("usdcAmount");
-        Object tokens = payload.get("lknAmount");
+        Object amount = payload.get("amount");
+        Object tokens = payload.get("tokens");
         
         String offering = (String) payload.get("offeringContractAddress");
         Long projectId = asLong(payload.get("projectId"));

@@ -96,8 +96,8 @@ public class TokenPurchasedConsumer {
                     toLong(payload.get("userId")),
                     str(payload.get("walletAddress")),
                     toLong(payload.get("projectId")),
-                    toBigDecimal(payload.get("usdcAmount")),
-                    toBigDecimal(payload.get("lknAmount")),
+                    toBigDecimal(payload.get("amount")),
+                    toBigDecimal(payload.get("tokens")),
                     str(payload.get("txHash"))
             );
         }

@@ -82,8 +82,8 @@ public class EventHandlerService {
         // projectId no viaja en el log on-chain — lo resuelve project-service al
         // recibir el evento usando offering_contract_address.
         payload.put("offeringContractAddress", log.getAddress());
-        payload.put("lknAmount", units.lknFromOnchain(lknRaw));
-        payload.put("usdcAmount", units.usdcFromOnchain(usdcRaw));
+        payload.put("tokens", units.lknFromOnchain(lknRaw));
+        payload.put("amount", units.usdcFromOnchain(usdcRaw));
 
         publisher.publish("investment.token_purchased", eventId, log.getAddress(),
                 log.getBlockNumber().longValueExact(), payload);

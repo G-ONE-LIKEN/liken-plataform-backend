@@ -40,8 +40,8 @@ public class TokensPurchasedConsumer {
             Long userId = toLong(payload.get("userId"));
             Long projectId = toLong(payload.get("projectId"));
             String offering = str(payload.get("offeringContractAddress"));
-            BigDecimal usdcAmount = bigDecimal(payload.get("usdcAmount"));
-            BigDecimal lknAmount = bigDecimal(payload.get("lknAmount"));
+            BigDecimal usdcAmount = bigDecimal(payload.get("amount"));
+            BigDecimal lknAmount = bigDecimal(payload.get("tokens"));
             String txHash = str(payload.get("txHash"));
             Long blockNumber = toLong(payload.get("blockNumber"));
 
