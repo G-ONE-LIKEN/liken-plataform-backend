@@ -13,13 +13,19 @@ RUN mvn -B -q -DskipTests package
 FROM ghcr.io/foundry-rs/foundry:latest AS foundry
 
 # ── Stage 3: Runtime Final ───────────────────────────────────────────────────
-FROM eclipse-temurin:21-jre-alpine
+# Debian-based (no Alpine): forge esta compilado contra glibc y falla en musl
+# con "Error relocating: fcntl64/_Unwind_* symbol not found", incluso con
+# gcompat instalado. La imagen jammy trae glibc nativa.
+FROM eclipse-temurin:21-jre-jammy
 WORKDIR /app
 
-# Instalar bash, git y agregar gcompat por si el binario de forge lo requiere en Alpine
-RUN apk add --no-cache bash git gcompat
+# bash y git son necesarios para que forge corra los scripts de deploy
+RUN apt-get update && apt-get install -y --no-install-recommends bash git ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+# --create-home: forge necesita HOME para su cache global (~/.foundry/cache).
+# Sin el home dir, falla con "Permission denied (os error 13)" sin mas detalle.
+RUN groupadd -r appgroup && useradd -r -g appgroup --create-home --home-dir /home/appuser appuser
 
 # Copiar forge directamente desde la imagen oficial (esta en /usr/local/bin)
 COPY --from=foundry /usr/local/bin/forge /usr/local/bin/forge

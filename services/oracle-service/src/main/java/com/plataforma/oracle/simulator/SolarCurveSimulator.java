@@ -23,8 +23,10 @@ import java.util.concurrent.ThreadLocalRandom;
 @Component
 public class SolarCurveSimulator {
 
-    private static final int SUNRISE_HOUR = 6;
-    private static final int SUNSET_HOUR = 18;
+    // TEMPORAL para demo: curva 24h (siempre genera) para no depender del horario.
+    // Para volver al realismo poner SUNRISE=6, SUNSET=18.
+    private static final int SUNRISE_HOUR = 0;
+    private static final int SUNSET_HOUR = 24;
     private static final int DAYLIGHT_HOURS = SUNSET_HOUR - SUNRISE_HOUR;
 
     private static final BigDecimal VARIATION_RANGE = BigDecimal.valueOf(0.10); // ±10%

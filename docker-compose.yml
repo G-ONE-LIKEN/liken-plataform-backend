@@ -519,21 +519,28 @@ services:
       USDC_ADDRESS: ${USDC_ADDRESS:-0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238}
       MARKETPLACE_ADDRESS: ${MARKETPLACE_ADDRESS:-0x0000000000000000000000000000000000000000}
       BLOCKCHAIN_SERVICE_URL: http://blockchain-service:8085
-      PUBLICATION_CONTRACTS_WORKSPACE: /contracts
+      # Apunta al workspace COPIADO por el Dockerfile con permisos correctos
+      # para appuser. Antes era /contracts via bind-mount, pero en Docker Desktop
+      # los uid/gid del host no le dan write a forge -> "Permission denied".
+      PUBLICATION_CONTRACTS_WORKSPACE: /app/contracts
       FORGE_COMMAND: ${FORGE_COMMAND:-forge}
-      PUBLICATION_SCRIPT_ENTRY: ${PUBLICATION_SCRIPT_ENTRY:-script/DeployProjectOffering.s.sol:DeployProjectOffering}
+      # forge 1.7 no resuelve la sintaxis "path:Contract" cuando el path absoluto
+      # es relativo al workspace; pasamos solo el path y forge infiere el unico
+      # contrato del archivo. Antes daba "Error: Could not find target contract".
+      PUBLICATION_SCRIPT_ENTRY: ${PUBLICATION_SCRIPT_ENTRY:-script/DeployProjectOffering.s.sol}
       PUBLICATION_SIGNER_PRIVATE_KEY: ${PUBLICATION_SIGNER_PRIVATE_KEY:-}
       PLATFORM_ADMIN: ${PLATFORM_ADMIN:-0x0000000000000000000000000000000000000000}
       EMISOR_ADDRESS: ${EMISOR_ADDRESS:-0x0000000000000000000000000000000000000000}
       TREASURY_ADDRESS: ${TREASURY_ADDRESS:-0x0000000000000000000000000000000000000000}
       PUBLICATION_DEADLINE_ZONE_ID: ${PUBLICATION_DEADLINE_ZONE_ID:-America/Argentina/Buenos_Aires}
-    volumes:
-      - ./contracts:/contracts
     deploy:
       resources:
         limits:
-          memory: 450M  # resto se queda en 400M
-          cpus: '0.50'
+          # 1.5G: la JVM toma ~300M y solc necesita 600-900M para compilar
+          # los 47 contratos del workspace. Con 450M, solc moria con SIGKILL
+          # (OOM-killer del cgroup) al compilar el script de publicacion.
+          memory: 1500M
+          cpus: '1.0'
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8085/health || exit 1"]
       interval: 15s

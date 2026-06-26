@@ -28,9 +28,14 @@ spring:
       properties:
         spring.json.add.type.headers: false
     consumer:
+      # Los listeners de este servicio reciben el payload como String y deserializan
+      # ellos mismos con ObjectMapper (ver OrderMatchedConsumer). Antes el delegate
+      # era JsonDeserializer y rompia con "No type information in headers": el
+      # publisher de marketplace publica un Map sin __TypeId__ y JsonDeserializer
+      # no sabia a que clase deserializar -> los mensajes iban al DLT.
       value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
       properties:
-        spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JsonDeserializer
+        spring.deserializer.value.delegate.class: org.apache.kafka.common.serialization.StringDeserializer
 
 server:
   port: ${SERVER_PORT:8085}
