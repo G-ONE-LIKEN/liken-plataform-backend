@@ -8,6 +8,9 @@ spring:
         url: ${DB_URL:jdbc:postgresql://localhost:5432/oracle_db}
         username: ${DB_USERNAME:liken_user}
         password: ${DB_PASSWORD}
+        hikari:
+            maximum-pool-size: ${DB_POOL_MAX:4}
+            minimum-idle: ${DB_POOL_MIN:1}
 
     jpa:
         hibernate:
