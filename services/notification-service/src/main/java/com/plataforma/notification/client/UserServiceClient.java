@@ -28,6 +28,9 @@ public class UserServiceClient {
     @Value("${user-service.base-url}")
     private String baseUrl;
 
+    @Value("${INTERNAL_API_KEY:}")
+    private String internalApiKey;
+
     private RestClient restClient;
 
     private RestClient client() {
@@ -41,6 +44,7 @@ public class UserServiceClient {
             restClient = RestClient.builder()
                     .requestFactory(requestFactory)
                     .baseUrl(baseUrl)
+                    .defaultHeader("X-Internal-Token", internalApiKey)
                     .build();
         }
         return restClient;

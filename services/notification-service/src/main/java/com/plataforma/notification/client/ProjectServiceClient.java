@@ -21,11 +21,17 @@ public class ProjectServiceClient {
     @Value("${project-service.base-url}")
     private String baseUrl;
 
+    @Value("${INTERNAL_API_KEY:}")
+    private String internalApiKey;
+
     private RestClient restClient;
 
     private RestClient client() {
         if (restClient == null) {
-            restClient = RestClient.builder().baseUrl(baseUrl).build();
+            restClient = RestClient.builder()
+                    .baseUrl(baseUrl)
+                    .defaultHeader("X-Internal-Token", internalApiKey)
+                    .build();
         }
         return restClient;
     }
