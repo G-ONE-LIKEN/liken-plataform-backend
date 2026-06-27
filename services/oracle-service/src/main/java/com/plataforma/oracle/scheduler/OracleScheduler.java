@@ -14,6 +14,7 @@ import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 
 @Slf4j
@@ -29,6 +30,16 @@ public class OracleScheduler {
     @Value("${oracle.simulation.interval-ms}")
     private long intervalMs;
 
+    /**
+     * Zona horaria con la que se interpreta la "hora del dia" en la curva solar.
+     * Por default Argentina: los parques estan en Argentina, y la demo se hace en
+     * horario argentino. Dentro de docker {@code LocalDateTime.now()} sin zona
+     * devuelve UTC y todas las lecturas caian a kWh=0 fuera del rango 6-18 UTC
+     * (= 3-15 ARG), perdiendo la mitad del dia productivo argentino.
+     */
+    @Value("${oracle.simulation.timezone:America/Argentina/Buenos_Aires}")
+    private String simulationTimezone;
+
     @Scheduled(fixedRateString = "${oracle.simulation.interval-ms}")
     public void runSimulationCycle() {
         List<ActiveProjectOracleDto> activeProjects = projectServiceClient.listActiveProjects();
@@ -38,7 +49,7 @@ public class OracleScheduler {
             return;
         }
 
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(ZoneId.of(simulationTimezone));
         log.info("Ciclo del oracle iniciado: {} proyectos activos", activeProjects.size());
 
         for (ActiveProjectOracleDto project : activeProjects) {

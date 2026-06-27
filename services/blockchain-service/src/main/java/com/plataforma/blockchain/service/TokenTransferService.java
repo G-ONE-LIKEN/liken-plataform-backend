@@ -7,16 +7,22 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.web3j.abi.FunctionEncoder;
+import org.web3j.abi.FunctionReturnDecoder;
+import org.web3j.abi.TypeReference;
 import org.web3j.abi.datatypes.Address;
 import org.web3j.abi.datatypes.Function;
+import org.web3j.abi.datatypes.Type;
 import org.web3j.abi.datatypes.generated.Uint256;
 import org.web3j.crypto.Credentials;
 import org.web3j.crypto.RawTransaction;
 import org.web3j.crypto.TransactionEncoder;
 import org.web3j.protocol.Web3j;
 import org.web3j.protocol.core.DefaultBlockParameterName;
+import org.web3j.protocol.core.methods.request.Transaction;
 import org.web3j.protocol.core.methods.response.EthGetTransactionCount;
 import org.web3j.protocol.core.methods.response.EthSendTransaction;
+import org.web3j.protocol.core.methods.response.TransactionReceipt;
+import org.web3j.tx.response.PollingTransactionReceiptProcessor;
 import org.web3j.utils.Numeric;
 
 import java.math.BigDecimal;
@@ -24,6 +30,7 @@ import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 
 @Slf4j
 @Service
@@ -155,5 +162,125 @@ public class TokenTransferService {
         }
 
         log.info("Liquidación on-chain exitosa para orden {}: {} (Gas usado: {})", orderId, txHash, receipt.getGasUsed());
+    }
+
+    /** Resultado de una deposito de dividendos on-chain. */
+    public record DepositResult(String txHash, BigInteger blockNumber) {}
+
+    /**
+     * Aprueba (si hace falta) y deposita {@code amountUsdc} en el
+     * {@code DividendDistributor}. El signer debe tener el rol DEPOSITOR_ROLE.
+     *
+     * <p>El allowance se chequea on-chain antes; si esta por debajo del monto a
+     * depositar se manda una tx {@code approve(distributor, max-uint256)} y se
+     * espera receipt. Esto ahorra firmar un approve cada deposit despues del
+     * primero.
+     */
+    public DepositResult executeDepositDividends(BigDecimal amountUsdc) throws Exception {
+        String privateKey = publicationProperties.getSignerPrivateKey();
+        if (privateKey == null || privateKey.isBlank()) {
+            throw new IllegalStateException("Missing platform admin signer private key");
+        }
+
+        Credentials credentials = Credentials.create(privateKey);
+        String signer = credentials.getAddress();
+        String usdcAddress = contractsProperties.getUsdc();
+        String distributorAddress = contractsProperties.getDistributor();
+
+        if (distributorAddress == null || distributorAddress.isBlank()
+                || distributorAddress.equalsIgnoreCase("0x0000000000000000000000000000000000000000")) {
+            throw new IllegalStateException("Distributor contract address is not configured");
+        }
+        if (usdcAddress == null || usdcAddress.isBlank()
+                || usdcAddress.equalsIgnoreCase("0x0000000000000000000000000000000000000000")) {
+            throw new IllegalStateException("USDC contract address is not configured");
+        }
+
+        BigInteger amountRaw = amountUsdc.movePointRight(6).setScale(0, RoundingMode.DOWN).toBigInteger();
+        if (amountRaw.signum() <= 0) {
+            throw new IllegalArgumentException("amountUsdc must be > 0, got " + amountUsdc);
+        }
+
+        // 1) Allowance check / approve si hace falta.
+        BigInteger currentAllowance = readAllowance(signer, usdcAddress, distributorAddress);
+        if (currentAllowance.compareTo(amountRaw) < 0) {
+            log.info("Allowance USDC insuficiente ({}); aprobando max-uint256 a {}", currentAllowance, distributorAddress);
+            sendApproveMax(credentials, usdcAddress, distributorAddress);
+        }
+
+        // 2) depositDividends(uint256 amount)
+        Function deposit = new Function(
+                "depositDividends",
+                Arrays.asList(new Uint256(amountRaw)),
+                Collections.emptyList()
+        );
+        String encoded = FunctionEncoder.encode(deposit);
+
+        BigInteger nonce = web3j.ethGetTransactionCount(signer, DefaultBlockParameterName.LATEST)
+                .send().getTransactionCount();
+        BigInteger gasPrice = web3j.ethGasPrice().send().getGasPrice().multiply(BigInteger.valueOf(2));
+        // depositDividends hace: AccessControl check + ReentrancyGuard + 2 SSTORE
+        // (magnifiedDividendPerShare, totalDeposited) + safeTransferFrom externo a
+        // USDC. Primera vez con cold storage consume ~115-180k gas. 120k era
+        // apretado y la primera tx quedo out-of-gas. 250k da margen comodo.
+        BigInteger gasLimit = BigInteger.valueOf(250_000);
+
+        RawTransaction raw = RawTransaction.createTransaction(
+                nonce, gasPrice, gasLimit, distributorAddress, encoded);
+        byte[] signed = TransactionEncoder.signMessage(raw, web3Properties.getChainId(), credentials);
+        EthSendTransaction sent = web3j.ethSendRawTransaction(Numeric.toHexString(signed)).send();
+
+        if (sent.hasError()) {
+            throw new RuntimeException("Error executing depositDividends: " + sent.getError().getMessage());
+        }
+        String txHash = sent.getTransactionHash();
+        log.info("Enviada tx depositDividends ({} USDC raw). Esperando receipt: {}", amountRaw, txHash);
+
+        TransactionReceipt receipt = new PollingTransactionReceiptProcessor(web3j, 2000, 30)
+                .waitForTransactionReceipt(txHash);
+        if (!receipt.isStatusOK()) {
+            throw new RuntimeException("depositDividends revertida (status 0x0) tx=" + txHash);
+        }
+        log.info("depositDividends OK: tx={} block={} gasUsed={}", txHash, receipt.getBlockNumber(), receipt.getGasUsed());
+        return new DepositResult(txHash, receipt.getBlockNumber());
+    }
+
+    private BigInteger readAllowance(String owner, String tokenAddress, String spender) throws Exception {
+        Function allowance = new Function(
+                "allowance",
+                Arrays.asList(new Address(owner), new Address(spender)),
+                List.of(TypeReference.create(Uint256.class))
+        );
+        String result = web3j.ethCall(
+                Transaction.createEthCallTransaction(owner, tokenAddress, FunctionEncoder.encode(allowance)),
+                DefaultBlockParameterName.LATEST).send().getValue();
+        List<Type> decoded = FunctionReturnDecoder.decode(result, allowance.getOutputParameters());
+        return decoded.isEmpty() ? BigInteger.ZERO : ((Uint256) decoded.get(0)).getValue();
+    }
+
+    private void sendApproveMax(Credentials credentials, String tokenAddress, String spender) throws Exception {
+        BigInteger maxUint = BigInteger.TWO.pow(256).subtract(BigInteger.ONE);
+        Function approve = new Function(
+                "approve",
+                Arrays.asList(new Address(spender), new Uint256(maxUint)),
+                Collections.emptyList()
+        );
+        String encoded = FunctionEncoder.encode(approve);
+        BigInteger nonce = web3j.ethGetTransactionCount(credentials.getAddress(), DefaultBlockParameterName.LATEST)
+                .send().getTransactionCount();
+        BigInteger gasPrice = web3j.ethGasPrice().send().getGasPrice().multiply(BigInteger.valueOf(2));
+        RawTransaction raw = RawTransaction.createTransaction(
+                nonce, gasPrice, BigInteger.valueOf(80_000), tokenAddress, encoded);
+        byte[] signed = TransactionEncoder.signMessage(raw, web3Properties.getChainId(), credentials);
+        EthSendTransaction sent = web3j.ethSendRawTransaction(Numeric.toHexString(signed)).send();
+        if (sent.hasError()) {
+            throw new RuntimeException("Error executing approve: " + sent.getError().getMessage());
+        }
+        TransactionReceipt receipt = new PollingTransactionReceiptProcessor(web3j, 2000, 30)
+                .waitForTransactionReceipt(sent.getTransactionHash());
+        if (!receipt.isStatusOK()) {
+            throw new RuntimeException("approve revertida (status 0x0) tx=" + sent.getTransactionHash());
+        }
+        log.info("approve max-uint a {} OK: tx={}", spender, sent.getTransactionHash());
     }
 }

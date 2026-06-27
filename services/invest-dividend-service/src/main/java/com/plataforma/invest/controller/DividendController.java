@@ -3,6 +3,8 @@ package com.plataforma.invest.controller;
 
 import com.plataforma.invest.dto.DividendClaimResponse;
 import com.plataforma.invest.dto.PendingDividendsResponse;
+import com.plataforma.invest.dto.ProjectAccrualResponse;
+import com.plataforma.invest.repository.ProjectEnergyAccumulatorRepository;
 import com.plataforma.invest.service.ChainReader;
 import com.plataforma.invest.service.DividendService;
 import com.plataforma.invest.service.UserWalletReconciliationService;
@@ -18,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/dividends")
@@ -27,6 +30,7 @@ public class DividendController {
     private final DividendService dividendService;
     private final ChainReader chainReader;
     private final UserWalletReconciliationService userWalletReconciliationService;
+    private final ProjectEnergyAccumulatorRepository accumulatorRepo;
 
     /**
      * Historial de dividendos reclamados por el usuario autenticado.
@@ -59,5 +63,18 @@ public class DividendController {
                 .walletAddress(wallet)
                 .pendingUsdc(pending)
                 .build()));
+    }
+
+    /**
+     * Saldo de energia acumulado por proyecto: kWh y USDC pendientes de depositar
+     * on-chain, plus el USDC "in-flight" (ya solicitado pero no confirmado).
+     * Util para mostrar "produccion del parque" en la UI del proyecto.
+     */
+    @GetMapping("/pending-by-project")
+    public ResponseEntity<ApiResponse<List<ProjectAccrualResponse>>> pendingByProject() {
+        List<ProjectAccrualResponse> list = accumulatorRepo.findAll().stream()
+                .map(ProjectAccrualResponse::from)
+                .toList();
+        return ResponseEntity.ok(ApiResponse.success("OK", list));
     }
 }
