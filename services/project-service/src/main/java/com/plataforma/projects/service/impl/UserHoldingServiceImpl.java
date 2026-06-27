@@ -8,6 +8,7 @@ import com.plataforma.projects.model.UserHolding;
 import com.plataforma.projects.repository.ProcessedEventRepository;
 import com.plataforma.projects.repository.ProjectRepository;
 import com.plataforma.projects.repository.UserHoldingRepository;
+import com.plataforma.projects.service.ProjectService;
 import com.plataforma.projects.service.UserHoldingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,6 +29,7 @@ public class UserHoldingServiceImpl implements UserHoldingService {
     private final UserHoldingRepository holdingRepository;
     private final ProjectRepository projectRepository;
     private final ProcessedEventRepository processedEventRepository;
+    private final ProjectService projectService;
 
     @Override
     public Page<UserHoldingResponse> listHolders(Long projectId, Pageable pageable) {
@@ -111,6 +113,10 @@ public class UserHoldingServiceImpl implements UserHoldingService {
         project.setRaisedAmount(currentRaised.add(usdcAmount));
         project.setTotalTokensSold(currentSold.add(lknAmount));
         projectRepository.save(project);
+
+        // Si esta compra hizo cruzar el softCap, transicionar PRE_OPEN → OPEN
+        // para que aparezca en marketplace. La ronda primaria on-chain sigue activa.
+        projectService.applyPurchaseAccrual(projectId, usdcAmount, lknAmount);
 
         UserHolding holding;
         if (userId != null) {

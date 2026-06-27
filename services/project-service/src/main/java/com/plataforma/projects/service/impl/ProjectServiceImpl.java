@@ -356,6 +356,37 @@ public class ProjectServiceImpl implements ProjectService {
     }
 
     @Override
+    @Transactional
+    public void applyPurchaseAccrual(Long projectId, BigDecimal usdcAmount, BigDecimal lknAmount) {
+        if (projectId == null) return;
+
+        Project project = projectRepository.findByIdAndActiveTrue(projectId).orElse(null);
+        if (project == null) {
+            log.warn("applyPurchaseAccrual: projectId={} no encontrado", projectId);
+            return;
+        }
+
+        // El raisedAmount/totalTokensSold ya fue actualizado por
+        // UserHoldingServiceImpl.recordTokenPurchase (corre antes en la misma tx).
+        // Aca solo decidimos la transicion de estado.
+        BigDecimal raised = project.getRaisedAmount() == null ? BigDecimal.ZERO : project.getRaisedAmount();
+        BigDecimal softCap = project.getSoftCap();
+        ProjectState oldState = project.getState();
+
+        boolean softCapReached = softCap != null
+                && softCap.signum() > 0
+                && raised.compareTo(softCap) >= 0;
+
+        if (softCapReached && oldState == ProjectState.PRE_OPEN) {
+            project.setState(ProjectState.OPEN);
+            projectRepository.save(project);
+            eventPublisher.publishStateChanged(project, oldState, ProjectState.OPEN);
+            log.info("SoftCap alcanzado: projectId={} raised={} softCap={} → PRE_OPEN to OPEN",
+                    projectId, raised, softCap);
+        }
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public List<HolderDto> listHoldersByProject(Long projectId) {
         return userHoldingRepository.findByProjectId(projectId, PageRequest.of(0, Integer.MAX_VALUE))

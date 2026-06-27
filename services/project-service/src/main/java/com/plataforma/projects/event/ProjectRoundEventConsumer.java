@@ -36,10 +36,15 @@ public class ProjectRoundEventConsumer {
                     project.setOnChainStatus(OnChainStatus.DEPLOYED);
                     project.setRoundState(RoundState.FINALIZED);
                     project.setRaisedAmount(decimal(payload.get("totalRaised")));
-                    project.setState(ProjectState.OPEN);
+                    // El state ya pudo haber pasado a OPEN cuando se cruzo el softCap
+                    // (ver ProjectService.applyPurchaseAccrual). Solo forzamos OPEN si
+                    // todavia estaba en PRE_OPEN.
+                    if (oldState == ProjectState.PRE_OPEN) {
+                        project.setState(ProjectState.OPEN);
+                    }
                     projectRepository.save(project);
 
-                    if (oldState != ProjectState.OPEN) {
+                    if (oldState == ProjectState.PRE_OPEN) {
                         eventPublisher.publishStateChanged(project, oldState, ProjectState.OPEN);
                     }
                     log.info("Ronda finalizada reconciliada: projectId={} offering={}", project.getId(), offeringAddress);

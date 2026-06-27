@@ -64,7 +64,7 @@ public class TokenTransferService {
         String encodedFunction = FunctionEncoder.encode(function);
 
         EthGetTransactionCount ethGetTransactionCount = web3j.ethGetTransactionCount(
-                credentials.getAddress(), DefaultBlockParameterName.LATEST).send();
+                credentials.getAddress(), DefaultBlockParameterName.PENDING).send();
         BigInteger nonce = ethGetTransactionCount.getTransactionCount();
 
         BigInteger gasPrice = web3j.ethGasPrice().send().getGasPrice().multiply(BigInteger.valueOf(2));
@@ -112,6 +112,46 @@ public class TokenTransferService {
         BigInteger tokenAmountWei = tokenAmount.movePointRight(18).setScale(0, RoundingMode.HALF_UP).toBigInteger();
         BigInteger usdcAmountRaw = usdcAmount.movePointRight(6).setScale(0, RoundingMode.HALF_UP).toBigInteger();
 
+        BigInteger sellerLknBalance = readBalanceOf(sellerWallet, tokenAddress);
+        if (sellerLknBalance.compareTo(tokenAmountWei) < 0) {
+            throw new IllegalStateException(
+                    "Seller LKN balance insufficient: have "
+                            + formatRawAmount(sellerLknBalance, 18)
+                            + " LKN, need "
+                            + formatRawAmount(tokenAmountWei, 18)
+                            + " LKN");
+        }
+
+        BigInteger sellerLknAllowance = readAllowance(sellerWallet, tokenAddress, marketplaceAddress);
+        if (sellerLknAllowance.compareTo(tokenAmountWei) < 0) {
+            throw new IllegalStateException(
+                    "Seller LKN allowance insufficient: have "
+                            + formatRawAmount(sellerLknAllowance, 18)
+                            + " LKN, need "
+                            + formatRawAmount(tokenAmountWei, 18)
+                            + " LKN");
+        }
+
+        BigInteger buyerUsdcBalance = readBalanceOf(buyerWallet, usdcAddress);
+        if (buyerUsdcBalance.compareTo(usdcAmountRaw) < 0) {
+            throw new IllegalStateException(
+                    "Buyer USDC balance insufficient: have "
+                            + formatRawAmount(buyerUsdcBalance, 6)
+                            + " USDC, need "
+                            + formatRawAmount(usdcAmountRaw, 6)
+                            + " USDC");
+        }
+
+        BigInteger buyerUsdcAllowance = readAllowance(buyerWallet, usdcAddress, marketplaceAddress);
+        if (buyerUsdcAllowance.compareTo(usdcAmountRaw) < 0) {
+            throw new IllegalStateException(
+                    "Buyer USDC allowance insufficient: have "
+                            + formatRawAmount(buyerUsdcAllowance, 6)
+                            + " USDC, need "
+                            + formatRawAmount(usdcAmountRaw, 6)
+                            + " USDC");
+        }
+
         // settleTrade(uint256, address, address, address, address, uint256, uint256, uint256)
         Function function = new Function(
                 "settleTrade",
@@ -131,7 +171,7 @@ public class TokenTransferService {
         String encodedFunction = FunctionEncoder.encode(function);
 
         EthGetTransactionCount ethGetTransactionCount = web3j.ethGetTransactionCount(
-                credentials.getAddress(), DefaultBlockParameterName.LATEST).send();
+                credentials.getAddress(), DefaultBlockParameterName.PENDING).send();
         BigInteger nonce = ethGetTransactionCount.getTransactionCount();
 
         BigInteger gasPrice = web3j.ethGasPrice().send().getGasPrice().multiply(BigInteger.valueOf(2));
@@ -227,7 +267,7 @@ public class TokenTransferService {
         String encoded = FunctionEncoder.encode(transfer);
 
         BigInteger nonce = web3j.ethGetTransactionCount(credentials.getAddress(),
-                DefaultBlockParameterName.LATEST).send().getTransactionCount();
+                DefaultBlockParameterName.PENDING).send().getTransactionCount();
         BigInteger gasPrice = web3j.ethGasPrice().send().getGasPrice().multiply(BigInteger.valueOf(2));
         BigInteger gasLimit = BigInteger.valueOf(80_000);
 
@@ -312,7 +352,7 @@ public class TokenTransferService {
         );
         String encoded = FunctionEncoder.encode(deposit);
 
-        BigInteger nonce = web3j.ethGetTransactionCount(signer, DefaultBlockParameterName.LATEST)
+        BigInteger nonce = web3j.ethGetTransactionCount(signer, DefaultBlockParameterName.PENDING)
                 .send().getTransactionCount();
         BigInteger gasPrice = web3j.ethGasPrice().send().getGasPrice().multiply(BigInteger.valueOf(2));
         // depositDividends hace: AccessControl check + ReentrancyGuard + 2 SSTORE
@@ -375,7 +415,7 @@ public class TokenTransferService {
                 Collections.emptyList()
         );
         String encoded = FunctionEncoder.encode(approve);
-        BigInteger nonce = web3j.ethGetTransactionCount(credentials.getAddress(), DefaultBlockParameterName.LATEST)
+        BigInteger nonce = web3j.ethGetTransactionCount(credentials.getAddress(), DefaultBlockParameterName.PENDING)
                 .send().getTransactionCount();
         BigInteger gasPrice = web3j.ethGasPrice().send().getGasPrice().multiply(BigInteger.valueOf(2));
         RawTransaction raw = RawTransaction.createTransaction(
@@ -391,5 +431,9 @@ public class TokenTransferService {
             throw new RuntimeException("approve revertida (status 0x0) tx=" + sent.getTransactionHash());
         }
         log.info("approve max-uint a {} OK: tx={}", spender, sent.getTransactionHash());
+    }
+
+    private String formatRawAmount(BigInteger rawAmount, int decimals) {
+        return new BigDecimal(rawAmount).movePointLeft(decimals).stripTrailingZeros().toPlainString();
     }
 }

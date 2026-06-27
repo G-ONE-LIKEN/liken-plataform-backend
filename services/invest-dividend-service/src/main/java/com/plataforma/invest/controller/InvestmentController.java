@@ -79,9 +79,9 @@ public class InvestmentController {
                     .build());
         }
 
-        boolean canInvest = "PRE_OPEN".equals(snap.state()) && "OPEN".equals(snap.roundState());
+        boolean canInvest = "PRE_OPEN".equals(snap.state()) || "OPEN".equals(snap.state());
         String reason = canInvest ? null
-                : "La ronda primaria ya no esta abierta para este proyecto.";
+                : "Este proyecto ya no acepta nuevas inversiones.";
 
         BigDecimal lknAmount = (snap.currentPrice() != null && snap.currentPrice().signum() > 0)
                 ? usdcAmount.divide(snap.currentPrice(), 8, RoundingMode.DOWN)
