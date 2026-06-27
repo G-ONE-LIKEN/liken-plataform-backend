@@ -1,6 +1,5 @@
 package com.plataforma.invest.service;
 
-import com.plataforma.invest.event.DividendDepositRequestedPublisher;
 import com.plataforma.invest.model.EnergyReadingLog;
 import com.plataforma.invest.model.ProjectEnergyAccumulator;
 import com.plataforma.invest.repository.EnergyReadingLogRepository;
@@ -13,7 +12,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 /**
  * Logica del acumulado oracle → dividendos.
@@ -30,15 +28,23 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class EnergyAccrualService {
 
-    /** Tarifa PPA fija: USD/kWh. Ejemplo CAMMESA del Modelo_Token.md. */
-    public static final BigDecimal PPA_TARIFF_USDC_PER_KWH = new BigDecimal("0.066");
+    /**
+     * Tarifa PPA fija: USD/kWh.
+     *
+     * <p>El Modelo_Token.md sugiere 0.066 (CAMMESA tipico). En demo de testnet
+     * usamos 0.0066 (10x menor) para que cada deposit on-chain sea mas chico y
+     * el saldo USDC del signer dure mas tiempo sin necesitar refill. Cuando
+     * se separe el TREASURY del SIGNER en produccion, este valor puede volver
+     * al 0.066 realista.
+     */
+    public static final BigDecimal PPA_TARIFF_USDC_PER_KWH = new BigDecimal("0.0066");
 
     /** Umbral de USDC acumulado a partir del cual se dispara un deposit on-chain. */
     public static final BigDecimal DEPOSIT_THRESHOLD_USDC = new BigDecimal("1.00");
 
     private final EnergyReadingLogRepository readingRepo;
     private final ProjectEnergyAccumulatorRepository accumulatorRepo;
-    private final DividendDepositRequestedPublisher publisher;
+    private final DividendBatchBuilder batchBuilder;
 
     @Transactional
     public void accrueReading(Long projectId, BigDecimal kwh, LocalDateTime recordedAt) {
@@ -72,22 +78,15 @@ public class EnergyAccrualService {
 
         if (acc.getPendingUsdc().compareTo(DEPOSIT_THRESHOLD_USDC) >= 0
                 && acc.getInFlightUsdc().compareTo(BigDecimal.ZERO) == 0) {
-
-            BigDecimal toFlush = acc.getPendingUsdc().setScale(6, RoundingMode.DOWN);
-            acc.setInFlightUsdc(toFlush);
-            acc.setPendingUsdc(BigDecimal.ZERO);
-            acc.setPendingKwh(BigDecimal.ZERO);
-            acc.setLastFlushedAt(LocalDateTime.now());
+            // Persistimos primero el incremento del pending (sin tocar in-flight).
             accumulatorRepo.save(acc);
-
-            String depositEventId = "deposit:" + projectId + ":" + UUID.randomUUID();
-            publisher.publish(projectId, toFlush, depositEventId);
-            log.info("Publicado dividends.deposit_requested projectId={} amount=${} eventId={}",
-                    projectId, toFlush, depositEventId);
+            // Delegamos al builder, que maneja: holders → calcular payouts →
+            // mover pending a in_flight → crear DividendBatch → publicar.
+            batchBuilder.flush(acc);
         } else {
             accumulatorRepo.save(acc);
             if (acc.getInFlightUsdc().compareTo(BigDecimal.ZERO) > 0) {
-                log.debug("Hay deposit in-flight para projectId={} ({}). Se acumula sin disparar.",
+                log.debug("Hay batch in-flight para projectId={} (${}). Se acumula sin disparar.",
                         projectId, acc.getInFlightUsdc());
             }
         }
@@ -100,6 +99,44 @@ public class EnergyAccrualService {
                     projectId, acc.getInFlightUsdc());
             acc.setInFlightUsdc(BigDecimal.ZERO);
             accumulatorRepo.save(acc);
+        });
+    }
+
+    /**
+     * Resta un monto especifico del {@code in_flight_usdc}. Llamado cuando un
+     * payout individual del batch confirma on-chain. A diferencia de
+     * {@link #clearInFlight}, no resetea a cero — sustrae el monto exacto del
+     * payout. Cuando todos los payouts del batch terminan, in-flight queda en 0.
+     */
+    @Transactional
+    public void subtractFromInFlight(Long projectId, BigDecimal amount) {
+        accumulatorRepo.findByIdForUpdate(projectId).ifPresent(acc -> {
+            BigDecimal newInFlight = acc.getInFlightUsdc().subtract(amount);
+            if (newInFlight.signum() < 0) {
+                log.warn("subtractFromInFlight projectId={} amount={} resultaria negativo " +
+                        "(in_flight={}). Se clamp a 0.",
+                        projectId, amount, acc.getInFlightUsdc());
+                newInFlight = BigDecimal.ZERO;
+            }
+            acc.setInFlightUsdc(newInFlight);
+            accumulatorRepo.save(acc);
+        });
+    }
+
+    /**
+     * Devuelve un monto especifico de in_flight a pending (cuando un payout
+     * individual falla). El monto vuelve al pool de espera para reintento en
+     * el proximo batch.
+     */
+    @Transactional
+    public void returnToPending(Long projectId, BigDecimal amount) {
+        accumulatorRepo.findByIdForUpdate(projectId).ifPresent(acc -> {
+            BigDecimal newInFlight = acc.getInFlightUsdc().subtract(amount);
+            if (newInFlight.signum() < 0) newInFlight = BigDecimal.ZERO;
+            acc.setInFlightUsdc(newInFlight);
+            acc.setPendingUsdc(acc.getPendingUsdc().add(amount));
+            accumulatorRepo.save(acc);
+            log.warn("Payout fallido projectId={}: ${} devueltos a pending", projectId, amount);
         });
     }
 

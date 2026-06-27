@@ -94,7 +94,13 @@ public class ProjectPublicationService {
         env.put("USDC_ADDRESS", contractsProperties.getUsdc());
         env.put("PLATFORM_ADMIN", publicationProperties.getPlatformAdmin());
         env.put("EMISOR", publicationProperties.getEmisor());
-        env.put("TREASURY", publicationProperties.getTreasury());
+        // TREASURY = owner del proyecto: cuando un inversor compra LKN en el
+        // OfferingContract, el USDC va directo a la wallet del desarrollador
+        // (no a la plataforma). Es el SPE/fideicomiso dueño del activo segun
+        // Modelo_Token.md. Antes esta linea usaba publicationProperties.getTreasury()
+        // (una env global TREASURY_ADDRESS) que apuntaba al admin de la plataforma,
+        // por lo que TODOS los proyectos cobraban al admin en vez de a su dueño.
+        env.put("TREASURY", owner.walletAddress());
         env.put("PROJECT_OWNER", owner.walletAddress());
         env.put("PROJECT_NAME", command.getProjectName());
         env.put("PROJECT_DESCRIPTION", command.getProjectDescription());

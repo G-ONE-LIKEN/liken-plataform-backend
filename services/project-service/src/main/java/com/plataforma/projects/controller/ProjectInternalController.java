@@ -54,4 +54,13 @@ public class ProjectInternalController {
     public ResponseEntity<List<ActiveProjectOracleDto>> listActiveProjectsForOracle() {
         return ResponseEntity.ok(projectService.listActiveProjectsForOracle());
     }
+
+    /**
+     * Holders del proyecto para repartir dividendos. Consumido por
+     * invest-dividend-service.
+     */
+    @GetMapping("/{id}/holders")
+    public ResponseEntity<List<com.plataforma.projects.dto.internal.HolderDto>> holders(@PathVariable Long id) {
+        return ResponseEntity.ok(projectService.listHoldersByProject(id));
+    }
 }

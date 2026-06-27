@@ -164,8 +164,89 @@ public class TokenTransferService {
         log.info("Liquidación on-chain exitosa para orden {}: {} (Gas usado: {})", orderId, txHash, receipt.getGasUsed());
     }
 
+    /** Cap de seguridad por transferencia individual de dividendo (demo). */
+    public static final BigDecimal MAX_PAYOUT_PER_TX_USDC = new BigDecimal("50");
+
     /** Resultado de una deposito de dividendos on-chain. */
     public record DepositResult(String txHash, BigInteger blockNumber) {}
+
+    /** Resultado de una transferencia USDC directa. */
+    public record TransferResult(String txHash, BigInteger blockNumber) {}
+
+    /**
+     * Lee el balance USDC del signer admin. Usado por el consumer de batches
+     * para hacer pre-check antes de iniciar transferencias y abortar el batch
+     * entero si no alcanza, en vez de quemar gas en transfers que van a fallar.
+     */
+    public BigInteger readSignerUsdcBalance() throws Exception {
+        String privateKey = publicationProperties.getSignerPrivateKey();
+        if (privateKey == null || privateKey.isBlank()) {
+            throw new IllegalStateException("Missing platform admin signer private key");
+        }
+        Credentials credentials = Credentials.create(privateKey);
+        String usdcAddress = contractsProperties.getUsdc();
+        Function balanceOf = new Function(
+                "balanceOf",
+                Arrays.asList(new Address(credentials.getAddress())),
+                List.of(TypeReference.create(Uint256.class)));
+        String result = web3j.ethCall(
+                Transaction.createEthCallTransaction(credentials.getAddress(), usdcAddress,
+                        FunctionEncoder.encode(balanceOf)),
+                DefaultBlockParameterName.LATEST).send().getValue();
+        List<Type> decoded = FunctionReturnDecoder.decode(result, balanceOf.getOutputParameters());
+        return decoded.isEmpty() ? BigInteger.ZERO : ((Uint256) decoded.get(0)).getValue();
+    }
+
+    /**
+     * Transferencia USDC directa desde el signer admin a una wallet. Usado por
+     * el nuevo flujo de dividendos por proyecto.
+     *
+     * <p>Pre-check {@link #MAX_PAYOUT_PER_TX_USDC}: si {@code amount} supera el
+     * tope, throw {@link IllegalArgumentException} antes de tocar el chain.
+     * Protege la demo de capacidades mal cargadas que generen montos absurdos.
+     */
+    public TransferResult executeUsdcTransfer(String toWallet, BigDecimal amount) throws Exception {
+        if (amount.compareTo(MAX_PAYOUT_PER_TX_USDC) > 0) {
+            throw new IllegalArgumentException(
+                    "Payout " + amount + " excede el cap MAX_PAYOUT_PER_TX_USDC = " + MAX_PAYOUT_PER_TX_USDC);
+        }
+
+        String privateKey = publicationProperties.getSignerPrivateKey();
+        Credentials credentials = Credentials.create(privateKey);
+        String usdcAddress = contractsProperties.getUsdc();
+
+        BigInteger amountRaw = amount.movePointRight(6).setScale(0, RoundingMode.DOWN).toBigInteger();
+        if (amountRaw.signum() <= 0) {
+            throw new IllegalArgumentException("amount must be > 0");
+        }
+
+        Function transfer = new Function(
+                "transfer",
+                Arrays.asList(new Address(toWallet), new Uint256(amountRaw)),
+                Collections.emptyList());
+        String encoded = FunctionEncoder.encode(transfer);
+
+        BigInteger nonce = web3j.ethGetTransactionCount(credentials.getAddress(),
+                DefaultBlockParameterName.LATEST).send().getTransactionCount();
+        BigInteger gasPrice = web3j.ethGasPrice().send().getGasPrice().multiply(BigInteger.valueOf(2));
+        BigInteger gasLimit = BigInteger.valueOf(80_000);
+
+        RawTransaction raw = RawTransaction.createTransaction(
+                nonce, gasPrice, gasLimit, usdcAddress, encoded);
+        byte[] signed = TransactionEncoder.signMessage(raw, web3Properties.getChainId(), credentials);
+        EthSendTransaction sent = web3j.ethSendRawTransaction(Numeric.toHexString(signed)).send();
+        if (sent.hasError()) {
+            throw new RuntimeException("usdc.transfer error: " + sent.getError().getMessage());
+        }
+
+        String txHash = sent.getTransactionHash();
+        TransactionReceipt receipt = new PollingTransactionReceiptProcessor(web3j, 2000, 30)
+                .waitForTransactionReceipt(txHash);
+        if (!receipt.isStatusOK()) {
+            throw new RuntimeException("usdc.transfer revertida tx=" + txHash);
+        }
+        return new TransferResult(txHash, receipt.getBlockNumber());
+    }
 
     /**
      * Aprueba (si hace falta) y deposita {@code amountUsdc} en el
@@ -199,6 +280,21 @@ public class TokenTransferService {
         BigInteger amountRaw = amountUsdc.movePointRight(6).setScale(0, RoundingMode.DOWN).toBigInteger();
         if (amountRaw.signum() <= 0) {
             throw new IllegalArgumentException("amountUsdc must be > 0, got " + amountUsdc);
+        }
+
+        // 0) Pre-check: el signer tiene USDC suficiente?
+        // safeTransferFrom dentro de depositDividends va a revertir igual si el
+        // saldo es insuficiente, pero abortando aca ahorramos gas. El consumer
+        // captura la excepcion y publica deposit_failed, por lo que el
+        // acumulador del proyecto vuelve a "pending" y se reintenta cuando el
+        // saldo se recupere, en vez de quedar in_flight para siempre.
+        BigInteger signerBalance = readBalanceOf(signer, usdcAddress);
+        if (signerBalance.compareTo(amountRaw) < 0) {
+            BigDecimal balanceUsdc = new BigDecimal(signerBalance).movePointLeft(6);
+            throw new IllegalStateException(
+                    "Insufficient USDC balance on signer: have " + balanceUsdc.toPlainString()
+                            + " USDC, need " + amountUsdc.toPlainString() + " USDC. "
+                            + "Rellenar la wallet " + signer + " (faucet de Sepolia o mint).");
         }
 
         // 1) Allowance check / approve si hace falta.
@@ -243,6 +339,19 @@ public class TokenTransferService {
         }
         log.info("depositDividends OK: tx={} block={} gasUsed={}", txHash, receipt.getBlockNumber(), receipt.getGasUsed());
         return new DepositResult(txHash, receipt.getBlockNumber());
+    }
+
+    private BigInteger readBalanceOf(String holder, String tokenAddress) throws Exception {
+        Function balanceOf = new Function(
+                "balanceOf",
+                Arrays.asList(new Address(holder)),
+                List.of(TypeReference.create(Uint256.class))
+        );
+        String result = web3j.ethCall(
+                Transaction.createEthCallTransaction(holder, tokenAddress, FunctionEncoder.encode(balanceOf)),
+                DefaultBlockParameterName.LATEST).send().getValue();
+        List<Type> decoded = FunctionReturnDecoder.decode(result, balanceOf.getOutputParameters());
+        return decoded.isEmpty() ? BigInteger.ZERO : ((Uint256) decoded.get(0)).getValue();
     }
 
     private BigInteger readAllowance(String owner, String tokenAddress, String spender) throws Exception {

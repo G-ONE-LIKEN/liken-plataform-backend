@@ -3,6 +3,7 @@ package com.plataforma.projects.service;
 import com.plataforma.projects.dto.ProjectRequest;
 import com.plataforma.projects.dto.ProjectResponse;
 import com.plataforma.projects.dto.internal.ActiveProjectOracleDto;
+import com.plataforma.projects.dto.internal.HolderDto;
 import com.plataforma.projects.dto.internal.OfferingContractRefResponse;
 import com.plataforma.projects.dto.internal.ProjectPublicationFailureRequest;
 import com.plataforma.projects.dto.internal.ProjectPublicationSuccessRequest;
@@ -41,4 +42,10 @@ public interface ProjectService {
     List<OfferingContractRefResponse> listOfferingContracts();
 
     public List<ActiveProjectOracleDto> listActiveProjectsForOracle();
+
+    /**
+     * Holders activos del proyecto (con balance > 0 y wallet vinculada).
+     * Usado por invest-dividend-service para repartir dividendos.
+     */
+    List<HolderDto> listHoldersByProject(Long projectId);
 }

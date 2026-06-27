@@ -1,6 +1,5 @@
 package com.plataforma.invest.service;
 
-import com.plataforma.invest.event.DividendDepositRequestedPublisher;
 import com.plataforma.invest.model.EnergyReadingLog;
 import com.plataforma.invest.model.ProjectEnergyAccumulator;
 import com.plataforma.invest.repository.EnergyReadingLogRepository;
@@ -28,7 +27,7 @@ class EnergyAccrualServiceTest {
 
     private EnergyReadingLogRepository readingRepo;
     private ProjectEnergyAccumulatorRepository accumulatorRepo;
-    private DividendDepositRequestedPublisher publisher;
+    private DividendBatchBuilder batchBuilder;
     private EnergyAccrualService service;
 
     /** In-memory fake del acumulador para simular el `findByIdForUpdate` + save. */
@@ -38,11 +37,10 @@ class EnergyAccrualServiceTest {
     void setUp() {
         readingRepo = mock(EnergyReadingLogRepository.class);
         accumulatorRepo = mock(ProjectEnergyAccumulatorRepository.class);
-        publisher = mock(DividendDepositRequestedPublisher.class);
-        service = new EnergyAccrualService(readingRepo, accumulatorRepo, publisher);
+        batchBuilder = mock(DividendBatchBuilder.class);
+        service = new EnergyAccrualService(readingRepo, accumulatorRepo, batchBuilder);
 
         store = new HashMap<>();
-        // ensureExists: crea row con ceros si no existe.
         doAnswer(inv -> {
             Long pid = inv.getArgument(0);
             store.computeIfAbsent(pid, id -> ProjectEnergyAccumulator.builder()
@@ -69,46 +67,47 @@ class EnergyAccrualServiceTest {
     }
 
     @Test
-    void primeraLectura_acumulaSinDisparar() {
-        service.accrueReading(7L, new BigDecimal("5"), LocalDateTime.parse("2026-06-26T10:00:00"));
+    void primeraLectura_acumulaSinDispararBatch() {
+        service.accrueReading(7L, new BigDecimal("50"), LocalDateTime.parse("2026-06-26T10:00:00"));
 
         ProjectEnergyAccumulator acc = store.get(7L);
-        assertThat(acc.getPendingKwh()).isEqualByComparingTo("5");
-        // 5 kWh × 0.066 = 0.33 USDC, lejos del umbral.
+        assertThat(acc.getPendingKwh()).isEqualByComparingTo("50");
+        // 50 kWh × 0.0066 = 0.33 USDC, lejos del umbral $1.
         assertThat(acc.getPendingUsdc()).isEqualByComparingTo("0.33");
         assertThat(acc.getInFlightUsdc()).isEqualByComparingTo("0");
-        verifyNoInteractions(publisher);
+        verifyNoInteractions(batchBuilder);
     }
 
     @Test
     void lecturaDuplicada_porEventId_seIgnora() {
         when(readingRepo.existsByEventId("energy:7:2026-06-26T10:00")).thenReturn(true);
 
-        service.accrueReading(7L, new BigDecimal("5"), LocalDateTime.parse("2026-06-26T10:00"));
+        service.accrueReading(7L, new BigDecimal("50"), LocalDateTime.parse("2026-06-26T10:00"));
 
         verify(readingRepo, never()).save(any());
         verify(accumulatorRepo, never()).save(any());
-        verifyNoInteractions(publisher);
+        verifyNoInteractions(batchBuilder);
     }
 
     @Test
-    void cruceDeUmbral_mueveAInFlightYPublica() {
-        // 16 kWh × 0.066 = 1.056 USDC, cruza el umbral $1.
-        service.accrueReading(7L, new BigDecimal("16"), LocalDateTime.parse("2026-06-26T10:00:00"));
+    void cruceDeUmbral_invocaBatchBuilder() {
+        // 160 kWh × 0.0066 = 1.056 USDC, cruza el umbral $1.
+        service.accrueReading(7L, new BigDecimal("160"), LocalDateTime.parse("2026-06-26T10:00:00"));
 
         ProjectEnergyAccumulator acc = store.get(7L);
-        assertThat(acc.getInFlightUsdc()).isEqualByComparingTo("1.056");
-        assertThat(acc.getPendingUsdc()).isEqualByComparingTo("0");
-        assertThat(acc.getPendingKwh()).isEqualByComparingTo("0");
-        assertThat(acc.getLastFlushedAt()).isNotNull();
+        // El service guardo el pending, el batchBuilder se llama despues.
+        // (el builder es el que mueve a in-flight, que esta mockeado).
+        assertThat(acc.getPendingUsdc()).isEqualByComparingTo("1.056");
 
-        ArgumentCaptor<BigDecimal> amount = ArgumentCaptor.forClass(BigDecimal.class);
-        verify(publisher).publish(eq(7L), amount.capture(), anyString());
-        assertThat(amount.getValue()).isEqualByComparingTo("1.056");
+        ArgumentCaptor<ProjectEnergyAccumulator> captor =
+                ArgumentCaptor.forClass(ProjectEnergyAccumulator.class);
+        verify(batchBuilder).flush(captor.capture());
+        assertThat(captor.getValue().getProjectId()).isEqualTo(7L);
+        assertThat(captor.getValue().getPendingUsdc()).isEqualByComparingTo("1.056");
     }
 
     @Test
-    void conInFlightActivo_acumulaYNoDispara() {
+    void conInFlightActivo_acumulaYNoDisparaBatch() {
         // Pre-poblamos el store con in-flight > 0.
         store.put(7L, ProjectEnergyAccumulator.builder()
                 .projectId(7L)
@@ -117,14 +116,12 @@ class EnergyAccrualServiceTest {
                 .inFlightUsdc(new BigDecimal("1.50"))
                 .build());
 
-        // Esta lectura cruzaria el umbral si in-flight fuera 0, pero como hay
-        // un deposit pendiente NO debe disparar otro.
-        service.accrueReading(7L, new BigDecimal("20"), LocalDateTime.parse("2026-06-26T11:00"));
+        service.accrueReading(7L, new BigDecimal("200"), LocalDateTime.parse("2026-06-26T11:00"));
 
         ProjectEnergyAccumulator acc = store.get(7L);
         assertThat(acc.getInFlightUsdc()).isEqualByComparingTo("1.50"); // sin tocar
-        assertThat(acc.getPendingUsdc()).isEqualByComparingTo("1.32");  // 20×0.066
-        verifyNoInteractions(publisher);
+        assertThat(acc.getPendingUsdc()).isEqualByComparingTo("1.32");  // 200×0.0066
+        verifyNoInteractions(batchBuilder);
     }
 
     @Test
@@ -140,13 +137,40 @@ class EnergyAccrualServiceTest {
 
         ProjectEnergyAccumulator acc = store.get(7L);
         assertThat(acc.getInFlightUsdc()).isEqualByComparingTo("0");
-        // El pending acumulado durante el in-flight queda intacto.
         assertThat(acc.getPendingUsdc()).isEqualByComparingTo("0.33");
         assertThat(acc.getPendingKwh()).isEqualByComparingTo("5");
     }
 
     @Test
-    void rollbackInFlight_devuelvePendingYResetea() {
+    void subtractFromInFlight_restaMontoExacto() {
+        store.put(7L, ProjectEnergyAccumulator.builder()
+                .projectId(7L)
+                .pendingKwh(BigDecimal.ZERO)
+                .pendingUsdc(BigDecimal.ZERO)
+                .inFlightUsdc(new BigDecimal("3.00"))
+                .build());
+
+        service.subtractFromInFlight(7L, new BigDecimal("1.25"));
+
+        assertThat(store.get(7L).getInFlightUsdc()).isEqualByComparingTo("1.75");
+    }
+
+    @Test
+    void subtractFromInFlight_clampea_aCero_siRestaria_negativo() {
+        store.put(7L, ProjectEnergyAccumulator.builder()
+                .projectId(7L)
+                .pendingKwh(BigDecimal.ZERO)
+                .pendingUsdc(BigDecimal.ZERO)
+                .inFlightUsdc(new BigDecimal("0.50"))
+                .build());
+
+        service.subtractFromInFlight(7L, new BigDecimal("2.00"));
+
+        assertThat(store.get(7L).getInFlightUsdc()).isEqualByComparingTo("0");
+    }
+
+    @Test
+    void returnToPending_devuelveMontoSumandoYRestando() {
         store.put(7L, ProjectEnergyAccumulator.builder()
                 .projectId(7L)
                 .pendingKwh(BigDecimal.ZERO)
@@ -154,41 +178,27 @@ class EnergyAccrualServiceTest {
                 .inFlightUsdc(new BigDecimal("2.00"))
                 .build());
 
-        service.rollbackInFlight(7L);
+        service.returnToPending(7L, new BigDecimal("0.75"));
 
         ProjectEnergyAccumulator acc = store.get(7L);
-        assertThat(acc.getInFlightUsdc()).isEqualByComparingTo("0");
-        // 0.50 viejo + 2.00 rescatado = 2.50 listo para el proximo intento.
-        assertThat(acc.getPendingUsdc()).isEqualByComparingTo("2.50");
-    }
-
-    @Test
-    void rollbackInFlight_sinInFlight_esNoOp() {
-        store.put(7L, ProjectEnergyAccumulator.builder()
-                .projectId(7L)
-                .pendingKwh(BigDecimal.ZERO)
-                .pendingUsdc(new BigDecimal("0.50"))
-                .inFlightUsdc(BigDecimal.ZERO)
-                .build());
-
-        service.rollbackInFlight(7L);
-
-        assertThat(store.get(7L).getPendingUsdc()).isEqualByComparingTo("0.50");
-        verify(accumulatorRepo, never()).save(any());
+        assertThat(acc.getInFlightUsdc()).isEqualByComparingTo("1.25");
+        assertThat(acc.getPendingUsdc()).isEqualByComparingTo("1.25");
     }
 
     @Test
     void clearInFlight_yLuegoNuevoUmbral_disparaOtraVez() {
-        // Simulamos un ciclo completo: cruzar umbral → confirmar → cruzar otra vez.
-        service.accrueReading(7L, new BigDecimal("16"), LocalDateTime.parse("2026-06-26T10:00:00"));
-        assertThat(store.get(7L).getInFlightUsdc()).isEqualByComparingTo("1.056");
+        service.accrueReading(7L, new BigDecimal("160"), LocalDateTime.parse("2026-06-26T10:00:00"));
+        // El builder fue invocado (lo mockeamos, no movio nada al in-flight realmente).
+        // Para simular el ciclo, manualmente seteamos in-flight y luego limpiamos.
+        store.get(7L).setInFlightUsdc(new BigDecimal("1.056"));
+        store.get(7L).setPendingUsdc(BigDecimal.ZERO);
+        store.get(7L).setPendingKwh(BigDecimal.ZERO);
 
         service.clearInFlight(7L);
         assertThat(store.get(7L).getInFlightUsdc()).isEqualByComparingTo("0");
 
-        service.accrueReading(7L, new BigDecimal("17"), LocalDateTime.parse("2026-06-26T11:00:00"));
-        // 17 × 0.066 = 1.122
-        assertThat(store.get(7L).getInFlightUsdc()).isEqualByComparingTo("1.122");
-        verify(publisher, times(2)).publish(eq(7L), any(), anyString());
+        service.accrueReading(7L, new BigDecimal("170"), LocalDateTime.parse("2026-06-26T11:00:00"));
+        // 170 × 0.0066 = 1.122 → cruza umbral, builder se llama otra vez.
+        verify(batchBuilder, times(2)).flush(any());
     }
 }

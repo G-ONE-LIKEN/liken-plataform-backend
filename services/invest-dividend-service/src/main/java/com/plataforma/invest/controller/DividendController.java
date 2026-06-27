@@ -2,8 +2,10 @@
 package com.plataforma.invest.controller;
 
 import com.plataforma.invest.dto.DividendClaimResponse;
+import com.plataforma.invest.dto.DividendPayoutResponse;
 import com.plataforma.invest.dto.PendingDividendsResponse;
 import com.plataforma.invest.dto.ProjectAccrualResponse;
+import com.plataforma.invest.repository.DividendPayoutRepository;
 import com.plataforma.invest.repository.ProjectEnergyAccumulatorRepository;
 import com.plataforma.invest.service.ChainReader;
 import com.plataforma.invest.service.DividendService;
@@ -15,6 +17,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -31,6 +34,7 @@ public class DividendController {
     private final ChainReader chainReader;
     private final UserWalletReconciliationService userWalletReconciliationService;
     private final ProjectEnergyAccumulatorRepository accumulatorRepo;
+    private final DividendPayoutRepository payoutRepo;
 
     /**
      * Historial de dividendos reclamados por el usuario autenticado.
@@ -76,5 +80,36 @@ public class DividendController {
                 .map(ProjectAccrualResponse::from)
                 .toList();
         return ResponseEntity.ok(ApiResponse.success("OK", list));
+    }
+
+    /**
+     * Historial de pagos de dividendos recibidos por el usuario autenticado
+     * (transferencias USDC directas desde el signer, no del DividendDistributor
+     * legacy). Cada fila es una tx on-chain individual.
+     */
+    @GetMapping("/payouts/me")
+    public ResponseEntity<ApiResponse<Page<DividendPayoutResponse>>> myPayouts(
+            Authentication auth,
+            Pageable pageable) {
+        Long userId = (Long) auth.getPrincipal();
+        userWalletReconciliationService.reconcileIfNeeded(userId);
+        Page<DividendPayoutResponse> page = payoutRepo
+                .findByUserIdOrderByPaidAtDesc(userId, pageable)
+                .map(DividendPayoutResponse::from);
+        return ResponseEntity.ok(ApiResponse.success("OK", page));
+    }
+
+    /**
+     * Historial de pagos de dividendos para un proyecto especifico (todos los
+     * holders). Util para el dashboard de un parque.
+     */
+    @GetMapping("/payouts/projects/{projectId}")
+    public ResponseEntity<ApiResponse<Page<DividendPayoutResponse>>> projectPayouts(
+            @PathVariable Long projectId,
+            Pageable pageable) {
+        Page<DividendPayoutResponse> page = payoutRepo
+                .findByProjectIdOrderByPaidAtDesc(projectId, pageable)
+                .map(DividendPayoutResponse::from);
+        return ResponseEntity.ok(ApiResponse.success("OK", page));
     }
 }

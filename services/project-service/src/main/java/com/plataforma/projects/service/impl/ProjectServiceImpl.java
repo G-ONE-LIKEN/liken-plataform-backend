@@ -3,6 +3,7 @@ package com.plataforma.projects.service.impl;
 import com.plataforma.projects.dto.ProjectRequest;
 import com.plataforma.projects.dto.ProjectResponse;
 import com.plataforma.projects.dto.internal.ActiveProjectOracleDto;
+import com.plataforma.projects.dto.internal.HolderDto;
 import com.plataforma.projects.dto.internal.OfferingContractRefResponse;
 import com.plataforma.projects.dto.internal.ProjectPublicationFailureRequest;
 import com.plataforma.projects.dto.internal.ProjectPublicationRequest;
@@ -16,9 +17,12 @@ import com.plataforma.projects.model.OnChainStatus;
 import com.plataforma.projects.model.Project;
 import com.plataforma.projects.model.ProjectState;
 import com.plataforma.projects.model.RoundState;
+import com.plataforma.projects.model.UserHolding;
 import com.plataforma.projects.repository.ProjectRepository;
+import com.plataforma.projects.repository.UserHoldingRepository;
 import com.plataforma.projects.service.BlockchainPublicationClient;
 import com.plataforma.projects.service.ProjectService;
+import org.springframework.data.domain.PageRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -26,6 +30,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -35,6 +40,7 @@ import java.util.List;
 public class ProjectServiceImpl implements ProjectService {
 
     private final ProjectRepository projectRepository;
+    private final UserHoldingRepository userHoldingRepository;
     private final ProjectEventPublisher eventPublisher;
     private final BlockchainPublicationClient blockchainPublicationClient;
 
@@ -346,6 +352,21 @@ public class ProjectServiceImpl implements ProjectService {
                 .findByActiveTrueAndStateAndInstalledCapacityMWIsNotNull(ProjectState.OPEN)
                 .stream()
                 .map(p -> new ActiveProjectOracleDto(p.getId(), p.getInstalledCapacityMW()))
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<HolderDto> listHoldersByProject(Long projectId) {
+        return userHoldingRepository.findByProjectId(projectId, PageRequest.of(0, Integer.MAX_VALUE))
+                .stream()
+                .filter(h -> h.getTokensAmount() != null
+                        && h.getTokensAmount().compareTo(BigDecimal.ZERO) > 0)
+                .filter(h -> h.getWalletAddress() != null && !h.getWalletAddress().isBlank())
+                .map(h -> new HolderDto(
+                        h.getUserId(),
+                        h.getWalletAddress().toLowerCase(),
+                        h.getTokensAmount()))
                 .toList();
     }
 }
