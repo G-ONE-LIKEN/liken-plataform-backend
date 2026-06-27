@@ -14,6 +14,9 @@ import com.plataforma.auth.service.RefreshTokenService;
 import com.plataforma.shared.dto.ApiResponse;
 import com.plataforma.shared.exception.UnauthorizedAccessException;
 
+import com.plataforma.auth.dto.PasswordResetConfirmRequest;
+import com.plataforma.auth.service.PasswordResetService;
+
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -42,6 +45,8 @@ public class AuthController {
     private final AuthService authService;
     private final EmailVerificationService emailVerificationService;
     private final RefreshTokenService refreshTokenService;
+
+    private final PasswordResetService passwordResetService;
 
     /** Secure en prod (HTTPS); false por default para dev local sobre HTTP. */
     @org.springframework.beans.factory.annotation.Value("${auth.cookie-secure:false}")
@@ -198,6 +203,27 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.success(
             "Contraseña actualizada", null
         ));
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    //  POST /api/auth/password-reset  (public)
+    // ─────────────────────────────────────────────────────────────
+
+    @PostMapping("/password-reset/request")
+    public ResponseEntity<ApiResponse<Void>> requestPasswordReset(
+            @Valid @RequestBody EmailVerificationRequest request) {
+        passwordResetService.requestReset(request.getEmail());
+        return ResponseEntity.ok(ApiResponse.success(
+                "Si el email existe, enviamos un codigo para restablecer tu contrasena.", null));
+    }
+
+    @PostMapping("/password-reset/confirm")
+    public ResponseEntity<ApiResponse<Void>> confirmPasswordReset(
+            @Valid @RequestBody PasswordResetConfirmRequest request) {
+        passwordResetService.confirmReset(
+                request.getEmail(), request.getCode(), request.getNewPassword());
+        return ResponseEntity.ok(ApiResponse.success(
+                "Contrasena actualizada correctamente.", null));
     }
 
     // ─────────────────────────────────────────────────────────────
