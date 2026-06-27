@@ -40,21 +40,17 @@ public class DividendDistributedConsumer {
     }
 
     private void recordNormal(DividendsClaimedEvent event, Long userId) {
-        try {
-            log.info("Procesando reclamo de dividendos: usuario={}, monto={}, txHash={}",
-                    userId, event.getAmount(), event.getTxHash());
-            walletService.recordMovement(
-                    userId,
-                    MovementType.DIVIDEND,
-                    event.getAmount(),
-                    "Dividendos reclamados on-chain (tx " + event.getTxHash() + ")",
-                    event.getTxHash(),
-                    event.getEventId()
-            );
-        } catch (Exception e) {
-            log.error("Error procesando evento dividends.claimed para usuario {}: {}",
-                    userId, e.getMessage(), e);
-        }
+        // Sin try/catch: las fallas van a retries + DLT (KafkaConfig, ADR-0024).
+        log.info("Procesando reclamo de dividendos: usuario={}, monto={}, txHash={}",
+                userId, event.getAmount(), event.getTxHash());
+        walletService.recordMovement(
+                userId,
+                MovementType.DIVIDEND,
+                event.getAmount(),
+                "Dividendos reclamados on-chain (tx " + event.getTxHash() + ")",
+                event.getTxHash(),
+                event.getEventId()
+        );
     }
 
     private void recordOrPending(DividendsClaimedEvent event) {

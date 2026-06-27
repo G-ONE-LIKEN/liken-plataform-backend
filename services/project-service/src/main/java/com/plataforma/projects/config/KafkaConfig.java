@@ -1,14 +1,38 @@
 package com.plataforma.projects.config;
 
 import org.apache.kafka.clients.admin.NewTopic;
+import org.apache.kafka.common.TopicPartition;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.TopicBuilder;
+import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
+import org.springframework.kafka.listener.DefaultErrorHandler;
+import org.springframework.util.backoff.FixedBackOff;
 
 @Configuration
 public class KafkaConfig {
 
-    // Topicos que publica este servicio
+    /**
+     * Retries + DLT para los consumers (ADR-0024): 3 reintentos (cada 2s);
+     * si sigue fallando, el registro va a {@code <topic>.DLT} para reproceso
+     * (los consumers son idempotentes por eventId).
+     * Spring Boot lo enchufa automáticamente en la container factory.
+     */
+    @Bean
+    public DefaultErrorHandler kafkaErrorHandler(KafkaTemplate<String, Object> template,
+                                                 io.micrometer.core.instrument.MeterRegistry meterRegistry) {
+        // Cada derivación al DLT incrementa kafka.dlt.messages (ADR-0025).
+        var recoverer = new DeadLetterPublishingRecoverer(template, (record, ex) -> {
+            meterRegistry.counter("kafka.dlt.messages", "topic", record.topic()).increment();
+            return new TopicPartition(record.topic() + ".DLT", 0);
+        });
+        var handler = new DefaultErrorHandler(recoverer, new FixedBackOff(2_000L, 3));
+        handler.setCommitRecovered(true);
+        return handler;
+    }
+
+    // Tópicos que publica este servicio
     @Bean
     public NewTopic topicProjectsCreated() {
         return TopicBuilder.name("projects.created").partitions(3).replicas(1).build();

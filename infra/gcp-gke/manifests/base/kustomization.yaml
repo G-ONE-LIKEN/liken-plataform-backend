@@ -5,3 +5,4 @@ resources:
   - managed-certificate.yaml
   - frontendconfig.yaml
   - networking.yaml
+  - backup-cronjob.yaml

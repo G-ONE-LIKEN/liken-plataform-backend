@@ -44,22 +44,18 @@ public class TokenPurchasedConsumer {
     }
 
     private void recordNormal(TokenPurchasedView event, Long userId) {
-        try {
-            log.info("Procesando compra on-chain: usuario={}, usdc={}, lkn={}, txHash={}",
-                    userId, event.usdcAmount(), event.lknAmount(), event.txHash());
-            walletService.recordExternalMovement(
-                    userId,
-                    MovementType.TOKEN_PURCHASE,
-                    event.usdcAmount(),
-                    "Compra de " + event.lknAmount() + " LKN del proyecto "
-                            + event.projectId() + " (tx " + event.txHash() + ")",
-                    event.txHash(),
-                    event.eventId()
-            );
-        } catch (Exception e) {
-            log.error("Error procesando investment.token_purchased para usuario {}: {}",
-                    userId, e.getMessage(), e);
-        }
+        // Sin try/catch: las fallas van a retries + DLT (KafkaConfig, ADR-0024).
+        log.info("Procesando compra on-chain: usuario={}, usdc={}, lkn={}, txHash={}",
+                userId, event.usdcAmount(), event.lknAmount(), event.txHash());
+        walletService.recordExternalMovement(
+                userId,
+                MovementType.TOKEN_PURCHASE,
+                event.usdcAmount(),
+                "Compra de " + event.lknAmount() + " LKN del proyecto "
+                        + event.projectId() + " (tx " + event.txHash() + ")",
+                event.txHash(),
+                event.eventId()
+        );
     }
 
     private void recordOrPending(TokenPurchasedView event) {

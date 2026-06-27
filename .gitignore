@@ -46,3 +46,9 @@ graphify-out/
 /foundry_bin
 .directory
 .test-logs/
+
+# Secretos de Kubernetes: solo el .example va al repo (ADR-0026)
+infra/gcp-gke/manifests/overlays/prod/secrets.yaml
+
+# Manifests renderizados: generados por render-prod-manifests.ps1 / CI
+infra/gcp-gke/rendered/

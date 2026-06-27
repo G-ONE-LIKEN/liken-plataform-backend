@@ -51,7 +51,18 @@ public class KafkaEventPublisher {
         payload.putIfAbsent("version", 1);
         payload.putIfAbsent("occurredAt", LocalDateTime.now().toString());
 
-        sendAfterCommit(topic, eventId, payload);
+        // Envío SINCRONO (ADR-0024): si Kafka no confirma, la excepción
+        // propaga, la transacción rollbackea y el indexer NO avanza el
+        // checkpoint → el bloque se reescanea (at-least-once). Los duplicados
+        // los absorbe la idempotencia por eventId en ambos extremos.
+        try {
+            kafkaTemplate.send(topic, eventId, payload).get(10, java.util.concurrent.TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Interrumpido publicando " + eventId + " a " + topic, e);
+        } catch (Exception e) {
+            throw new IllegalStateException("Kafka no confirmó " + eventId + " a " + topic, e);
+        }
 
         publishedEventRepository.save(PublishedEvent.builder()
                 .eventId(eventId)

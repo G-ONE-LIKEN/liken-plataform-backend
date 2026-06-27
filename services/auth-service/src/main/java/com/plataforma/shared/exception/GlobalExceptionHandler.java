@@ -3,6 +3,7 @@ package com.plataforma.shared.exception;
 
 import com.plataforma.shared.dto.ApiResponse;
 
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -11,6 +12,8 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.validation.FieldError;
+import org.springframework.web.client.HttpServerErrorException;
+import org.springframework.web.client.ResourceAccessException;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -53,6 +56,25 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ApiResponse<Void>> handleUnreadableBody(HttpMessageNotReadableException ex) {
         return response("El cuerpo de la solicitud no tiene un formato valido", HttpStatus.BAD_REQUEST);
+    }
+
+    /**
+     * Circuit breaker abierto: user-service viene fallando y dejamos de
+     * intentar. Fail-fast con 503 para que el cliente reintente luego.
+     */
+    @ExceptionHandler(CallNotPermittedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleCircuitOpen(CallNotPermittedException ex) {
+        log.warn("Circuit breaker abierto: {}", ex.getMessage());
+        return response("El servicio no está disponible en este momento. Intenta en unos segundos.",
+                HttpStatus.SERVICE_UNAVAILABLE);
+    }
+
+    /** Timeout o conexión rechazada hacia un servicio interno. */
+    @ExceptionHandler({ResourceAccessException.class, HttpServerErrorException.class})
+    public ResponseEntity<ApiResponse<Void>> handleDownstreamUnavailable(Exception ex) {
+        log.warn("Servicio interno no disponible: {}", ex.getMessage());
+        return response("El servicio no está disponible en este momento. Intenta en unos segundos.",
+                HttpStatus.SERVICE_UNAVAILABLE);
     }
 
     @ExceptionHandler(Exception.class)

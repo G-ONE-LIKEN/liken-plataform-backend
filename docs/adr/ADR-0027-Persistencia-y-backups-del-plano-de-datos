@@ -1,0 +1,76 @@
+# ADR-0027: Persistencia y backups del plano de datos en GKE
+
+- **Estado:** Aceptado
+- **Fecha:** 2026-06-12
+- **Contexto:** Infraestructura stateful in-cluster (Postgres, Kafka, Zookeeper, Redis)
+
+---
+
+## Contexto
+
+La revisión de la arquitectura GCP encontró tres fragilidades en el plano de
+datos, todas del mismo tipo: estado que no sobrevive a eventos rutinarios de
+Kubernetes (re-schedule de pods, upgrade de nodos, OOM):
+
+1. **Kafka y Zookeeper sin volumen**: disco efímero. Un re-schedule perdía
+   todos los topics, offsets y eventos no consumidos — el bus de eventos
+   financieros completo.
+2. **Postgres sin backups**: tenía PVC, pero un PVC borrado o un disco
+   corrupto era pérdida total de usuarios, KYC, inversiones y wallets.
+   Además, sin `strategy: Recreate`, un rolling update con PVC RWO puede
+   deadlockear (el pod nuevo espera un disco que el viejo aún monta).
+3. **Redis efímero**: cada reinicio borraba refresh tokens (todos los
+   usuarios deslogueados) y rate limits.
+
+## Decisión
+
+1. **PVC para Kafka (10Gi) y Zookeeper (2Gi)**, con `fsGroup: 1000` (las
+   imágenes Confluent corren como appuser) y `strategy: Recreate`. Van
+   juntos a propósito: si ZK pierde su data pero Kafka no, el broker no
+   arranca por cluster ID mismatch.
+2. **Postgres**: `strategy: Recreate` + **CronJob diario de `pg_dumpall`
+   comprimido a GCS** (corre con la ServiceAccount `liken-storage-access`
+   vía Workload Identity — sin keys). Segunda capa recomendada: snapshot
+   schedule del Persistent Disk (gcloud, pasos en el runbook).
+3. **Redis con AOF** (`--appendonly yes`) sobre PVC de 1Gi: las sesiones
+   sobreviven reinicios.
+4. **Runbook de recuperación** (`docs/runbook-backups.md`): backup a demanda,
+   restore desde dump, restore desde snapshot, y reconstrucción de
+   proyecciones re-indexando la chain (ADR-0017). Regla: el backup que no se
+   probó no existe.
+
+## Alternativas consideradas
+
+| Alternativa | Motivo de descarte |
+|---|---|
+| Migrar a Cloud SQL / Memorystore / Kafka administrado | $40-100+/mes extra; para el MVP, persistencia + backups in-cluster da el 90% de la protección a costo cero. La señal para migrar es cuando operar esto cueste más que ese ahorro. |
+| StatefulSets en vez de Deployments | Con 1 réplica, un Deployment + Recreate + PVC es equivalente y más simple; StatefulSet aporta identidad estable que solo importa con múltiples réplicas. |
+| Migrar Kafka a KRaft (sin Zookeeper) | Elimina un pod y el acople ZK↔Kafka, pero cambia el formato de almacenamiento y la migración con datos es delicada; mejor hacerlo como cambio aislado. |
+| Backup de Kafka a GCS | Los eventos son derivables de la chain (re-index); el PVC cubre el caso operativo real. |
+
+## Consecuencias
+
+### Positivas
+- `kubectl delete pod kafka-xxx` deja de ser un incidente de pérdida de datos.
+- Postgres tiene dos capas de backup independientes (dump lógico + snapshot
+  físico) y un procedimiento de restore documentado y probable.
+- Un reinicio de Redis ya no desloguea a toda la plataforma.
+
+### Negativas / Advertencias
+- `Recreate` implica unos segundos de downtime del componente en cada update
+  — correcto con 1 réplica (la alternativa era el deadlock).
+- Primer deploy: los pods de Kafka/ZK arrancan con data vacía sobre el PVC
+  nuevo (los topics se recrean solos; los offsets de consumers parten de
+  `earliest` → los consumers re-procesan, idempotencia mediante).
+- +13Gi de Persistent Disk (~$0.50/mes en us-central1). El bucket de backups
+  necesita una lifecycle rule (30 días) para no crecer indefinidamente.
+- El CronJob depende de que la GSA de `liken-storage-access` tenga permiso de
+  escritura en el bucket (ya lo tiene para documentos; mismo bucket).
+
+## Estado de implementación (2026-06-12)
+
+✅ Manifests: PVCs + Recreate + fsGroup + AOF en `infra.yaml`; CronJob
+`postgres-backup` en `backup-cronjob.yaml`; runbook en
+`docs/runbook-backups.md`.
+Pendiente manual (gcloud/consola): snapshot schedule del PD de Postgres,
+lifecycle rule del bucket, y la quota de CPUs que bloquea los node upgrades.

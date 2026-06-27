@@ -39,6 +39,8 @@ jobs:
             context: services/invest-dividend-service
           - image: oracle-service
             context: services/oracle-service
+          # blockchain-service se buildea desde la raíz del repo para hornear
+          # contracts/ en la imagen (forge script lo necesita en /contracts).
           - image: blockchain-service
             context: .
             dockerfile: services/blockchain-service/Dockerfile
@@ -63,6 +65,7 @@ jobs:
       - name: Build image
         run: |
           docker build \
+            -f ${{ matrix.dockerfile || format('{0}/Dockerfile', matrix.context) }} \
             -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ matrix.image }}:${{ env.IMAGE_TAG }} \
             -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ matrix.image }}:latest \
             ${{ matrix.dockerfile && format('-f {0}', matrix.dockerfile) || '' }} \

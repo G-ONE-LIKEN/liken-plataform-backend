@@ -9,8 +9,6 @@ import com.plataforma.projects.exception.ProjectNotFoundException;
 import com.plataforma.projects.exception.ProjectStateException;
 import com.plataforma.projects.model.EnergyType;
 import com.plataforma.projects.model.ProjectState;
-import com.plataforma.projects.security.GatewayHeaderAuthFilter;
-import com.plataforma.projects.service.ProjectMetricService;
 import com.plataforma.projects.service.ProjectService;
 import com.plataforma.projects.service.UserHoldingService;
 import jakarta.servlet.FilterChain;
@@ -22,21 +20,16 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
-import org.springframework.core.annotation.Order;
 import org.springframework.data.domain.Page;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
-import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
@@ -50,9 +43,11 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @Tag("unit")
-@WebMvcTest(controllers = {ProjectController.class, ProjectMetricController.class})
+// Slice mínimo: ProjectController + cadena de filtros permisiva propia de test.
+// Reemplaza la SecurityConfig de producción para no arrastrar GatewayHeaderAuthFilter
+// (no escaneado por el slice). @PreAuthorize sigue evaluándose por method security.
+@WebMvcTest(controllers = ProjectController.class)
 @Import({ProjectControllerTest.TestSecurityConfig.class, GlobalExceptionHandler.class})
-@TestPropertySource(properties = "app.frontend-url=http://localhost:3000")
 class ProjectControllerTest {
 
     /**
@@ -71,10 +66,8 @@ class ProjectControllerTest {
     @EnableMethodSecurity
     static class TestSecurityConfig {
         @Bean
-        @Order(1)
         SecurityFilterChain testChain(HttpSecurity http) throws Exception {
             http.csrf(AbstractHttpConfigurer::disable)
-                .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth.anyRequest().permitAll());
             return http.build();
         }
@@ -183,8 +176,6 @@ class ProjectControllerTest {
                 .andExpect(jsonPath("$.data.name").value("Solar Test"));
     }
 
-    // ── PUT /api/projects/{id}/state ───────────────────────────────────────
-
     @Test
     void createProject_sinCamposObligatorios_returns400() throws Exception {
         mockMvc.perform(post("/api/projects")
@@ -213,6 +204,8 @@ class ProjectControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.status").value(400));
     }
+
+    // ── PUT /api/projects/{id}/state ───────────────────────────────────────
 
     @Test
     void changeState_transicionValida_returns200() throws Exception {
@@ -257,7 +250,7 @@ class ProjectControllerTest {
         when(projectService.changeState(any(), any(), any(), anyBoolean()))
                 .thenThrow(new ProjectStateException("Solo se pueden eliminar proyectos en estado DRAFT"));
 
-        // este test valida que el handler mapea ProjectStateException → 409
+        // valida que el handler mapea ProjectStateException → 409
         mockMvc.perform(put("/api/projects/1/state")
                         .with(authentication(auth(1L, "developer:approved")))
                         .contentType(MediaType.APPLICATION_JSON)

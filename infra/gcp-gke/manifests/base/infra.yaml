@@ -28,6 +28,10 @@ metadata:
   name: postgres
 spec:
   replicas: 1
+  # Recreate: con un PVC ReadWriteOnce, un rolling update deja al pod nuevo
+  # esperando un disco que el viejo todavía tiene montado (deadlock).
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: postgres
@@ -91,12 +95,25 @@ spec:
     - port: 5432
       targetPort: 5432
 ---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: redis-data
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: redis
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: redis
@@ -108,8 +125,14 @@ spec:
       containers:
         - name: redis
           image: redis:7-alpine
+          # AOF: persiste refresh tokens y rate limits entre reinicios del pod.
+          # Sin esto, cada reinicio deslogueaba a todos los usuarios (ADR-0027).
+          args: ["redis-server", "--appendonly", "yes"]
           ports:
             - containerPort: 6379
+          volumeMounts:
+            - name: data
+              mountPath: /data
           readinessProbe:
             tcpSocket:
               port: 6379
@@ -120,6 +143,10 @@ spec:
               port: 6379
             initialDelaySeconds: 20
             periodSeconds: 20
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: redis-data
 ---
 apiVersion: v1
 kind: Service
@@ -132,12 +159,25 @@ spec:
     - port: 6379
       targetPort: 6379
 ---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: zookeeper-data
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: zookeeper
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: zookeeper
@@ -146,6 +186,9 @@ spec:
       labels:
         app: zookeeper
     spec:
+      # cp-zookeeper corre como appuser (uid 1000); el PD se monta root-owned.
+      securityContext:
+        fsGroup: 1000
       containers:
         - name: zookeeper
           image: confluentinc/cp-zookeeper:7.5.0
@@ -154,6 +197,11 @@ spec:
           env:
             - name: ZOOKEEPER_CLIENT_PORT
               value: "2181"
+          # Persistencia: si ZK pierde su data pero Kafka conserva la suya,
+          # el broker no arranca (cluster ID mismatch). Van juntos (ADR-0027).
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/zookeeper/data
           readinessProbe:
             tcpSocket:
               port: 2181
@@ -164,6 +212,10 @@ spec:
               port: 2181
             initialDelaySeconds: 30
             periodSeconds: 20
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: zookeeper-data
 ---
 apiVersion: v1
 kind: Service
@@ -176,12 +228,25 @@ spec:
     - port: 2181
       targetPort: 2181
 ---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: kafka-data
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: kafka
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: kafka
@@ -191,12 +256,23 @@ spec:
         app: kafka
     spec:
       enableServiceLinks: false
+      # cp-kafka corre como appuser (uid 1000); el PD se monta root-owned.
+      securityContext:
+        fsGroup: 1000
       containers:
         - name: kafka
           image: confluentinc/cp-kafka:7.5.0
           ports:
             - containerPort: 9092
+          # Persistencia (ADR-0027): sin PVC, un re-schedule del pod perdía
+          # TODOS los topics, offsets y eventos no consumidos — el bus de
+          # eventos financieros completo.
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/kafka/data
           env:
+            - name: KAFKA_LOG_DIRS
+              value: /var/lib/kafka/data
             - name: KAFKA_BROKER_ID
               value: "1"
             - name: KAFKA_ZOOKEEPER_CONNECT
@@ -225,6 +301,10 @@ spec:
               port: 9092
             initialDelaySeconds: 60
             periodSeconds: 20
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: kafka-data
 ---
 apiVersion: v1
 kind: Service

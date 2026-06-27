@@ -1,0 +1,91 @@
+# ADR-0025: Observabilidad — tracing distribuido, logs correlacionados y métricas de negocio
+
+- **Estado:** Aceptado
+- **Fecha:** 2026-06-12
+- **Contexto:** Operabilidad del sistema distribuido (8 servicios + Kafka + chain)
+
+---
+
+## Contexto
+
+Un request típico atraviesa gateway → auth → user, y un evento on-chain pasa
+por indexer → Kafka → 2-3 consumers. Hasta ahora no había forma de responder
+"¿qué pasó con el request X?" sin arqueología manual de logs: cada servicio
+logueaba por su cuenta, sin identificador común, y en GKE además los appenders
+a archivo causaban `FileNotFoundException` (sin volumen) o duplicaban lo que
+Cloud Logging ya captura de stdout. Tampoco había métricas para los nuevos
+mecanismos de confiabilidad (DLTs del ADR-0024, atraso del indexer).
+
+## Decisión
+
+1. **Tracing con Micrometer Tracing (bridge Brave) en los 8 servicios.**
+   - Propagación W3C `traceparent` automática en: WebClient (gateway),
+     RestTemplate/RestClient (construidos vía builder — requisito que ya se
+     cumplía), y **Kafka** (observation habilitada en templates y listeners:
+     el traceId viaja en headers del mensaje).
+   - Sampling 100% (`management.tracing.sampling.probability=1.0`) — el
+     volumen es bajo y la correlación completa vale más que el ahorro.
+   - **Sin exporter por ahora**: no desplegamos collector ni usamos Cloud
+     Trace. El valor inmediato está en la correlación de logs; exportar spans
+     queda como paso siguiente documentado.
+
+2. **Logs correlacionados.**
+   - `traceId` en el patrón de consola (`%X{traceId:-}`) y automático en el
+     JSON (el encoder ya incluía `<mdc/>`).
+   - Buscar `traceId` en Cloud Logging devuelve la traza completa del request
+     a través de todos los servicios, incluyendo los consumers Kafka.
+
+3. **Perfil `k8s`: logging solo a consola JSON.**
+   - En GKE (`SPRING_PROFILES_ACTIVE=k8s`) los appenders a archivo se
+     desactivan; la consola emite JSON con campo `severity` que Cloud Logging
+     parsea nativamente (nivel correcto en Error Reporting, campos
+     estructurados consultables).
+   - Elimina los `FileNotFoundException: /app/logs/error.log` vistos en Error
+     Reporting y los `emptyDir` de logs de 6 deployments (se borraban en cada
+     reinicio del pod: eran peso muerto).
+   - En docker-compose/local nada cambia (perfil `!k8s` mantiene archivos).
+
+4. **Métricas de negocio (Micrometer, expuestas en `/actuator/metrics`).**
+   - `kafka.dlt.messages{topic}`: incrementa en cada derivación a un DLT —
+     un valor > 0 es una falla real pendiente de reproceso (ADR-0024).
+   - `indexer.lag.blocks`: bloques entre el head confirmado y el checkpoint
+     más atrasado — crecimiento sostenido = indexer caído o RPC roto.
+   - Los circuit breakers ya exponen estado vía `/actuator/circuitbreakers`
+     (ADR-0023).
+
+## Alternativas consideradas
+
+| Alternativa | Motivo de descarte |
+|---|---|
+| Export a Cloud Trace (spring-cloud-gcp-starter-trace) | Suma un BOM y configuración por servicio; la correlación por logs ya responde el 90% de las preguntas. Queda como siguiente paso si hace falta análisis de latencias. |
+| OpenTelemetry agent (auto-instrumentación) | Java agent en cada imagen + collector: más infra que beneficio a esta escala. |
+| Mantener logs a archivo en GKE con PVC | Duplica Cloud Logging, suma volúmenes y rotación que GCP ya resuelve. |
+| Sampling 10% (default) | Con tráfico bajo, 1 de cada 10 requests trazados hace inútil la correlación en demos y debugging. |
+
+## Consecuencias
+
+### Positivas
+- "Dame el traceId" reemplaza a la arqueología de logs: una query en Cloud
+  Logging muestra gateway → auth → user → Kafka consumer en orden.
+- Error Reporting clasifica bien los niveles (campo `severity`).
+- Las alertas de Sprint 3 (DLT > 0, lag > umbral) se definen sobre métricas
+  estándar de Micrometer.
+
+### Negativas / Advertencias
+- Sin exporter no hay vista de *latencias* por span (solo correlación). Si se
+  necesita, agregar Cloud Trace después es aditivo.
+- La observación de Kafka agrega headers a cada mensaje (~60 bytes) —
+  irrelevante a este volumen.
+- Sampling 100% debe revisarse si el tráfico crece.
+
+## Estado de implementación (2026-06-12)
+
+✅ `micrometer-tracing-bridge-brave` en los 8 poms; observation de Kafka en
+templates/listeners (props para los Boot-managed, código para las factories
+custom de wallet/notification); `traceId` en patrones de consola; perfil
+`k8s` en los 7 logback-spring.xml; `SPRING_PROFILES_ACTIVE=k8s` en el
+configmap de prod; emptyDir de logs eliminados de apps.yaml; métricas
+`kafka.dlt.messages` e `indexer.lag.blocks`.
+
+Pendiente (manual, consola GCP): uptime check sobre
+`https://www.liken.lat/api/projects` y alerta sobre las dos métricas.

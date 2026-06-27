@@ -2,6 +2,7 @@ package com.plataforma.shared.config;
 
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.springframework.beans.factory.annotation.Value;
@@ -9,15 +10,11 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.*;
-import org.springframework.kafka.support.serializer.JsonDeserializer;
-import org.springframework.kafka.support.serializer.JsonSerializer;
-import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.listener.DefaultErrorHandler;
+import org.springframework.kafka.support.serializer.JsonDeserializer;
+import org.springframework.kafka.support.serializer.JsonSerializer;
 import org.springframework.util.backoff.FixedBackOff;
-
-import org.springframework.kafka.support.converter.JsonMessageConverter;
-import org.springframework.kafka.support.converter.RecordMessageConverter;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -27,13 +24,6 @@ public class KafkaConfig {
 
     @Value("${spring.kafka.bootstrap-servers}")
     private String bootstrapServers;
-
-    // ── Converter ─────────────────────────────────────────────────────────────
-
-    @Bean
-    public RecordMessageConverter converter() {
-        return new JsonMessageConverter();
-    }
 
     // ── Producer ──────────────────────────────────────────────────────────────
 
@@ -48,7 +38,10 @@ public class KafkaConfig {
 
     @Bean
     public KafkaTemplate<String, Object> kafkaTemplate() {
-        return new KafkaTemplate<>(producerFactory());
+        KafkaTemplate<String, Object> template = new KafkaTemplate<>(producerFactory());
+        // Propagar el traceId en los headers Kafka (ADR-0025)
+        template.setObservationEnabled(true);
+        return template;
     }
 
     // ── Consumer ──────────────────────────────────────────────────────────────
@@ -60,24 +53,42 @@ public class KafkaConfig {
         props.put(ConsumerConfig.GROUP_ID_CONFIG, "wallet-service");
         props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
         props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
-        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
-        props.put(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, StringDeserializer.class);
+        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
+        props.put(JsonDeserializer.TRUSTED_PACKAGES, "com.plataforma.event.dto");
+        props.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, false);
+        props.put(JsonDeserializer.VALUE_DEFAULT_TYPE, Object.class);
         return new DefaultKafkaConsumerFactory<>(props);
     }
 
+    /**
+     * Retries + DLT (ADR-0024): 3 reintentos (cada 2s) y luego el registro
+     * va a {@code <topic>.DLT}. Los movimientos de wallet son dinero: un
+     * evento no procesable no se descarta, se aparta para reproceso (los
+     * consumers son idempotentes por eventId).
+     * Cada derivación incrementa la métrica {@code kafka.dlt.messages}
+     * (etiquetada por topic) para alertar en monitoreo (ADR-0025).
+     */
     @Bean
-    public DefaultErrorHandler errorHandler(KafkaTemplate<String, Object> template) {
-        DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(template);
-        return new DefaultErrorHandler(recoverer, new FixedBackOff(1000L, 3L));
+    public DefaultErrorHandler kafkaErrorHandler(KafkaTemplate<String, Object> template,
+                                                 io.micrometer.core.instrument.MeterRegistry meterRegistry) {
+        var recoverer = new DeadLetterPublishingRecoverer(template, (record, ex) -> {
+            meterRegistry.counter("kafka.dlt.messages", "topic", record.topic()).increment();
+            return new TopicPartition(record.topic() + ".DLT", 0);
+        });
+        var handler = new DefaultErrorHandler(recoverer, new FixedBackOff(2_000L, 3));
+        handler.setCommitRecovered(true);
+        return handler;
     }
 
     @Bean
-    public ConcurrentKafkaListenerContainerFactory<String, Object> kafkaListenerContainerFactory(RecordMessageConverter converter) {
+    public ConcurrentKafkaListenerContainerFactory<String, Object> kafkaListenerContainerFactory(
+            DefaultErrorHandler kafkaErrorHandler) {
         ConcurrentKafkaListenerContainerFactory<String, Object> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(consumerFactory());
-        factory.setRecordMessageConverter(converter);
-        factory.setCommonErrorHandler(errorHandler(kafkaTemplate()));
+        factory.setCommonErrorHandler(kafkaErrorHandler);
+        // Propagar el traceId desde los headers Kafka al MDC (ADR-0025)
+        factory.getContainerProperties().setObservationEnabled(true);
         return factory;
     }
 }

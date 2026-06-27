@@ -1,0 +1,80 @@
+# ADR-0024: Mensajería confiable — retries, dead letter topics y eventos sintéticos
+
+- **Estado:** Aceptado
+- **Fecha:** 2026-06-12
+- **Contexto:** Garantías de entrega del pipeline de eventos (ADR-0012, ADR-0017, ADR-0018)
+
+---
+
+## Contexto
+
+El estado financiero de la plataforma se proyecta desde eventos on-chain vía
+Kafka (ADR-0017). Tres debilidades hacían el pipeline *at-most-once* (eventos
+perdibles):
+
+1. **Consumers que tragaban excepciones**: 8 consumers (5 en wallet-service,
+   3 en invest-dividend) envolvían su lógica en `try/catch + log.error`. El
+   offset se commiteaba igual → una compra on-chain que llegara mientras
+   project-service estaba caído desaparecía de la proyección para siempre.
+2. **Publicación asíncrona en el indexer**: `KafkaEventPublisher` hacía
+   `send()` fire-and-forget y el indexer avanzaba el checkpoint igual. Si
+   Kafka no confirmaba, el evento se perdía y el bloque nunca se reescaneaba.
+3. **Evento `RoundFailed` inalcanzable**: on-chain solo se emite en el primer
+   `refund()`, pero la UI muestra el botón de refund solo cuando el backend
+   ya marcó FAILED → deadlock funcional (nadie podía iniciar el refund).
+
+## Decisión
+
+1. **Retries + Dead Letter Topic en los consumers de proyecciones financieras**
+   (invest-dividend, wallet, project): `DefaultErrorHandler` con backoff
+   exponencial (3 reintentos: 1s → 2s → 4s) y `DeadLetterPublishingRecoverer`
+   hacia `<topic>.DLT` (partición 0 fija). Se eliminaron los try/catch de los
+   consumers: la excepción ES el mecanismo de control.
+2. **Publicación síncrona en el indexer**: `send().get(10s)` antes de avanzar
+   el checkpoint. Si Kafka no confirma, rollback y el bloque se reescanea en
+   el próximo poll → *at-least-once*. Los duplicados los absorbe la
+   idempotencia por `eventId` que ya existía en ambos extremos.
+3. **Eventos sintéticos para estados no materializados**:
+   `RoundExpirationMonitor` consulta cada offering por `eth_call` (sin gas) y
+   publica `projects.round_failed` sintético (eventId `expired:<address>`,
+   deduplicado por el publisher) cuando una ronda OPEN venció sin soft cap.
+   Es consistente con ADR-0017: la proyección refleja un estado que la chain
+   ya considera verdadero (`_roundFailed()` == true), solo que ningún evento
+   lo materializó aún.
+4. **notification-service queda fuera del esquema DLT a propósito**: sus
+   consumers son best-effort por diseño (un email fallido no debe frenar ni
+   reintentar el pipeline); la notificación in-app se persiste igual.
+
+## Alternativas consideradas
+
+| Alternativa | Motivo de descarte |
+|---|---|
+| Reintentos infinitos sin DLT | Un evento venenoso (payload malformado) bloquea la partición para siempre. |
+| Transacciones Kafka (exactly-once) | Complejidad alta; la idempotencia por eventId ya da el mismo resultado observable con at-least-once. |
+| Marcar rondas vencidas con un cron en project-service | project-service no debe hablar con la chain (separación de bounded contexts); blockchain-service ya tiene Web3j y el publisher idempotente. |
+| Esperar el `RoundFailed` real | Deadlock confirmado: el botón de refund jamás aparecía. |
+
+## Consecuencias
+
+### Positivas
+- Ningún evento financiero se descarta: o se procesa (con reintentos) o queda
+  en un DLT auditable y reprocesable.
+- Caída de un servicio dependiente (ej. project-service) ya no pierde compras:
+  reintenta y deriva a DLT; al reprocesar, la idempotencia evita duplicados.
+- El flujo de refund funciona de punta a punta sin intervención manual.
+
+### Negativas / Advertencias
+- At-least-once implica duplicados ocasionales: TODO consumer nuevo debe ser
+  idempotente por eventId (ya es la convención, ahora es obligatorio).
+- Los DLT requieren atención operativa: un mensaje ahí es una falla real
+  pendiente. (Sprint 3 agrega métrica + alerta sobre DLTs.)
+- El monitor de expiración agrega ~4 eth_calls por offering por minuto —
+  irrelevante en Sepolia, medible si hubiera cientos de offerings.
+
+## Estado de implementación (2026-06-12)
+
+✅ `KafkaErrorHandlingConfig` (invest), error handler en `KafkaConfig` de
+wallet y project, 8 consumers destapados, `KafkaEventPublisher` síncrono,
+`RoundExpirationMonitor` en blockchain-service.
+Esquemas de eventos documentados en `docs/eventos-kafka.md`.
+Pendiente (Sprint 4): DTOs tipados compartidos en `liken-shared`.

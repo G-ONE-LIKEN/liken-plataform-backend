@@ -29,10 +29,11 @@
     -->
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level ${serviceName} [%thread] %logger{40} - %msg%n%ex{0}</pattern>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level ${serviceName} [%thread] [%X{traceId:-}] %logger{40} - %msg%n%ex{0}</pattern>
         </encoder>
     </appender>
 
+    <springProfile name="!k8s">
     <!-- ============ FILE: JSON estructurado ============ -->
     <appender name="FILE_JSON" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>${LOG_PATH}/app.log</file>
@@ -112,6 +113,48 @@
         </rollingPolicy>
     </appender>
 
+    </springProfile>
+
+    <!-- ============ k8s: SOLO consola JSON ============ -->
+    <!-- Cloud Logging captura stdout y parsea el JSON (campo "severity").
+         Sin appenders a archivo: evita FileNotFoundException cuando no hay
+         volumen y la duplicación con Cloud Logging (ADR-0025). El traceId
+         de Micrometer Tracing viaja en el MDC y queda en cada línea. -->
+    <springProfile name="k8s">
+        <appender name="CONSOLE_JSON" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+                <providers>
+                    <timestamp>
+                        <fieldName>timestamp</fieldName>
+                        <pattern>yyyy-MM-dd'T'HH:mm:ss.SSSXXX</pattern>
+                        <timeZone>UTC</timeZone>
+                    </timestamp>
+                    <pattern>
+                        <pattern>{"service":"${serviceName}"}</pattern>
+                    </pattern>
+                    <logLevel><fieldName>severity</fieldName></logLevel>
+                    <threadName><fieldName>thread</fieldName></threadName>
+                    <loggerName>
+                        <fieldName>logger</fieldName>
+                        <shortenedLoggerNameLength>40</shortenedLoggerNameLength>
+                    </loggerName>
+                    <mdc/>
+                    <message><fieldName>message</fieldName></message>
+                    <stackTrace>
+                        <fieldName>stackTrace</fieldName>
+                        <throwableConverter class="net.logstash.logback.stacktrace.ShortenedThrowableConverter">
+                            <maxDepthPerThrowable>30</maxDepthPerThrowable>
+                            <rootCauseFirst>true</rootCauseFirst>
+                        </throwableConverter>
+                    </stackTrace>
+                </providers>
+            </encoder>
+        </appender>
+        <root level="${LOG_LEVEL_ROOT:-INFO}">
+            <appender-ref ref="CONSOLE_JSON"/>
+        </root>
+    </springProfile>
+
     <!-- ============ NIVELES — bajar noise de libs ============ -->
     <logger name="org.apache.kafka"            level="WARN"/>
     <logger name="org.springframework.kafka"   level="WARN"/>
@@ -135,10 +178,12 @@
     <!-- App propia: configurable via LOG_LEVEL_APP -->
     <logger name="com.plataforma" level="${LOG_LEVEL_APP:-INFO}"/>
 
-    <root level="${LOG_LEVEL_ROOT:-INFO}">
-        <appender-ref ref="CONSOLE"/>
-        <appender-ref ref="FILE_JSON"/>
-        <appender-ref ref="FILE_ERROR"/>
-    </root>
+    <springProfile name="!k8s">
+        <root level="${LOG_LEVEL_ROOT:-INFO}">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="FILE_JSON"/>
+            <appender-ref ref="FILE_ERROR"/>
+        </root>
+    </springProfile>
 
 </configuration>

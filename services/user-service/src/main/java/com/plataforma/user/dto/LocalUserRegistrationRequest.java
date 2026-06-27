@@ -50,4 +50,11 @@ public class LocalUserRegistrationRequest {
 
     @AssertTrue(message = "Debes aceptar los términos y condiciones.")
     private boolean termsAccepted;
+
+    /**
+     * true cuando {@code password} ya viene hasheada con BCrypt desde
+     * auth-service (que la hashea antes de guardar el registro pendiente
+     * en Redis, ADR-0026). En ese caso no se re-hashea ni se valida fortaleza.
+     */
+    private boolean passwordEncoded;
 }

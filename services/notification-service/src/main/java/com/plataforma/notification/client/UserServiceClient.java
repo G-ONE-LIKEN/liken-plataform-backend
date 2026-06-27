@@ -32,7 +32,16 @@ public class UserServiceClient {
 
     private RestClient client() {
         if (restClient == null) {
-            restClient = RestClient.builder().baseUrl(baseUrl).build();
+            // Timeouts: estas llamadas salen de consumers Kafka y de los
+            // broadcasts; sin límite, un user-service colgado frena el
+            // procesamiento de notificaciones indefinidamente.
+            var requestFactory = new org.springframework.http.client.SimpleClientHttpRequestFactory();
+            requestFactory.setConnectTimeout(java.time.Duration.ofSeconds(3));
+            requestFactory.setReadTimeout(java.time.Duration.ofSeconds(5));
+            restClient = RestClient.builder()
+                    .requestFactory(requestFactory)
+                    .baseUrl(baseUrl)
+                    .build();
         }
         return restClient;
     }

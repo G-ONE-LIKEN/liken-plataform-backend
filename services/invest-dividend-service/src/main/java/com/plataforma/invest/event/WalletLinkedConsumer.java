@@ -27,14 +27,11 @@ public class WalletLinkedConsumer {
             return;
         }
 
-        try {
-            int investments = investmentService.reconcileWalletLinked(userId, walletAddress);
-            int claims = dividendService.reconcileWalletLinked(userId, walletAddress);
-            log.info("Reconciliacion invest-dividend completa: userId={} wallet={} investments={} claims={}",
-                    userId, walletAddress, investments, claims);
-        } catch (Exception e) {
-            log.error("Error reconciliando wallet vinculada en invest-dividend-service: payload={}", payload, e);
-        }
+        // Sin try/catch: las fallas van a retries + DLT (KafkaErrorHandlingConfig).
+        int investments = investmentService.reconcileWalletLinked(userId, walletAddress);
+        int claims = dividendService.reconcileWalletLinked(userId, walletAddress);
+        log.info("Reconciliacion invest-dividend completa: userId={} wallet={} investments={} claims={}",
+                userId, walletAddress, investments, claims);
     }
 
     private static String str(Object value) {

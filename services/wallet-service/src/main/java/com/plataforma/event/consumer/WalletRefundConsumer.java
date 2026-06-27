@@ -41,21 +41,17 @@ public class WalletRefundConsumer {
     }
 
     private void recordNormal(WalletRefundEvent event, Long userId) {
-        try {
-            log.info("Procesando refund on-chain: usuario={}, monto={}, projectId={}, txHash={}",
-                    userId, event.getUsdcAmount(), event.getProjectId(), event.getTxHash());
-            walletService.recordMovement(
-                    userId,
-                    MovementType.REFUND,
-                    event.getUsdcAmount(),
-                    "Refund proyecto " + event.getProjectId() + " (tx " + event.getTxHash() + ")",
-                    event.getTxHash(),
-                    event.getEventId()
-            );
-        } catch (Exception e) {
-            log.error("Error procesando wallet.refund para usuario {}: {}",
-                    userId, e.getMessage(), e);
-        }
+        // Sin try/catch: las fallas van a retries + DLT (KafkaConfig, ADR-0024).
+        log.info("Procesando refund on-chain: usuario={}, monto={}, projectId={}, txHash={}",
+                userId, event.getUsdcAmount(), event.getProjectId(), event.getTxHash());
+        walletService.recordMovement(
+                userId,
+                MovementType.REFUND,
+                event.getUsdcAmount(),
+                "Refund proyecto " + event.getProjectId() + " (tx " + event.getTxHash() + ")",
+                event.getTxHash(),
+                event.getEventId()
+        );
     }
 
     private void recordOrPending(WalletRefundEvent event) {

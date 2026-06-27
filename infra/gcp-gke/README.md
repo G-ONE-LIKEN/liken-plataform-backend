@@ -75,7 +75,7 @@ En `liken-plataform-backend`:
 - `GKE_CLUSTER_NAME` = `liken-gke`
 - `GKE_CLUSTER_ZONE` = `us-central1-a`
 - `GCS_BUCKET_NAME` = `liken-documents-gonza-2026`
-- `FRONTEND_ORIGIN` = `http://34.160.119.148`
+- `FRONTEND_ORIGIN` = `https://www.liken.lat` (el dominio canónico; `liken.lat` redirige 301 al www desde el frontend)
 - `GKE_STATIC_IP_NAME` = `liken-gke-ingress-ip`
 - `GKE_WORKLOAD_IDENTITY_GSA` = `liken-storage-access@liken-plataform.iam.gserviceaccount.com`
 
@@ -102,7 +102,7 @@ Y como `Repository variables` en el repo frontend:
 
 Valores sugeridos para este entorno:
 
-- `NEXT_PUBLIC_API_URL` = `http://34.160.119.148/api`
+- `NEXT_PUBLIC_API_URL` = `/` — **same-origin**: el front usa rutas relativas (`/api/...`) y el ingress enruta `/api` al gateway bajo el mismo dominio. Sin CORS y funciona igual entrando por `liken.lat` o `www.liken.lat`. (Nunca usar la IP: el certificado solo es válido para los dominios.)
 - `NEXT_PUBLIC_WC_PROJECT_ID` = tu WalletConnect project id
 - `NEXT_PUBLIC_LKN_ADDRESS` = direccion del token LKN
 - `NEXT_PUBLIC_REGISTRY_ADDRESS` = direccion del registry/marketplace
@@ -154,6 +154,11 @@ Duplicar `secrets.example.yaml` como `secrets.yaml`, cargar los secretos reales 
 kubectl apply -f .\secrets.yaml
 ```
 
+> ⚠️ `secrets.yaml` y `rendered/` están **gitignorados** (ADR-0026): el secret
+> vive solo en el cluster, nunca en el repo. El CI no lo necesita (la
+> kustomization no lo referencia). Si un secreto se filtra, la mitigación es
+> **rotarlo**, no borrarlo del historial.
+
 ### 5. Activar el CI/CD
 
 Con eso listo:
@@ -165,12 +170,14 @@ Con eso listo:
 
 - GCS real en produccion, sin `fake-gcs`.
 - `user-service` y `project-service` usan Workload Identity para acceder al bucket.
-- Ingress GCE con IP global estatica.
-- Postgres, Redis y Kafka corren dentro del cluster para una primera version.
+- Ingress GCE con IP global estatica + Managed Certificate para `liken.lat` / `www.liken.lat` + redirect HTTP→HTTPS (FrontendConfig).
+- Postgres, Redis, Kafka y Zookeeper corren dentro del cluster **con persistencia** (ADR-0027): PVCs para los cuatro, `strategy: Recreate` (RWO), Redis con AOF, y CronJob diario de `pg_dumpall` a GCS (`backup-cronjob.yaml`; restore en [`docs/runbook-backups.md`](../../docs/runbook-backups.md)).
+- Logging en GKE con perfil Spring `k8s` (configmap): solo consola JSON con campo `severity` — Cloud Logging la parsea y no hay appenders a archivo (ADR-0025).
 
 ## Siguientes mejoras recomendadas
 
-- Mover Postgres a Cloud SQL.
-- Mover Kafka a un operador o servicio administrado.
-- Agregar TLS con Managed Certificate y dominio real.
+- Mover Postgres a Cloud SQL y Redis a Memorystore (la señal: cuando operarlos in-cluster cueste mas que el ahorro).
+- Migrar Kafka a KRaft (elimina Zookeeper) o a un servicio administrado.
+- GCP Secret Manager + External Secrets Operator (el Secret nunca existe como archivo).
+- Snapshot schedule del PD de Postgres y lifecycle rule del bucket de backups (pasos en el runbook).
 - Incorporar ArgoCD Image Updater si queres evitar que Actions toque el repo de manifests.

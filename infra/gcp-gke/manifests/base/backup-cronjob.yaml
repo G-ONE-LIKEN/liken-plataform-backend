@@ -1,0 +1,79 @@
+# Backup diario de Postgres a GCS (ADR-0027).
+#
+# Flujo: initContainer hace pg_dumpall (todas las DBs lógicas) comprimido a un
+# emptyDir; el container principal lo sube al bucket con gsutil usando la
+# ServiceAccount liken-storage-access (Workload Identity, misma que usan los
+# servicios para GCS).
+#
+# Restore (ver docs/runbook-backups.md):
+#   gsutil cp gs://<bucket>/backups/<archivo>.sql.gz .
+#   gunzip <archivo>.sql.gz
+#   kubectl -n app exec -i deploy/postgres -- psql -U $POSTGRES_USER -d postgres < <archivo>.sql
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: postgres-backup
+spec:
+  # 06:00 UTC = 03:00 America/Argentina/Buenos_Aires
+  schedule: "0 6 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      # Si el backup no terminó en 30 min, algo está mal: matar y marcar fallo.
+      activeDeadlineSeconds: 1800
+      backoffLimit: 1
+      template:
+        spec:
+          serviceAccountName: liken-storage-access
+          restartPolicy: Never
+          initContainers:
+            - name: dump
+              image: postgres:15-alpine
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -euo pipefail
+                  STAMP=$(date -u +%Y%m%d-%H%M%S)
+                  echo "pg_dumpall -> /backup/pg-${STAMP}.sql.gz"
+                  pg_dumpall -h postgres -U "$POSTGRES_USER" | gzip > "/backup/pg-${STAMP}.sql.gz"
+                  ls -lh /backup/
+              env:
+                - name: POSTGRES_USER
+                  valueFrom:
+                    secretKeyRef:
+                      name: liken-secrets
+                      key: POSTGRES_USER
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: liken-secrets
+                      key: POSTGRES_PASSWORD
+              volumeMounts:
+                - name: backup
+                  mountPath: /backup
+          containers:
+            - name: upload
+              image: gcr.io/google.com/cloudsdktool/google-cloud-cli:slim
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -euo pipefail
+                  gsutil cp /backup/pg-*.sql.gz "gs://${GCS_BUCKET_NAME}/backups/"
+                  echo "Backup subido. Últimos en el bucket:"
+                  gsutil ls -lh "gs://${GCS_BUCKET_NAME}/backups/" | tail -5
+              env:
+                - name: GCS_BUCKET_NAME
+                  valueFrom:
+                    configMapKeyRef:
+                      name: liken-config
+                      key: GCS_BUCKET_NAME
+              volumeMounts:
+                - name: backup
+                  mountPath: /backup
+          volumes:
+            - name: backup
+              emptyDir: {}

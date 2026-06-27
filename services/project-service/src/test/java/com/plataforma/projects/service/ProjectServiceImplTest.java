@@ -11,6 +11,7 @@ import com.plataforma.projects.model.OnChainStatus;
 import com.plataforma.projects.model.Project;
 import com.plataforma.projects.model.ProjectState;
 import com.plataforma.projects.repository.ProjectRepository;
+import com.plataforma.projects.service.BlockchainPublicationClient;
 import com.plataforma.projects.service.impl.ProjectServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -144,6 +145,18 @@ class ProjectServiceImplTest {
     }
 
     @Test
+    void changeState_draftACancelled_actualizaEstadoYPublicaEvento() {
+        // Transición simple no on-chain: DRAFT→CANCELLED cambia estado y publica evento.
+        when(projectRepository.findByIdAndActiveTrue(1L)).thenReturn(Optional.of(draftProject));
+        when(projectRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        ProjectResponse response = projectService.changeState(1L, ProjectState.CANCELLED, 10L, false);
+
+        assertThat(response.getState()).isEqualTo(ProjectState.CANCELLED);
+        verify(eventPublisher).publishStateChanged(any(), eq(ProjectState.DRAFT), eq(ProjectState.CANCELLED));
+    }
+
+    @Test
     void changeState_transicionInvalida_lanzaProjectStateException() {
         draftProject.setState(ProjectState.CLOSED);
         when(projectRepository.findByIdAndActiveTrue(1L)).thenReturn(Optional.of(draftProject));
@@ -237,11 +250,14 @@ class ProjectServiceImplTest {
 
     @Test
     void changeState_adminPuedeModificarProyectoAjeno() {
+        // ownerId=10, admin=99 → bypassa checkOwnership. Usamos DRAFT→CANCELLED en lugar
+        // de DRAFT→PRE_OPEN para no atravesar startPublication, que requiere
+        // expectedOpenDate / softCap / hardCap (no setteados en el fixture base).
         when(projectRepository.findByIdAndActiveTrue(1L)).thenReturn(Optional.of(draftProject));
         when(projectRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         assertThatNoException().isThrownBy(
-                () -> projectService.changeState(1L, ProjectState.PRE_OPEN, 99L, true)
+                () -> projectService.changeState(1L, ProjectState.CANCELLED, 99L, true)
         );
     }
 

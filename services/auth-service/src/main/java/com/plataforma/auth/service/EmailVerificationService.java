@@ -29,10 +29,14 @@ public class EmailVerificationService {
     private static final String PENDING_REGISTRATION_KEY_PREFIX = "email:verification:pending-registration:";
     private static final SecureRandom RANDOM = new SecureRandom();
 
+    private static final String PASSWORD_COMPLEXITY_MESSAGE =
+            "La contrasena debe tener al menos 6 caracteres, una letra, un numero y un caracter especial.";
+
     private final StringRedisTemplate redisTemplate;
     private final UserServiceClient userServiceClient;
     private final NotificationServiceClient notificationServiceClient;
     private final ObjectMapper objectMapper;
+    private final org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
 
     @Value("${email-verification.ttl-minutes:10}")
     private long ttlMinutes;
@@ -50,9 +54,17 @@ public class EmailVerificationService {
             throw new IllegalArgumentException("Ya existe una cuenta registrada con ese email.");
         }
 
+        // La fortaleza se valida acá (texto plano disponible) y la contraseña
+        // se hashea ANTES de persistir el registro pendiente en Redis: una
+        // contraseña en texto plano nunca debe tocar un almacenamiento
+        // compartido (ADR-0026). user-service recibe el hash con
+        // passwordEncoded=true y no re-hashea.
+        validatePasswordStrength(request.getPassword());
+
         LocalUserRegistrationRequest pendingRegistration = LocalUserRegistrationRequest.builder()
                 .email(normalizedEmail)
-                .password(request.getPassword())
+                .password(passwordEncoder.encode(request.getPassword()))
+                .passwordEncoded(true)
                 .roleName(request.getRoleName())
                 .firstName(request.getFirstName())
                 .lastName(request.getLastName())
@@ -229,5 +241,17 @@ public class EmailVerificationService {
     private String generateCode() {
         int value = RANDOM.nextInt(1_000_000);
         return "%06d".formatted(value);
+    }
+
+    private void validatePasswordStrength(String password) {
+        if (password == null || password.length() < 6) {
+            throw new IllegalArgumentException(PASSWORD_COMPLEXITY_MESSAGE);
+        }
+        boolean hasLetter = password.chars().anyMatch(Character::isLetter);
+        boolean hasDigit = password.chars().anyMatch(Character::isDigit);
+        boolean hasSpecial = password.chars().anyMatch(ch -> !Character.isLetterOrDigit(ch));
+        if (!hasLetter || !hasDigit || !hasSpecial) {
+            throw new IllegalArgumentException(PASSWORD_COMPLEXITY_MESSAGE);
+        }
     }
 }

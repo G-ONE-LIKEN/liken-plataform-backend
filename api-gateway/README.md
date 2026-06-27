@@ -1,6 +1,6 @@
 # api-gateway
 
-Punto de entrada unico de la plataforma LIKEN. Valida JWT, enruta requests a los servicios internos e inyecta la identidad del usuario como headers HTTP.
+Punto de entrada único de la plataforma LIKEN. Valida JWT, enruta requests a los servicios internos e inyecta la identidad del usuario como headers HTTP.
 
 ## Arquitectura
 
@@ -8,7 +8,7 @@ Punto de entrada unico de la plataforma LIKEN. Valida JWT, enruta requests a los
 Frontend (5173)
       │
       ▼
-api-gateway (8090)        ← validacion JWT + CORS + enrutamiento + rate limit
+api-gateway (8090)        ← validación JWT + CORS + enrutamiento + rate limit
       │
       ├── /api/auth/**            ──▶  auth-service            (8081)
       ├── /api/users/**           ──▶  user-service            (8080)
@@ -23,13 +23,17 @@ api-gateway (8090)        ← validacion JWT + CORS + enrutamiento + rate limit
 
 ## Responsabilidades
 
-- **Autenticacion centralizada**: valida el JWT antes de que el request llegue a cualquier servicio. Token ausente o invalido → `401` sin tocar los backends (ver [ADR-0004](../docs/adr/ADR-0004-Validacion-JWT-centralizada-en-el-gateway)).
-- **Propagacion de identidad**: inyecta tres headers en cada request autenticado:
+- **Autenticación centralizada**: valida el JWT antes de que el request llegue a cualquier servicio. Token ausente o inválido → `401` sin tocar los backends (ver [ADR-0004](../docs/adr/ADR-0004-Validacion-JWT-centralizada-en-el-gateway)).
+- **Saneamiento de identidad**: elimina **todos** los headers `X-User-*` / `X-Developer-Status` que vengan del cliente, en toda request (pública o no). Solo el propio filtro puede setearlos — sin esto, una ruta pública permitía colar `X-User-Role: ADMIN` forjado (ver [ADR-0026](../docs/adr/ADR-0026-Hardening-identidad-secretos-y-credenciales)).
+- **Propagación de identidad**: inyecta los headers en cada request autenticado:
   - `X-User-Id` — ID numérico del usuario
   - `X-User-Role` — nombre del rol (`ADMIN`, `DEVELOPER`, etc.)
   - `X-User-Permissions` — permisos separados por coma (`project:read,project:create`)
-- **Rate limiting**: limita requests por IP (rutas publicas) o por usuario (rutas autenticadas) usando Redis. Devuelve `429` al exceder el limite (ver [ADR-0011](../docs/adr/ADR-0011-Rate-limiting-en-el-gateway-con-Redis)).
-- **Enrutamiento**: redirige cada request al microservicio correcto segun el path.
+  - `X-User-Tier` / `X-User-KycStatus` — tier de inversión y estado KYC
+  - `X-Developer-Status` — solo si aplica
+- **Resiliencia**: la llamada de contexto a `user-service` corre detrás de un circuit breaker con timeout de 3s (Resilience4j). Si user-service no responde, el gateway devuelve `503` inmediato ("servicio temporalmente no disponible") en vez de un `401` engañoso o un cuelgue (ver [ADR-0023](../docs/adr/ADR-0023-Resiliencia-en-llamadas-sincronas-internas)). Un `404` de user-service (usuario inexistente/inactivo) sí es `401`.
+- **Rate limiting**: limita requests por IP (rutas públicas) o por usuario (rutas autenticadas) usando Redis. Devuelve `429` al exceder el límite (ver [ADR-0011](../docs/adr/ADR-0011-Rate-limiting-en-el-gateway-con-Redis)).
+- **Enrutamiento**: redirige cada request al microservicio correcto según el path.
 - **CORS**: gestiona los headers CORS centralmente para el frontend.
 - **Caché de identidad**: cachea el contexto de usuario (rol/permisos) con TTL de 30s para no consultar a `user-service` en cada request. Escucha el topic Kafka `UserContextInvalidatedEvent` para invalidar la entrada cuando cambian los permisos de un usuario.
 
@@ -38,23 +42,23 @@ api-gateway (8090)        ← validacion JWT + CORS + enrutamiento + rate limit
 | Path | Servicio destino | JWT requerido |
 |------|-----------------|---------------|
 | `POST /api/auth/login` | auth-service | No |
-| `POST /api/auth/change-password` | auth-service | Si |
-| `POST /api/users` | user-service | No (registro publico) |
-| `/api/users/**` | user-service | Si |
-| `/api/roles/**` | user-service | Si |
-| `/api/permissions/**` | user-service | Si |
-| `/api/projects/**` | project-service | Si |
-| `/api/wallets/**` | wallet-service | Si |
-| `/api/investments/**` | invest-dividend-service | Si |
-| `/api/dividends/**` | invest-dividend-service | Si |
-| `/api/notifications/**` | notification-service | Si |
-| `GET /api/notifications/stream` | notification-service (SSE) | Si — **sin rate-limit** (conexion de larga duracion) |
+| `POST /api/auth/change-password` | auth-service | Sí |
+| `POST /api/users` | user-service | No (registro público) |
+| `/api/users/**` | user-service | Sí |
+| `/api/roles/**` | user-service | Sí |
+| `/api/permissions/**` | user-service | Sí |
+| `/api/projects/**` | project-service | Sí |
+| `/api/wallets/**` | wallet-service | Sí |
+| `/api/investments/**` | invest-dividend-service | Sí |
+| `/api/dividends/**` | invest-dividend-service | Sí |
+| `/api/notifications/**` | notification-service | Sí |
+| `GET /api/notifications/stream` | notification-service (SSE) | Sí — **sin rate-limit** (conexión de larga duración) |
 
 ## Rate limiting
 
 Implementado con `RequestRateLimiter` de Spring Cloud Gateway + Redis (token bucket).
 
-| Ruta | Algoritmo | Clave | Limite sostenido | Burst |
+| Ruta | Algoritmo | Clave | Límite sostenido | Burst |
 |------|-----------|-------|-----------------|-------|
 | `/api/auth/**` | IP | IP del cliente | ~24 req/min | 2 req inmediatos |
 | `/api/projects/**` | userId/IP | `X-User-Id` o IP | 30 req/s | 60 |
@@ -65,21 +69,23 @@ Implementado con `RequestRateLimiter` de Spring Cloud Gateway + Redis (token buc
 | `/api/notifications/stream` | — | — | **sin rate-limit** (SSE) | — |
 | `/api/roles/**`, `/api/permissions/**` | userId/IP | `X-User-Id` o IP | 10 req/s | 20 |
 
-Al exceder el limite el gateway devuelve `429 Too Many Requests`. Si Redis no esta disponible, los requests pasan (fail open) para no comprometer la disponibilidad.
+Al exceder el límite el gateway devuelve `429 Too Many Requests`. Si Redis no está disponible, los requests pasan (fail open) para no comprometer la disponibilidad.
 
 ## Stack
 
-| Capa | Tecnologia |
+| Capa | Tecnología |
 |------|------------|
 | Framework | Spring Boot 3.2.4 / Java 21 |
 | Gateway | Spring Cloud Gateway 2023.0.1 (reactivo / WebFlux) |
 | JWT | JJWT 0.11.5 (HS256) |
 | Rate limiting | Redis 7 (token bucket via `RequestRateLimiter`) |
+| Resiliencia | Resilience4j (circuit breaker + TimeLimiter, vía Spring Cloud CircuitBreaker) |
+| Observabilidad | Micrometer Tracing (Brave) — traceId en logs y propagación W3C |
 | Tests | JUnit 5 + WireMock |
 
 ## Variables de entorno
 
-| Variable | Default | Descripcion |
+| Variable | Default | Descripción |
 |----------|---------|-------------|
 | `PORT` | `8090` | Puerto del gateway |
 | `JWT_SECRET` | `${JWT_SECRET}` | Clave HS256 compartida con todos los servicios |
@@ -90,17 +96,17 @@ Al exceder el limite el gateway devuelve `429 Too Many Requests`. Si Redis no es
 | `WALLET_URL` | `http://localhost:8084` | URL de wallet-service |
 | `INVEST_URL` | `http://localhost:8083` | URL de invest-dividend-service |
 | `NOTIFICATION_URL` | `http://localhost:8087` | URL de notification-service |
-| `KAFKA_BOOTSTRAP_SERVERS` | `localhost:9092` | Broker Kafka (invalidacion de caché de identidad) |
+| `KAFKA_BOOTSTRAP_SERVERS` | `localhost:9092` | Broker Kafka (invalidación de caché de identidad) |
 | `REDIS_HOST` | `localhost` | Host de Redis (rate limiting) |
 | `REDIS_PORT` | `6379` | Puerto de Redis |
 
 ## Levantar en local
 
 ```bash
-# Desde la raiz del repo — levanta todo
+# Desde la raíz del repo — levanta todo
 docker compose up --build
 
-# Solo el gateway (requiere que los demas servicios estén corriendo)
+# Solo el gateway (requiere que los demás servicios estén corriendo)
 cd api-gateway
 mvn spring-boot:run
 ```
@@ -116,7 +122,7 @@ src/main/java/com/plataforma/gateway/
 ├── filter/
 │   └── JwtAuthFilter.java                 # GlobalFilter: valida JWT e inyecta headers
 ├── security/
-│   └── JwtUtils.java                      # Parseo y validacion de JWT
+│   └── JwtUtils.java                      # Parseo y validación de JWT
 ├── service/
 │   └── UserContextService.java           # Caché de rol/permisos con TTL
 ├── model/
@@ -134,6 +140,6 @@ mvn test
 
 | Clase | Qué cubre |
 |-------|-----------|
-| `JwtUtilsTest` | Validacion de firma, expiracion y extraccion de claims |
-| `JwtAuthFilterTest` | Rutas publicas, token ausente/invalido/valido, headers inyectados |
-| `GatewayRoutingTest` | Enrutamiento de cada path con WireMock, verificacion de los tres headers |
+| `JwtUtilsTest` | Validación de firma, expiración y extracción de claims |
+| `JwtAuthFilterTest` | Rutas públicas, token ausente/inválido/válido, headers inyectados, strip de headers forjados, 404→401 vs falla de infraestructura→503 |
+| `GatewayRoutingTest` | Enrutamiento de cada path con WireMock, verificación de los headers de identidad (requiere Redis local: `docker run --rm -p 6379:6379 redis:7-alpine`) |

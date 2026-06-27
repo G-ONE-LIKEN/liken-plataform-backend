@@ -23,6 +23,9 @@ spring:
 
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    listener:
+      # Propaga el traceId desde los headers Kafka al MDC del consumer (ADR-0025)
+      observation-enabled: true
     consumer:
       group-id: api-gateway
       auto-offset-reset: earliest
@@ -175,10 +178,12 @@ spring:
                 redis-rate-limiter.burstCapacity: 60
                 key-resolver: "#{@userKeyResolver}"
 
+# ===== Observabilidad (ADR-0025) =====
 management:
   endpoints:
     web:
       exposure:
-        include: health,info
-
-
+        include: health,info,metrics
+  tracing:
+    sampling:
+      probability: 1.0

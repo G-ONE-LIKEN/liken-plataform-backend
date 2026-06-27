@@ -48,6 +48,8 @@ Espejo de `com.plataforma.user.model.Tier` (ambos lados deben moverse juntos):
 
 ## Topics Kafka
 
+> Los consumers reintentan 3 veces (backoff 2s) y derivan a `<topic>.DLT` si la falla persiste (ADR-0024) — un evento financiero nunca se descarta. Esquemas en `docs/eventos-kafka.md`.
+
 | Topic | Rol | Origen / Destino |
 |---|---|---|
 | `investment.token_purchased` | **Consume** | Publica `blockchain-service`. |

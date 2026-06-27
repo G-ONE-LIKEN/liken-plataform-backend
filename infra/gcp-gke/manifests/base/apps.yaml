@@ -18,9 +18,6 @@ spec:
           image: user-service
           ports:
             - containerPort: 8080
-          volumeMounts:
-            - name: app-logs
-              mountPath: /app/logs
           envFrom:
             - configMapRef:
                 name: liken-config
@@ -43,9 +40,6 @@ spec:
               port: 8080
             initialDelaySeconds: 70
             periodSeconds: 20
-      volumes:
-        - name: app-logs
-          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
@@ -77,9 +71,6 @@ spec:
           image: auth-service
           ports:
             - containerPort: 8081
-          volumeMounts:
-            - name: app-logs
-              mountPath: /app/logs
           envFrom:
             - configMapRef:
                 name: liken-config
@@ -100,9 +91,6 @@ spec:
               port: 8081
             initialDelaySeconds: 70
             periodSeconds: 20
-      volumes:
-        - name: app-logs
-          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
@@ -135,9 +123,6 @@ spec:
           image: project-service
           ports:
             - containerPort: 8082
-          volumeMounts:
-            - name: app-logs
-              mountPath: /app/logs
           envFrom:
             - configMapRef:
                 name: liken-config
@@ -160,9 +145,6 @@ spec:
               port: 8082
             initialDelaySeconds: 70
             periodSeconds: 20
-      volumes:
-        - name: app-logs
-          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
@@ -257,9 +239,6 @@ spec:
           image: wallet-service
           ports:
             - containerPort: 8084
-          volumeMounts:
-            - name: app-logs
-              mountPath: /app/logs
           envFrom:
             - configMapRef:
                 name: liken-config
@@ -282,9 +261,6 @@ spec:
               port: 8084
             initialDelaySeconds: 70
             periodSeconds: 20
-      volumes:
-        - name: app-logs
-          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
@@ -379,9 +355,6 @@ spec:
           image: notification-service
           ports:
             - containerPort: 8087
-          volumeMounts:
-            - name: app-logs
-              mountPath: /app/logs
           envFrom:
             - configMapRef:
                 name: liken-config
@@ -404,9 +377,6 @@ spec:
               port: 8087
             initialDelaySeconds: 70
             periodSeconds: 20
-      volumes:
-        - name: app-logs
-          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
@@ -507,9 +477,6 @@ spec:
           image: api-gateway
           ports:
             - containerPort: 8090
-          volumeMounts:
-            - name: app-logs
-              mountPath: /app/logs
           envFrom:
             - configMapRef:
                 name: liken-config
@@ -530,9 +497,6 @@ spec:
               port: 8090
             initialDelaySeconds: 70
             periodSeconds: 20
-      volumes:
-        - name: app-logs
-          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service

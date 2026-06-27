@@ -1,7 +1,0 @@
-resources:
-  - serviceaccounts.yaml
-  - infra.yaml
-  - apps.yaml
-  - managed-certificate.yaml
-  - frontendconfig.yaml
-  - networking.yaml
