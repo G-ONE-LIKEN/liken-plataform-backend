@@ -44,6 +44,8 @@ jobs:
           - image: blockchain-service
             context: .
             dockerfile: services/blockchain-service/Dockerfile
+          - image: marketplace-service
+            context: services/marketplace-service
 
     permissions:
       contents: read
@@ -141,6 +143,7 @@ jobs:
               "invest-dividend-service",
               "oracle-service",
               "blockchain-service",
+              "marketplace-service",
           }
 
           current_frontend = os.environ.get("CURRENT_FRONTEND_IMAGE", "").strip()
@@ -200,3 +203,4 @@ jobs:
           kubectl -n app rollout status deployment/invest-dividend-service --timeout=300s
           kubectl -n app rollout status deployment/oracle-service --timeout=300s
           kubectl -n app rollout status deployment/blockchain-service --timeout=300s
+          kubectl -n app rollout status deployment/marketplace-service --timeout=300s

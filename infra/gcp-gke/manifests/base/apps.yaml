@@ -605,3 +605,71 @@ spec:
   ports:
     - port: 80
       targetPort: 3000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: marketplace-service
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: marketplace-service
+  template:
+    metadata:
+      labels:
+        app: marketplace-service
+    spec:
+      containers:
+        - name: marketplace-service
+          image: marketplace-service
+          ports:
+            - containerPort: 8086
+          envFrom:
+            - configMapRef:
+                name: liken-config
+            - secretRef:
+                name: liken-secrets
+          env:
+            - name: SERVER_PORT
+              value: "8086"
+            - name: DB_URL
+              value: jdbc:postgresql://postgres:5432/marketplace_db
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: liken-secrets
+                  key: POSTGRES_USER
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: liken-secrets
+                  key: POSTGRES_PASSWORD
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8086
+            initialDelaySeconds: 45
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8086
+            initialDelaySeconds: 75
+            periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: marketplace-service
+spec:
+  selector:
+    app: marketplace-service
+  ports:
+    - port: 8086
+      targetPort: 8086

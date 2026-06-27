@@ -40,3 +40,6 @@ images:
   - name: blockchain-service
     newName: __REGISTRY_URL__/blockchain-service
     newTag: latest
+  - name: marketplace-service
+    newName: __REGISTRY_URL__/marketplace-service
+    newTag: latest
