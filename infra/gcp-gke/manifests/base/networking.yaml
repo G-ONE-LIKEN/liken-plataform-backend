@@ -36,6 +36,13 @@ spec:
   rules:
     - http:
         paths:
+          - path: /internal/kyc/webhook
+            pathType: Prefix
+            backend:
+              service:
+                name: user-service
+                port:
+                  number: 8080
           - path: /api
             pathType: Prefix
             backend:
