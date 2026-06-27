@@ -37,6 +37,8 @@ jobs:
             context: services/notification-service
           - image: invest-dividend-service
             context: services/invest-dividend-service
+          - image: oracle-service
+            context: services/oracle-service
           - image: blockchain-service
             context: .
             dockerfile: services/blockchain-service/Dockerfile
@@ -134,6 +136,7 @@ jobs:
               "wallet-service",
               "notification-service",
               "invest-dividend-service",
+              "oracle-service",
               "blockchain-service",
           }
 
@@ -192,4 +195,5 @@ jobs:
           kubectl -n app rollout status deployment/wallet-service --timeout=300s
           kubectl -n app rollout status deployment/notification-service --timeout=300s
           kubectl -n app rollout status deployment/invest-dividend-service --timeout=300s
+          kubectl -n app rollout status deployment/oracle-service --timeout=300s
           kubectl -n app rollout status deployment/blockchain-service --timeout=300s

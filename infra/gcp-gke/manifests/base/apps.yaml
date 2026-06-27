@@ -422,6 +422,75 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  name: oracle-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: oracle-service
+  template:
+    metadata:
+      labels:
+        app: oracle-service
+    spec:
+      containers:
+        - name: oracle-service
+          image: oracle-service
+          ports:
+            - containerPort: 8088
+          volumeMounts:
+            - name: app-logs
+              mountPath: /app/logs
+          envFrom:
+            - configMapRef:
+                name: liken-config
+            - secretRef:
+                name: liken-secrets
+          env:
+            - name: PORT
+              value: "8088"
+            - name: DB_URL
+              value: jdbc:postgresql://postgres:5432/oracle_db
+            - name: DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: liken-secrets
+                  key: POSTGRES_USER
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: liken-secrets
+                  key: POSTGRES_PASSWORD
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8088
+            initialDelaySeconds: 40
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8088
+            initialDelaySeconds: 70
+            periodSeconds: 20
+      volumes:
+        - name: app-logs
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: oracle-service
+spec:
+  selector:
+    app: oracle-service
+  ports:
+    - port: 8088
+      targetPort: 8088
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
   name: api-gateway
 spec:
   replicas: 2

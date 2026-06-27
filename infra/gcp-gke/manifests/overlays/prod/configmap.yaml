@@ -19,6 +19,8 @@ data:
   NOTIFICATION_SERVICE_URL: "http://notification-service:8087"
   NOTIFICATION_URL: "http://notification-service:8087"
   BLOCKCHAIN_SERVICE_URL: "http://blockchain-service:8085"
+  ORACLE_SERVICE_URL: "http://oracle-service:8088"
+  ORACLE_INTERVAL_MS: "60000"
   PUBLICATION_CONTRACTS_WORKSPACE: "/contracts"
   FORGE_COMMAND: "forge"
   PUBLICATION_SCRIPT_ENTRY: "script/DeployProjectOffering.s.sol:DeployProjectOffering"

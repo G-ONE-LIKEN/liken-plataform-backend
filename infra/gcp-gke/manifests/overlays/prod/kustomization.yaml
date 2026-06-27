@@ -34,6 +34,9 @@ images:
   - name: invest-dividend-service
     newName: __REGISTRY_URL__/invest-dividend-service
     newTag: latest
+  - name: oracle-service
+    newName: __REGISTRY_URL__/oracle-service
+    newTag: latest
   - name: blockchain-service
     newName: __REGISTRY_URL__/blockchain-service
     newTag: latest
