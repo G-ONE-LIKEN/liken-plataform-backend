@@ -40,7 +40,9 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
             "/api/auth/email-verification/confirm",
             "/api/auth/email-verification/resend",
             "/api/auth/refresh",
-            "/api/auth/logout"
+            "/api/auth/logout",
+            "/api/auth/password-reset/request",
+            "/api/auth/password-reset/confirm"
     );
 
     private static final Pattern PUBLIC_PROJECT_DETAIL_PATH = Pattern.compile("^/api/projects/\\d+$");

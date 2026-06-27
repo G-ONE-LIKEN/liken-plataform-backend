@@ -5,8 +5,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.plataforma.auth.dto.RegisterRequest;
 import com.plataforma.auth.service.AuthService;
 import com.plataforma.auth.service.EmailVerificationService;
+import com.plataforma.auth.service.PasswordResetService;
 import com.plataforma.auth.service.RefreshTokenService;
 import com.plataforma.shared.exception.GlobalExceptionHandler;
+
+import com.plataforma.auth.service.PasswordResetService;
 
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -39,6 +42,7 @@ class AuthControllerTest {
     @MockBean AuthService authService;
     @MockBean EmailVerificationService emailVerificationService;
     @MockBean RefreshTokenService refreshTokenService;
+    @MockBean PasswordResetService passwordResetService;
 
     private RegisterRequest validRequest() {
         RegisterRequest r = new RegisterRequest();
