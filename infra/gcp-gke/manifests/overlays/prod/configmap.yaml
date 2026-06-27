@@ -30,7 +30,7 @@ data:
   BLOCKCHAIN_SERVICE_URL: "http://blockchain-service:8085"
   ORACLE_SERVICE_URL: "http://oracle-service:8088"
   ORACLE_INTERVAL_MS: "60000"
-  PUBLICATION_CONTRACTS_WORKSPACE: "/contracts"
+  PUBLICATION_CONTRACTS_WORKSPACE: "/app/contracts"
   FORGE_COMMAND: "forge"
   PUBLICATION_SCRIPT_ENTRY: "script/DeployProjectOffering.s.sol:DeployProjectOffering"
   PUBLICATION_DEADLINE_ZONE_ID: "America/Argentina/Buenos_Aires"
