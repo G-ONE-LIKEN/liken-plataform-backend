@@ -8,6 +8,10 @@ data:
   SPRING_PROFILES_ACTIVE: "k8s"
   # Cookie de refresh con flag Secure (prod va por HTTPS)
   AUTH_COOKIE_SECURE: "true"
+  # Flyway: saltea validacion de checksums. Se introdujo al mergear main-dev
+  # porque migraciones aplicadas tenian distinto checksum entre ramas. Apunta
+  # a remover una vez los checksums queden estabilizados (correr flyway repair).
+  SPRING_FLYWAY_VALIDATE_ON_MIGRATE: "false"
   GCP_PROJECT_ID: "__PROJECT_ID__"
   GCS_BUCKET_NAME: "__GCS_BUCKET_NAME__"
   FRONTEND_URL: "__FRONTEND_ORIGIN__"
