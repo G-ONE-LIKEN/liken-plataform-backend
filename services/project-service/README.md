@@ -68,6 +68,10 @@ com.plataforma.projects/
 | GET | `/internal/projects/offering-contracts` | blockchain-service | Lista de Offerings a indexar (`offeringContractAddress != null`) |
 | POST | `/internal/projects/publication-success` | blockchain-service | Callback de deploy exitoso (registryProjectId, address, tx) |
 | POST | `/internal/projects/publication-failure` | blockchain-service | Callback de deploy fallido (errorMessage) |
+| GET | `/internal/projects/active` | oracle-service | Proyectos `OPEN` con capacidad instalada (para simular generación) |
+| GET | `/internal/projects/{id}` | otros servicios | Snapshot del proyecto |
+| GET | `/internal/projects/{projectId}/holders` | invest-dividend-service | Holders del proyecto (para repartir dividendos) |
+| GET | `/internal/projects/{projectId}/holders/{userId}` | otros servicios | Holding puntual de un usuario |
 
 ## Ciclo de vida de un proyecto
 
@@ -83,7 +87,7 @@ PENDING_APPROVAL → DRAFT → PRE_OPEN → OPEN → CLOSED
 |---|---|
 | `PENDING_APPROVAL → DRAFT` | ADMIN aprueba la propuesta. |
 | `DRAFT → PRE_OPEN` | owner/admin publica → deploya el `OfferingContract` (via blockchain-service). |
-| `PRE_OPEN → OPEN` | **automatica on-chain**: evento `RoundFinalized` (soft cap alcanzado). |
+| `PRE_OPEN → OPEN` | **automatica al cruzar soft cap**: al consumir `investment.token_purchased`, si `raisedAmount ≥ softCap` el servicio transiciona a `OPEN` (`applyPurchaseAccrual`). También la fuerza el evento on-chain `RoundFinalized` si llega antes. La ronda primaria on-chain sigue abierta hasta hard cap o deadline. |
 | `PRE_OPEN → CANCELLED` | **automatica on-chain**: evento `RoundFailed`. |
 | `OPEN → CLOSED` | owner/admin da de baja el proyecto. |
 | `* (no final) → CANCELLED` | manual; desde `OPEN` solo ADMIN. |
@@ -120,11 +124,11 @@ PENDING_APPROVAL → DRAFT → PRE_OPEN → OPEN → CLOSED
 
 | Topico | Publicado por | Para qué |
 |--------|--------------|---------|
-| `investment.token_purchased` | blockchain-service | Actualizar holdings y recaudacion |
+| `investment.token_purchased` | blockchain-service | Actualizar holdings + recaudacion; transición `PRE_OPEN → OPEN` al cruzar soft cap |
 | `projects.round_finalized` | blockchain-service | `PRE_OPEN → OPEN` (ronda exitosa) |
 | `projects.round_failed` | blockchain-service | `PRE_OPEN → CANCELLED` (ronda fallida) |
 | `user.wallet_linked` | user-service | Reconciliar holders por wallet |
-| `marketplace.order_matched` | marketplace-service | Actualizar holdings tras venta P2P (pendiente) |
+| `marketplace.trade_settled` | marketplace-service | Actualizar holdings tras venta P2P liquidada |
 
 ## Variables de entorno
 

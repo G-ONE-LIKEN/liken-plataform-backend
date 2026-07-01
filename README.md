@@ -19,13 +19,16 @@ api-gateway (8090)        ← valida JWT, sanea e inyecta headers de identidad,
       ├── /api/wallets/**         ──▶  wallet-service          (8084)
       ├── /api/investments/**     ──▶  invest-dividend-service (8083)
       ├── /api/dividends/**       ──▶  invest-dividend-service (8083)
+      ├── /api/marketplace/**     ──▶  marketplace-service     (8086)
       └── /api/notifications/**   ──▶  notification-service    (8087)
             (incluye /stream SSE, sin rate-limit)
 ```
 
-`blockchain-service` (8085) no tiene ruta pública en el gateway: corre como
-indexer on-chain (polling vía Web3j) y publica contratos de forma asíncrona,
-disparado internamente por `project-service`.
+`blockchain-service` (8085) y `oracle-service` (8088) no tienen ruta pública en
+el gateway: el primero corre como indexer on-chain (polling vía Web3j) y publica
+contratos de forma asíncrona, disparado internamente por `project-service`; el
+segundo es un oráculo de generación de energía que corre por scheduler y publica
+lecturas a Kafka. Ambos operan sin tráfico HTTP de cara al cliente.
 
 Comunicación interna service-to-service a través de endpoints `/internal/**` protegidos por red (ClusterIP en Kubernetes, sin JWT). Los servicios backend reciben la identidad como headers (`X-User-Id`, `X-User-Role`, `X-User-Permissions`, `X-User-Tier`, `X-User-KycStatus`) inyectados por el gateway — que además **elimina cualquier header de identidad que venga del cliente** antes de enrutar (ADR-0026).
 
@@ -39,7 +42,11 @@ El `blockchain-service` es el puente entre la cadena (Ethereum/Sepolia) y el res
 
 El esquema de cada topic y sus garantías de entrega están en [`docs/eventos-kafka.md`](docs/eventos-kafka.md).
 
-Los demás servicios reaccionan a esos eventos: `invest-dividend-service` materializa compras/dividendos y recalcula tiers; `notification-service` genera notificaciones in-app y emails.
+Los demás servicios reaccionan a esos eventos: `invest-dividend-service` materializa compras/dividendos y recalcula tiers; `marketplace-service` liquida operaciones P2P contra la chain; `notification-service` genera notificaciones in-app y emails.
+
+### Flujo de generación de energía (oracle)
+
+El `oracle-service` simula un medidor IoT de generación: cada ciclo consulta a `project-service` los proyectos `OPEN` con capacidad instalada, calcula la energía generada con una curva solar y publica `oracle.energy_reading` a Kafka. `invest-dividend-service` acumula esa energía por proyecto y, cuando corresponde, dispara los pagos de dividendos a los holders. Es la fuente de las métricas de generación que alimentan el reparto de dividendos automáticos.
 
 ## Servicios
 
@@ -50,10 +57,11 @@ Los demás servicios reaccionan a esos eventos: `invest-dividend-service` materi
 | [user-service](services/user-service/README.md) | 8080 | Usuarios, roles, permisos (RBAC), KYC y tiers. | ✅ Listo |
 | [project-service](services/project-service/README.md) | 8082 | CRUD de proyectos, métricas, documentos en GCS, eventos Kafka. | ✅ Listo |
 | [wallet-service](services/wallet-service/README.md) | 8084 | Billeteras, movimientos, consumers Kafka idempotentes. | ✅ Listo |
-| invest-dividend-service | 8083 | Compras de tokens, holdings, dividendos y recálculo de tiers a partir de eventos on-chain. Idempotente, con reconciliación de actividad por wallet. | ✅ Listo |
-| blockchain-service | 8085 | Puente on-chain: indexer de eventos (Web3j) → Kafka, y publicación de contratos Offering vía Foundry (`forge`). | ✅ Listo |
-| notification-service | 8087 | Notificaciones in-app + email (Resend) + stream SSE, a partir de eventos Kafka. | ✅ Listo |
-| marketplace-service | 8086 | Mercado P2P de tokens (matching engine). | ⏳ Pendiente |
+| [invest-dividend-service](services/invest-dividend-service/README.md) | 8083 | Compras de tokens, holdings, dividendos y recálculo de tiers a partir de eventos on-chain. Idempotente, con reconciliación de actividad por wallet. | ✅ Listo |
+| [blockchain-service](services/blockchain-service/README.md) | 8085 | Puente on-chain: indexer de eventos (Web3j) → Kafka, y publicación de contratos Offering vía Foundry (`forge`). | ✅ Listo |
+| [marketplace-service](services/marketplace-service/README.md) | 8086 | Mercado P2P de tokens: matching engine FIFO price-time + liquidación on-chain. | ✅ Listo |
+| [notification-service](services/notification-service/README.md) | 8087 | Notificaciones in-app + email (Resend) + stream SSE, a partir de eventos Kafka. | ✅ Listo |
+| [oracle-service](services/oracle-service/README.md) | 8088 | Oráculo de generación de energía: simula medición por curva solar y publica `oracle.energy_reading`. Sin ruta pública. | ✅ Listo |
 
 ## Stack común
 
@@ -86,7 +94,7 @@ Los demás servicios reaccionan a esos eventos: `invest-dividend-service` materi
 docker compose up --build
 ```
 
-Levanta en orden (con healthchecks): PostgreSQL → Zookeeper → Kafka → Redis → fake-gcs → fake-gcs-init (crea bucket) → user-service → auth-service → project-service → wallet-service → notification-service → invest-dividend-service → blockchain-service → api-gateway.
+Levanta en orden (con healthchecks): PostgreSQL → Zookeeper → Kafka → Redis → fake-gcs → fake-gcs-init (crea bucket) → user-service → auth-service → project-service → wallet-service → notification-service → invest-dividend-service → blockchain-service → marketplace-service → oracle-service → api-gateway.
 
 > **Nota Web3:** `blockchain-service` necesita un RPC (`WEB3_RPC_URL`). En local apunta por defecto a `http://host.docker.internal:8545` (Anvil corriendo en el host). Si las addresses de los contratos quedan en `0x0`, el indexer se mantiene idle sin romper el stack.
 
@@ -153,7 +161,9 @@ El archivo cubre: healthcheck, login admin, registro de usuario, KYC, lista/crea
 | 8083 | invest-dividend-service (interno) |
 | 8084 | wallet-service (interno) |
 | 8085 | blockchain-service (interno — indexer + publicación on-chain) |
+| 8086 | marketplace-service (interno) |
 | 8087 | notification-service (interno) |
+| 8088 | oracle-service (interno — oráculo de generación, sin ruta pública) |
 | 5432 | PostgreSQL |
 | 9092 | Kafka |
 | 6379 | Redis |
@@ -171,8 +181,9 @@ liken-plataform-backend/
 │   ├── wallet-service/       # Wallet + movimientos + consumers idempotentes
 │   ├── invest-dividend-service/    # Compras + holdings + dividendos + tiers (event-sourced)
 │   ├── blockchain-service/         # Indexer Web3j → Kafka + deploy de contratos (forge)
+│   ├── marketplace-service/        # Mercado P2P: matching FIFO + liquidación on-chain
 │   ├── notification-service/       # Notificaciones in-app + email (Resend) + SSE
-│   └── marketplace-service/        # Pendiente (solo README)
+│   └── oracle-service/             # Oráculo de generación de energía (curva solar → Kafka)
 ├── contracts/                # Contratos Solidity + scripts Foundry (deploy de Offerings)
 ├── docs/
 │   ├── adr/                  # Architecture Decision Records (ADR-0001…0027)

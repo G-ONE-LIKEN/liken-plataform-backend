@@ -111,7 +111,11 @@ docker exec -it liken_postgres psql -U liken_user -d oracle_db \
 
 Si no aparecen lecturas, verificar que exista al menos un proyecto en `project_db` con `state = 'OPEN'` y `installed_capacity_mw` no nulo.
 
+## Consumo del evento
+
+`invest-dividend-service` consume `oracle.energy_reading` (`EnergyReadingConsumer`): acumula la energia generada por proyecto (`ProjectEnergyAccumulator`) y, cuando corresponde, dispara el reparto de dividendos a los holders. Ver el flujo de dividendos automaticos en [`docs/eventos-kafka.md`](../../docs/eventos-kafka.md).
+
 ## Pendiente
 
-- **Consumidor del evento**: hoy ningun servicio escucha `oracle.energy_reading`. El consumo real (calculo de dividendos en base a la energia generada) queda a cargo de `invest-dividend-service`.
 - Sin tests automatizados por el momento.
+- El modelo de simulacion es solar puro; no contempla otros tipos de energia (eolica, hidro) que el dominio si soporta.

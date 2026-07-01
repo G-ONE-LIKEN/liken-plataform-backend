@@ -1,9 +1,10 @@
 # blockchain-service
 
-Puente Web2 ↔ Web3 de la plataforma Liken. Tiene dos mitades:
+Puente Web2 ↔ Web3 de la plataforma Liken. Tiene tres mitades:
 
-1. **Indexer (lectura):** escanea los eventos on-chain de los contratos productivos (LinkenToken, ProjectRegistry, OfferingContract por proyecto, DividendDistributor) y los publica como mensajes Kafka que los demás servicios consumen.
+1. **Indexer (lectura):** escanea los eventos on-chain de los contratos productivos (LinkenToken, ProjectRegistry, OfferingContract por proyecto, DividendDistributor, LknMarketplace) y los publica como mensajes Kafka que los demás servicios consumen.
 2. **Publicación (escritura):** despliega el `OfferingContract` de cada proyecto aprobado ejecutando los scripts de Foundry (`forge`) y reporta el resultado a `project-service`.
+3. **Ejecutor on-chain (escritura):** es el único componente con la clave del signer admin. Consume comandos por Kafka y firma/paga el gas de las transacciones de plataforma: liquidación de trades del marketplace (`settleTrade`), depósito de dividendos (`depositDividends`) y pagos automáticos de dividendos por transfer directo a holders (`TokenTransferService`).
 
 ## Indexer
 
@@ -28,6 +29,19 @@ Puente Web2 ↔ Web3 de la plataforma Liken. Tiene dos mitades:
 | `DividendDistributor.DividendsDeposited` | `dividends.deposited` |
 | `DividendDistributor.DividendsWithdrawn` | `dividends.claimed` |
 | `LinkenToken.Transfer` (excluye mint/burn) | `token.transferred` |
+| `LknMarketplace.TradeSettled` | `blockchain.trade_settled` |
+
+## Ejecutor on-chain (consume comandos por Kafka)
+
+El servicio escucha comandos y ejecuta la transacción on-chain firmando con la clave del signer admin (`TokenTransferService`):
+
+| Topic consumido | Productor | Acción on-chain | Resultado |
+|---|---|---|---|
+| `marketplace.order_matched` | marketplace-service | `settleTrade` (swap atómico LKN/USDC) | publica `blockchain.trade_settled` o `blockchain.trade_failed` |
+| `dividends.deposit_requested` | invest-dividend-service | `depositDividends` (USDC al distributor) | publica `dividends.deposited` o `dividends.deposit_failed` |
+| `dividends.payout_batch_requested` | invest-dividend-service | `transfer` directo de USDC a cada holder | publica `dividends.paid` / `dividends.paid_failed` (y `dividends.payout_batch_failed` si falla el batch) |
+
+> La clave del signer (`PUBLICATION_SIGNER_PRIVATE_KEY`) firma tanto el deploy de contratos como estas operaciones de plataforma. Es el único punto del backend que mueve fondos on-chain — el resto de los servicios solo proyectan estado.
 
 ## Publicación de contratos
 

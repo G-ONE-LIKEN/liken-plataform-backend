@@ -76,7 +76,7 @@ com.plataforma/
 | `investment.token_purchased` | blockchain-service | Registrar el movimiento de la compra de tokens |
 | `wallet.refund` | blockchain-service | Acreditar el reembolso de una ronda fallida |
 | `user.wallet_linked` | user-service | Reconciliar la billetera al vincular la wallet on-chain |
-| `marketplace.order_matched` | marketplace-service | Registrar movimientos P2P (pendiente) |
+| `marketplace.trade_settled` | marketplace-service | Registrar los movimientos P2P (crédito al vendedor, débito al comprador) de un trade liquidado |
 
 > Idempotencia: cada consumer pasa `event.getEventId()` a `WalletService.recordMovement`,
 > que persiste el ID en la columna `external_event_id` con constraint `UNIQUE`. Una

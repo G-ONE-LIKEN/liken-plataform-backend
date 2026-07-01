@@ -19,7 +19,7 @@ Registro de decisiones de arquitectura de la plataforma LIKEN. Cada ADR document
 | [ADR-0011](ADR-0011-Rate-limiting-en-el-gateway-con-Redis) | Rate limiting en el API Gateway con Redis | DD009 | Aceptado |
 | [ADR-0012](ADR-0012-Modelo-canonico-de-eventos-Kafka) | Modelo canónico de eventos Kafka | DD010 | Aceptado (parcial) |
 | [ADR-0013](ADR-0013-Bounded-context-de-invest-dividend-service) | Bounded context y modelo de invest-dividend-service | DD011 | Revisado |
-| [ADR-0014](ADR-0014-Matching-engine-de-marketplace-service) | Matching engine de marketplace-service | DD012 | Propuesto |
+| [ADR-0014](ADR-0014-Matching-engine-de-marketplace-service) | Matching engine de marketplace-service | DD012 | Aceptado |
 | [ADR-0015](ADR-0015-Tiers-de-usuario-y-KYC) | Tiers de usuario y KYC en user-service | DD013 | Aceptado (con desviaciones) |
 | [ADR-0016](ADR-0016-Cloud-provider-GCP-y-storage-en-GCS) | Cloud provider GCP y storage en GCS | DD014 | Aceptado |
 | [ADR-0017](ADR-0017-Modelo-de-integracion-on-chain-Web2-Web3) | Modelo de integración on-chain (la cadena como fuente de verdad) | — | Aceptado |

@@ -47,13 +47,13 @@ Microservicio de notificaciones de la plataforma LIKEN. Reacciona a eventos Kafk
 | `user.developer_registered` | A los admins: "Nuevo developer esperando verificacion". |
 | `user.developer_status_changed` | Al usuario: aprobado/rechazado como developer (+ email). |
 | `investment.token_purchased` | Al inversor: "Compra de tokens confirmada" (+ email). |
-| `dividends.distributed` | Al inversor: "Dividendo acreditado" (+ email). |
+| `dividends.claimed` | Al inversor: "Dividendo acreditado" (+ email). |
 | `wallet.credited` | Al usuario: "Deposito recibido". |
 | `wallet.debited` | Al usuario: "Retiro procesado". |
 
 `NotificationType`: `USER_WELCOME`, `ADMIN_DEVELOPER_PENDING`, `ADMIN_PROJECT_PENDING`, `DEVELOPER_STATUS_CHANGED`, `PROJECT_APPROVED`, `PROJECT_REJECTED`, `INVESTMENT_CONFIRMED`, `DIVIDEND_RECEIVED`, `WALLET_FUNDED`, `WALLET_DEBITED`, `BROADCAST`.
 
-> **Nota:** el consumer de dividendos escucha `dividends.distributed`. El `blockchain-service` emite `dividends.claimed` / `dividends.deposited`; verifica que exista un servicio que republique `dividends.distributed` o esas notificaciones no se disparan.
+> **Entrega best-effort (ADR-0024):** este servicio no usa DLT — un email que falla no debe frenar el pipeline de eventos. Las notificaciones in-app sí se persisten.
 
 ## Templates de email
 
